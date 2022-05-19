@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# The code is based on 
+# https://github.com/facebookresearch/detectron2/blob/main/detectron2/modeling/anchor_generator.py
+
 import math
 
 import paddle
 import paddle.nn as nn
 
 from ppdet.core.workspace import register
+
+__all__ = ['AnchorGenerator', 'RetinaAnchorGenerator']
 
 
 @register
@@ -126,3 +131,25 @@ class AnchorGenerator(nn.Layer):
                 For FPN models, `num_anchors` on every feature map is the same.
         """
         return len(self.cell_anchors[0])
+
+
+@register
+class RetinaAnchorGenerator(AnchorGenerator):
+    def __init__(self,
+                 octave_base_scale=4,
+                 scales_per_octave=3,
+                 aspect_ratios=[0.5, 1.0, 2.0],
+                 strides=[8.0, 16.0, 32.0, 64.0, 128.0],
+                 variance=[1.0, 1.0, 1.0, 1.0],
+                 offset=0.0):
+        anchor_sizes = []
+        for s in strides:
+            anchor_sizes.append([
+                s * octave_base_scale * 2**(i/scales_per_octave) \
+                for i in range(scales_per_octave)])
+        super(RetinaAnchorGenerator, self).__init__(
+            anchor_sizes=anchor_sizes,
+            aspect_ratios=aspect_ratios,
+            strides=strides,
+            variance=variance,
+            offset=offset)

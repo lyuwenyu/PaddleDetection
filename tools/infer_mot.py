@@ -21,22 +21,17 @@ import sys
 
 # add python path of PadleDetection to sys.path
 parent_path = os.path.abspath(os.path.join(__file__, *(['..'] * 2)))
-if parent_path not in sys.path:
-    sys.path.append(parent_path)
+sys.path.insert(0, parent_path)
 
 # ignore warning log
 import warnings
 warnings.filterwarnings('ignore')
 
 import paddle
-from paddle.distributed import ParallelEnv
 from ppdet.core.workspace import load_config, merge_config
 from ppdet.engine import Tracker
-from ppdet.utils.check import check_gpu, check_version, check_config
+from ppdet.utils.check import check_gpu, check_npu, check_xpu, check_version, check_config
 from ppdet.utils.cli import ArgsParser
-
-from ppdet.utils.logger import setup_logger
-logger = setup_logger('train')
 
 
 def parse_args():
@@ -76,6 +71,12 @@ def parse_args():
         action='store_true',
         help='Show tracking results (image).')
     parser.add_argument(
+        '--scaled',
+        type=bool,
+        default=False,
+        help="Whether coords after detector outputs are scaled, False in JDE YOLOv3 "
+        "True in general detector.")
+    parser.add_argument(
         "--draw_threshold",
         type=float,
         default=0.5,
@@ -89,16 +90,13 @@ def run(FLAGS, cfg):
     tracker = Tracker(cfg, mode='test')
 
     # load weights
-    if cfg.architecture in ['DeepSORT']:
-        if cfg.det_weights != 'None':
-            tracker.load_weights_sde(cfg.det_weights, cfg.reid_weights)
-        else:
-            tracker.load_weights_sde(None, cfg.reid_weights)
+    if cfg.architecture in ['DeepSORT', 'ByteTrack']:
+        tracker.load_weights_sde(cfg.det_weights, cfg.reid_weights)
     else:
         tracker.load_weights_jde(cfg.weights)
 
     # inference
-    tracker.mot_predict(
+    tracker.mot_predict_seq(
         video_file=FLAGS.video_file,
         frame_rate=FLAGS.frame_rate,
         image_dir=FLAGS.image_dir,
@@ -108,6 +106,7 @@ def run(FLAGS, cfg):
         save_images=FLAGS.save_images,
         save_videos=FLAGS.save_videos,
         show_image=FLAGS.show_image,
+        scaled=FLAGS.scaled,
         det_results_dir=FLAGS.det_results_dir,
         draw_threshold=FLAGS.draw_threshold)
 
@@ -117,12 +116,29 @@ def main():
     cfg = load_config(FLAGS.config)
     merge_config(FLAGS.opt)
 
+    # disable npu in config by default
+    if 'use_npu' not in cfg:
+        cfg.use_npu = False
+
+    # disable xpu in config by default
+    if 'use_xpu' not in cfg:
+        cfg.use_xpu = False
+
+    if cfg.use_gpu:
+        place = paddle.set_device('gpu')
+    elif cfg.use_npu:
+        place = paddle.set_device('npu')
+    elif cfg.use_xpu:
+        place = paddle.set_device('xpu')
+    else:
+        place = paddle.set_device('cpu')
+
     check_config(cfg)
     check_gpu(cfg.use_gpu)
+    check_npu(cfg.use_npu)
+    check_xpu(cfg.use_xpu)
     check_version()
 
-    place = 'gpu:{}'.format(ParallelEnv().dev_id) if cfg.use_gpu else 'cpu'
-    place = paddle.set_device(place)
     run(FLAGS, cfg)
 
 

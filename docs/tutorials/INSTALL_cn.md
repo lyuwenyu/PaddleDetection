@@ -7,7 +7,7 @@
 
 ## 环境要求
 
-- PaddlePaddle 2.1
+- PaddlePaddle 2.2
 - OS 64位操作系统
 - Python 3(3.5.1+/3.6/3.7/3.8/3.9)，64位版本
 - pip/pip3(9.0.1+)，64位版本
@@ -18,6 +18,10 @@ PaddleDetection 依赖 PaddlePaddle 版本关系：
 
 |  PaddleDetection版本  | PaddlePaddle版本  |    备注    |
 | :------------------: | :---------------: | :-------: |
+|    develop           |       >= 2.2.2    |     默认使用动态图模式    |
+|    release/2.4       |       >= 2.2.2    |     默认使用动态图模式    |
+|    release/2.3       |       >= 2.2.0rc  |     默认使用动态图模式    |
+|    release/2.2       |       >= 2.1.2    |     默认使用动态图模式    |
 |    release/2.1       |       >= 2.1.0    |     默认使用动态图模式    |
 |    release/2.0       |       >= 2.0.1    |     默认使用动态图模式    |
 |    release/2.0-rc    |       >= 2.0.1    |     --    |
@@ -31,7 +35,7 @@ PaddleDetection 依赖 PaddlePaddle 版本关系：
 
 ```
 # CUDA10.1
-python -m pip install paddlepaddle-gpu==2.1.0.post101 -f https://paddlepaddle.org.cn/whl/mkl/stable.html
+python -m pip install paddlepaddle-gpu==2.2.0.post101 -f https://www.paddlepaddle.org.cn/whl/linux/mkl/avx/stable.html
 
 # CPU
 python -m pip install paddlepaddle -i https://mirror.baidu.com/pypi/simple
@@ -66,12 +70,12 @@ python -c "import paddle; print(paddle.__version__)"
 cd <path/to/clone/PaddleDetection>
 git clone https://github.com/PaddlePaddle/PaddleDetection.git
 
-# 编译安装paddledet
-cd PaddleDetection
-python setup.py install
-
 # 安装其他依赖
+cd PaddleDetection
 pip install -r requirements.txt
+
+# 编译安装paddledet
+python setup.py install
 ```
 
 **注意**
@@ -93,9 +97,9 @@ python ppdet/modeling/tests/test_architectures.py
 测试通过后会提示如下信息：
 
 ```
-.....
+.......
 ----------------------------------------------------------------------
-Ran 5 tests in 4.280s
+Ran 7 tests in 12.816s
 OK
 ```
 

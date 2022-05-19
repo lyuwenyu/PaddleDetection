@@ -87,9 +87,51 @@ Paddle提供基于ImageNet的骨架网络预训练模型。所有预训练模型
 
 请参考[PicoDet](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/picodet)
 
+### PP-YOLOE
+
+请参考[PP-YOLOE](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/ppyoloe)
+
+### YOLOX
+
+请参考[YOLOX](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/yolox)
+
 
 ## 旋转框检测
 
 ### S2ANet
 
 请参考[S2ANet](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/dota/)
+
+
+## 关键点检测
+
+### PP-TinyPose
+
+请参考[PP-TinyPose](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/keypoint/tiny_pose)
+
+## HRNet
+
+请参考[HRNet](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/keypoint/hrnet)
+
+## HigherHRNet
+
+请参考[HigherHRNet](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/keypoint/higherhrnet)
+
+
+## 多目标跟踪
+
+### DeepSORT
+
+请参考[DeepSORT](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/mot/deepsort)
+
+### JDE
+
+请参考[JDE](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/mot/jde)
+
+### FairMOT
+
+请参考[FairMOT](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/mot/fairmot)
+
+### ByteTrack
+
+请参考[ByteTrack](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/mot/bytetrack)

@@ -23,7 +23,7 @@ from keypoint_preprocess import get_affine_mat_kernel, get_affine_transform
 
 
 class HrHRNetPostProcess(object):
-    '''
+    """
     HrHRNet postprocess contain:
         1) get topk keypoints in the output heatmap
         2) sample the tagmap's value corresponding to each of the topk coordinate
@@ -35,9 +35,9 @@ class HrHRNetPostProcess(object):
         heat_thresh (float): value of topk below this threshhold will be ignored
         tag_thresh (float): coord's value sampled in tagmap below this threshold belong to same people for init
 
-        inputs(list[heatmap]): the output list of modle, [heatmap, heatmap_maxpool, tagmap], heatmap_maxpool used to get topk
+        inputs(list[heatmap]): the output list of model, [heatmap, heatmap_maxpool, tagmap], heatmap_maxpool used to get topk
         original_height, original_width (float): the original image size
-    '''
+    """
 
     def __init__(self, max_num_people=30, heat_thresh=0.2, tag_thresh=1.):
         self.max_num_people = max_num_people
@@ -212,7 +212,7 @@ class HRNetPostProcess(object):
         return output_flipped
 
     def get_max_preds(self, heatmaps):
-        '''get predictions from score maps
+        """get predictions from score maps
 
         Args:
             heatmaps: numpy.ndarray([batch_size, num_joints, height, width])
@@ -220,7 +220,7 @@ class HRNetPostProcess(object):
         Returns:
             preds: numpy.ndarray([batch_size, num_joints, 2]), keypoints coords
             maxvals: numpy.ndarray([batch_size, num_joints, 2]), the maximum confidence of the keypoints
-        '''
+        """
         assert isinstance(heatmaps,
                           np.ndarray), 'heatmaps should be numpy.ndarray'
         assert heatmaps.ndim == 4, 'batch_images should be 4-ndim'
@@ -286,6 +286,10 @@ class HRNetPostProcess(object):
         return coord
 
     def dark_postprocess(self, hm, coords, kernelsize):
+        """
+        refer to https://github.com/ilovepose/DarkPose/lib/core/inference.py
+
+        """
         hm = self.gaussian_blur(hm, kernelsize)
         hm = np.maximum(hm, 1e-10)
         hm = np.log(hm)
@@ -358,7 +362,8 @@ def affine_transform(pt, t):
 
 
 def translate_to_ori_images(keypoint_result, batch_records):
-    kpts, scores = keypoint_result['keypoint']
+    kpts = keypoint_result['keypoint']
+    scores = keypoint_result['score']
     kpts[..., 0] += batch_records[:, 0:1]
     kpts[..., 1] += batch_records[:, 1:2]
     return kpts, scores

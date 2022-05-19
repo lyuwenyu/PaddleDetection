@@ -21,8 +21,7 @@ import sys
 
 # add python path of PadleDetection to sys.path
 parent_path = os.path.abspath(os.path.join(__file__, *(['..'] * 2)))
-if parent_path not in sys.path:
-    sys.path.append(parent_path)
+sys.path.insert(0, parent_path)
 
 # ignore warning log
 import warnings
@@ -32,8 +31,8 @@ import glob
 import paddle
 from ppdet.core.workspace import load_config, merge_config
 from ppdet.engine import Trainer
-from ppdet.utils.check import check_gpu, check_version, check_config
-from ppdet.utils.cli import ArgsParser
+from ppdet.utils.check import check_gpu, check_npu, check_xpu, check_version, check_config
+from ppdet.utils.cli import ArgsParser, merge_args
 from ppdet.slim import build_slim_model
 
 from ppdet.utils.logger import setup_logger
@@ -78,10 +77,10 @@ def parse_args():
         default="vdl_log_dir/image",
         help='VisualDL logging directory for image.')
     parser.add_argument(
-        "--save_txt",
+        "--save_results",
         type=bool,
         default=False,
-        help="Whether to save inference result in txt.")
+        help="Whether to save inference results to output_dir.")
     args = parser.parse_args()
     return args
 
@@ -132,26 +131,39 @@ def run(FLAGS, cfg):
         images,
         draw_threshold=FLAGS.draw_threshold,
         output_dir=FLAGS.output_dir,
-        save_txt=FLAGS.save_txt)
+        save_results=FLAGS.save_results)
 
 
 def main():
     FLAGS = parse_args()
     cfg = load_config(FLAGS.config)
-    cfg['use_vdl'] = FLAGS.use_vdl
-    cfg['vdl_log_dir'] = FLAGS.vdl_log_dir
+    merge_args(cfg, FLAGS)
     merge_config(FLAGS.opt)
 
-    place = paddle.set_device('gpu' if cfg.use_gpu else 'cpu')
+    # disable npu in config by default
+    if 'use_npu' not in cfg:
+        cfg.use_npu = False
 
-    if 'norm_type' in cfg and cfg['norm_type'] == 'sync_bn' and not cfg.use_gpu:
-        cfg['norm_type'] = 'bn'
+    # disable xpu in config by default
+    if 'use_xpu' not in cfg:
+        cfg.use_xpu = False
+
+    if cfg.use_gpu:
+        place = paddle.set_device('gpu')
+    elif cfg.use_npu:
+        place = paddle.set_device('npu')
+    elif cfg.use_xpu:
+        place = paddle.set_device('xpu')
+    else:
+        place = paddle.set_device('cpu')
 
     if FLAGS.slim_config:
         cfg = build_slim_model(cfg, FLAGS.slim_config, mode='test')
 
     check_config(cfg)
     check_gpu(cfg.use_gpu)
+    check_npu(cfg.use_npu)
+    check_xpu(cfg.use_xpu)
     check_version()
 
     run(FLAGS, cfg)

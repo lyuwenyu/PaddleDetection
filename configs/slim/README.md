@@ -4,10 +4,11 @@
 
 - [剪裁](prune)
 - [量化](quant)
+- [离线量化](post_quant)
 - [蒸馏](distill)
 - [联合策略](extensions)
 
-推荐您使用剪裁和蒸馏联合训练，或者使用剪裁和量化，进行检测模型压缩。 下面以YOLOv3为例，进行剪裁、蒸馏和量化实验。
+推荐您使用剪裁和蒸馏联合训练，或者使用剪裁、量化训练和离线量化，进行检测模型压缩。 下面以YOLOv3为例，进行剪裁、蒸馏和量化实验。
 
 ## 实验环境
 
@@ -20,7 +21,8 @@
 **PaddleDetection、 PaddlePaddle与PaddleSlim 版本关系:**
 |  PaddleDetection版本  | PaddlePaddle版本  | PaddleSlim版本 |  备注    |
 | :------------------: | :---------------: | :-------: |:---------------: |
-| release/2.1       |       >= 2.1.0       | 2.1      |  量化模型导出依赖最新Paddle develop分支，可在[PaddlePaddle每日版本](https://www.paddlepaddle.org.cn/documentation/docs/zh/install/Tables.html#whl-dev)中下载安装  |
+| release/2.3       |       >= 2.1       | 2.1      | 离线量化依赖Paddle 2.2及PaddleSlim 2.2 |
+| release/2.1 | 2.2    |       >= 2.1.0       | 2.1      |  量化模型导出依赖最新Paddle develop分支，可在[PaddlePaddle每日版本](https://www.paddlepaddle.org.cn/documentation/docs/zh/install/Tables.html#whl-dev)中下载安装  |
 | release/2.0       |       >= 2.0.1       | 2.0      | 量化依赖Paddle 2.1及PaddleSlim 2.1 |
 
 
@@ -124,6 +126,8 @@ python tools/export_model.py -c configs/{MODEL.yml} --slim_config configs/slim/{
 
 | 模型               | 压缩策略     | 输入尺寸 |  模型体积(MB) | 预测时延(V100) | 预测时延(SD855) |  Box AP    |                  下载         |   Inference模型下载    |            模型配置文件                  |                     压缩算法配置文件                   |
 | ------------------ | ------------ | -------- | :---------: | :---------: |:---------: | :---------: | :----------------------------------------------: | :----------------------------------------------: |:------------------------------------------: | :------------------------------------: |
+| PP-YOLOE-l | baseline     | 640      | - |   11.2ms(trt_fp32) &#124; 7.7ms(trt_fp16)  | -- | 50.9     | [下载链接](https://paddledet.bj.bcebos.com/models/ppyoloe_crn_l_300e_coco.pdparams) | -  | [配置文件](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/ppyoloe/ppyoloe_crn_l_300e_coco.yml) | -  |
+| PP-YOLOE-l | 普通在线量化     | 640      | - |   6.7ms(trt_int8)  | -- | 48.8     | [下载链接](https://paddledet.bj.bcebos.com/models/slim/ppyoloe_l_coco_qat.pdparams) | -  | [配置文件](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/ppyoloe/ppyoloe_crn_l_300e_coco.yml) | [配置文件](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/slim/quant/ppyoloe_l_qat.yml) |
 | PP-YOLOv2_R50vd | baseline     | 640      | 208.6  |   19.1ms  | -- | 49.1     | [下载链接](https://paddledet.bj.bcebos.com/models/ppyolov2_r50vd_dcn_365e_coco.pdparams) | [下载链接](https://paddledet.bj.bcebos.com/models/slim/ppyolov2_r50vd_dcn_365e_coco.tar)  | [配置文件](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/ppyolo/ppyolo_r50vd_dcn_1x_coco.yml) |                            -                               |
 | PP-YOLOv2_R50vd | PACT在线量化     | 640      | --  |   17.3ms  | -- | 48.1     | [下载链接](https://paddledet.bj.bcebos.com/models/slim/ppyolov2_r50vd_dcn_qat.pdparams) | [下载链接](https://paddledet.bj.bcebos.com/models/slim/ppyolov2_r50vd_dcn_qat.tar)  | [配置文件](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/ppyolo/ppyolo_r50vd_dcn_1x_coco.yml) |         [配置文件](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/slim/quant/ppyolov2_r50vd_dcn_qat.yml)   |
 | PP-YOLO_R50vd | baseline     | 608      | 183.3  |  17.4ms  | -- | 44.8     | [下载链接](https://paddledet.bj.bcebos.com/models/ppyolo_r50vd_dcn_1x_coco.pdparams) | [下载链接](https://paddledet.bj.bcebos.com/models/slim/ppyolo_r50vd_dcn_1x_coco.tar)  | [配置文件](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/configs/ppyolo/ppyolo_r50vd_dcn_1x_coco.yml) |                  -         |
@@ -144,6 +148,17 @@ python tools/export_model.py -c configs/{MODEL.yml} --slim_config configs/slim/{
 说明：
 - 上述V100预测时延非量化模型均是使用TensorRT-FP32测试，量化模型均使用TensorRT-INT8测试，并且都包含NMS耗时。
 - SD855预测时延为使用PaddleLite部署，使用arm8架构并使用4线程(4 Threads)推理时延。
+- 上述PP-YOLOE模型均在V100，开启TensorRT环境中测速，不包含NMS。（导出模型时指定：-o trt=True exclude_nms=True）
+
+### 离线量化
+需要准备val集，用来对离线量化模型进行校准，运行方式：
+```shell
+python tools/post_quant.py -c configs/{MODEL.yml} --slim_config configs/slim/post_quant/{SLIM_CONFIG.yml}
+```
+例如：
+```shell
+python3.7 tools/post_quant.py -c configs/ppyolo/ppyolo_mbv3_large_coco.yml --slim_config=configs/slim/post_quant/ppyolo_mbv3_large_ptq.yml
+```
 
 ### 蒸馏
 

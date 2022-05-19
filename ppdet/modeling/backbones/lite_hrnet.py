@@ -11,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+This code is based on
+https://github.com/HRNet/Lite-HRNet/blob/hrnet/models/backbones/litehrnet.py
+"""
 
 import paddle
 import paddle.nn as nn
@@ -44,21 +48,19 @@ class ConvNormLayer(nn.Layer):
         self.act = act
         norm_lr = 0. if freeze_norm else 1.
         if norm_type is not None:
-            assert (
-                norm_type in ['bn', 'sync_bn', 'gn'],
-                "norm_type should be one of ['bn', 'sync_bn', 'gn'], but got {}".
-                format(norm_type))
+            assert norm_type in ['bn', 'sync_bn', 'gn'], \
+                "norm_type should be one of ['bn', 'sync_bn', 'gn'], but got {}".format(norm_type)
             param_attr = ParamAttr(
                 initializer=Constant(1.0),
                 learning_rate=norm_lr,
                 regularizer=L2Decay(norm_decay), )
             bias_attr = ParamAttr(
                 learning_rate=norm_lr, regularizer=L2Decay(norm_decay))
-            global_stats = True if freeze_norm else False
+            global_stats = True if freeze_norm else None
             if norm_type in ['bn', 'sync_bn']:
-                self.norm = nn.BatchNorm(
+                self.norm = nn.BatchNorm2D(
                     ch_out,
-                    param_attr=param_attr,
+                    weight_attr=param_attr,
                     bias_attr=bias_attr,
                     use_global_stats=global_stats, )
             elif norm_type == 'gn':
@@ -271,12 +273,10 @@ class ShuffleUnit(nn.Layer):
                  norm_decay=0.):
         super(ShuffleUnit, self).__init__()
         branch_channel = out_channel // 2
-        stride = self.stride
+        self.stride = stride
         if self.stride == 1:
-            assert (
-                in_channel == branch_channel * 2,
-                "when stride=1, in_channel {} should equal to branch_channel*2 {}"
-                .format(in_channel, branch_channel * 2))
+            assert in_channel == branch_channel * 2, \
+                "when stride=1, in_channel {} should equal to branch_channel*2 {}".format(in_channel, branch_channel * 2)
         if stride > 1:
             self.branch1 = nn.Sequential(
                 ConvNormLayer(
@@ -496,11 +496,11 @@ class LiteHRNetModule(nn.Layer):
                  freeze_norm=False,
                  norm_decay=0.):
         super(LiteHRNetModule, self).__init__()
-        assert (num_branches == len(in_channels),
-                "num_branches {} should equal to num_in_channels {}"
-                .format(num_branches, len(in_channels)))
-        assert (module_type in ['LITE', 'NAIVE'],
-                "module_type should be one of ['LITE', 'NAIVE']")
+        assert num_branches == len(in_channels),\
+            "num_branches {} should equal to num_in_channels {}".format(num_branches, len(in_channels))
+        assert module_type in [
+            'LITE', 'NAIVE'
+        ], "module_type should be one of ['LITE', 'NAIVE']"
         self.num_branches = num_branches
         self.in_channels = in_channels
         self.multiscale_output = multiscale_output
@@ -544,11 +544,11 @@ class LiteHRNetModule(nn.Layer):
                     norm_decay=norm_decay))
         return nn.Sequential(*layers)
 
-    def _make_naive_branchs(self,
-                            num_branches,
-                            num_blocks,
-                            freeze_norm=False,
-                            norm_decay=0.):
+    def _make_naive_branches(self,
+                             num_branches,
+                             num_blocks,
+                             freeze_norm=False,
+                             norm_decay=0.):
         branches = []
         for branch_idx in range(num_branches):
             layers = []
@@ -582,7 +582,7 @@ class LiteHRNetModule(nn.Layer):
                                 stride=1,
                                 padding=0,
                                 bias=False, ),
-                            nn.BatchNorm(self.in_channels[i]),
+                            nn.BatchNorm2D(self.in_channels[i]),
                             nn.Upsample(
                                 scale_factor=2**(j - i), mode='nearest')))
                 elif j == i:
@@ -601,7 +601,7 @@ class LiteHRNetModule(nn.Layer):
                                         padding=1,
                                         groups=self.in_channels[j],
                                         bias=False, ),
-                                    nn.BatchNorm(self.in_channels[j]),
+                                    nn.BatchNorm2D(self.in_channels[j]),
                                     L.Conv2d(
                                         self.in_channels[j],
                                         self.in_channels[i],
@@ -609,7 +609,7 @@ class LiteHRNetModule(nn.Layer):
                                         stride=1,
                                         padding=0,
                                         bias=False, ),
-                                    nn.BatchNorm(self.in_channels[i])))
+                                    nn.BatchNorm2D(self.in_channels[i])))
                         else:
                             conv_downsamples.append(
                                 nn.Sequential(
@@ -621,7 +621,7 @@ class LiteHRNetModule(nn.Layer):
                                         padding=1,
                                         groups=self.in_channels[j],
                                         bias=False, ),
-                                    nn.BatchNorm(self.in_channels[j]),
+                                    nn.BatchNorm2D(self.in_channels[j]),
                                     L.Conv2d(
                                         self.in_channels[j],
                                         self.in_channels[j],
@@ -629,7 +629,7 @@ class LiteHRNetModule(nn.Layer):
                                         stride=1,
                                         padding=0,
                                         bias=False, ),
-                                    nn.BatchNorm(self.in_channels[j]),
+                                    nn.BatchNorm2D(self.in_channels[j]),
                                     nn.ReLU()))
 
                     fuse_layer.append(nn.Sequential(*conv_downsamples))
@@ -644,14 +644,16 @@ class LiteHRNetModule(nn.Layer):
             out = self.layers(x)
         elif self.module_type == 'NAIVE':
             for i in range(self.num_branches):
-                x[i] = self.layers(x[i])
+                x[i] = self.layers[i](x[i])
             out = x
         if self.with_fuse:
             out_fuse = []
             for i in range(len(self.fuse_layers)):
                 y = out[0] if i == 0 else self.fuse_layers[i][0](out[0])
                 for j in range(self.num_branches):
-                    if i == j:
+                    if j == 0:
+                        y += y
+                    elif i == j:
                         y += out[j]
                     else:
                         y += self.fuse_layers[i][j](out[j])
@@ -693,10 +695,8 @@ class LiteHRNet(nn.Layer):
         super(LiteHRNet, self).__init__()
         if isinstance(return_idx, Integral):
             return_idx = [return_idx]
-        assert (
-            network_type in ["lite_18", "lite_30", "naive", "wider_naive"],
+        assert network_type in ["lite_18", "lite_30", "naive", "wider_naive"], \
             "the network_type should be one of [lite_18, lite_30, naive, wider_naive]"
-        )
         assert len(return_idx) > 0, "need one or more return index"
         self.freeze_at = freeze_at
         self.freeze_norm = freeze_norm
@@ -777,7 +777,7 @@ class LiteHRNet(nn.Layer):
                                 padding=1,
                                 groups=num_channels_pre_layer[i],
                                 bias=False),
-                            nn.BatchNorm(num_channels_pre_layer[i]),
+                            nn.BatchNorm2D(num_channels_pre_layer[i]),
                             L.Conv2d(
                                 num_channels_pre_layer[i],
                                 num_channels_cur_layer[i],
@@ -785,7 +785,7 @@ class LiteHRNet(nn.Layer):
                                 stride=1,
                                 padding=0,
                                 bias=False, ),
-                            nn.BatchNorm(num_channels_cur_layer[i]),
+                            nn.BatchNorm2D(num_channels_cur_layer[i]),
                             nn.ReLU()))
                 else:
                     transition_layers.append(None)
@@ -802,7 +802,7 @@ class LiteHRNet(nn.Layer):
                                 stride=2,
                                 padding=1,
                                 bias=False, ),
-                            nn.BatchNorm(num_channels_pre_layer[-1]),
+                            nn.BatchNorm2D(num_channels_pre_layer[-1]),
                             L.Conv2d(
                                 num_channels_pre_layer[-1],
                                 num_channels_cur_layer[i]
@@ -812,9 +812,9 @@ class LiteHRNet(nn.Layer):
                                 stride=1,
                                 padding=0,
                                 bias=False, ),
-                            nn.BatchNorm(num_channels_cur_layer[i]
-                                         if j == i - num_branches_pre else
-                                         num_channels_pre_layer[-1]),
+                            nn.BatchNorm2D(num_channels_cur_layer[i]
+                                           if j == i - num_branches_pre else
+                                           num_channels_pre_layer[-1]),
                             nn.ReLU()))
                 transition_layers.append(nn.Sequential(*conv_downsamples))
         return nn.LayerList(transition_layers)

@@ -21,6 +21,8 @@ import sys
 import json
 import paddle
 import numpy as np
+import typing
+from pathlib import Path
 
 from .map_utils import prune_zero_padding, DetectionMAP
 from .coco_utils import get_infer_results, cocoapi_eval
@@ -31,12 +33,8 @@ from ppdet.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 __all__ = [
-    'Metric',
-    'COCOMetric',
-    'VOCMetric',
-    'WiderFaceMetric',
-    'get_infer_results',
-    'RBoxMetric',
+    'Metric', 'COCOMetric', 'VOCMetric', 'WiderFaceMetric', 'get_infer_results',
+    'RBoxMetric', 'SNIPERCOCOMetric'
 ]
 
 COCO_SIGMAS = np.array([
@@ -72,8 +70,6 @@ class Metric(paddle.metric.Metric):
 
 class COCOMetric(Metric):
     def __init__(self, anno_file, **kwargs):
-        assert os.path.isfile(anno_file), \
-                "anno_file {} not a file".format(anno_file)
         self.anno_file = anno_file
         self.clsid2catid = kwargs.get('clsid2catid', None)
         if self.clsid2catid is None:
@@ -84,6 +80,14 @@ class COCOMetric(Metric):
         self.bias = kwargs.get('bias', 0)
         self.save_prediction_only = kwargs.get('save_prediction_only', False)
         self.iou_type = kwargs.get('IouType', 'bbox')
+
+        if not self.save_prediction_only:
+            assert os.path.isfile(anno_file), \
+                    "anno_file {} not a file".format(anno_file)
+
+        if self.output_eval is not None:
+            Path(self.output_eval).mkdir(exist_ok=True)
+
         self.reset()
 
     def reset(self):
@@ -97,7 +101,11 @@ class COCOMetric(Metric):
         for k, v in outputs.items():
             outs[k] = v.numpy() if isinstance(v, paddle.Tensor) else v
 
-        im_id = inputs['im_id']
+        # multi-scale inputs: all inputs have same im_id
+        if isinstance(inputs, typing.Sequence):
+            im_id = inputs[0]['im_id']
+        else:
+            im_id = inputs['im_id']
         outs['im_id'] = im_id.numpy() if isinstance(im_id,
                                                     paddle.Tensor) else im_id
 
@@ -395,3 +403,39 @@ class RBoxMetric(Metric):
 
     def get_results(self):
         return {'bbox': [self.detection_map.get_map()]}
+
+
+class SNIPERCOCOMetric(COCOMetric):
+    def __init__(self, anno_file, **kwargs):
+        super(SNIPERCOCOMetric, self).__init__(anno_file, **kwargs)
+        self.dataset = kwargs["dataset"]
+        self.chip_results = []
+
+    def reset(self):
+        # only bbox and mask evaluation support currently
+        self.results = {'bbox': [], 'mask': [], 'segm': [], 'keypoint': []}
+        self.eval_results = {}
+        self.chip_results = []
+
+    def update(self, inputs, outputs):
+        outs = {}
+        # outputs Tensor -> numpy.ndarray
+        for k, v in outputs.items():
+            outs[k] = v.numpy() if isinstance(v, paddle.Tensor) else v
+
+        im_id = inputs['im_id']
+        outs['im_id'] = im_id.numpy() if isinstance(im_id,
+                                                    paddle.Tensor) else im_id
+
+        self.chip_results.append(outs)
+
+    def accumulate(self):
+        results = self.dataset.anno_cropper.aggregate_chips_detections(
+            self.chip_results)
+        for outs in results:
+            infer_results = get_infer_results(
+                outs, self.clsid2catid, bias=self.bias)
+            self.results['bbox'] += infer_results[
+                'bbox'] if 'bbox' in infer_results else []
+
+        super(SNIPERCOCOMetric, self).accumulate()

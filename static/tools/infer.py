@@ -41,7 +41,7 @@ try:
 
     from ppdet.utils.eval_utils import parse_fetches
     from ppdet.utils.cli import ArgsParser
-    from ppdet.utils.check import check_gpu, check_version, check_config, enable_static_mode
+    from ppdet.utils.check import check_gpu, check_npu, check_xpu, check_version, check_config, enable_static_mode
     from ppdet.utils.visualizer import visualize_results
     import ppdet.utils.checkpoint as checkpoint
 
@@ -103,12 +103,21 @@ def get_test_images(infer_dir, infer_img):
 
 
 def main():
+    env = os.environ
     cfg = load_config(FLAGS.config)
 
     merge_config(FLAGS.opt)
     check_config(cfg)
     # check if set use_gpu=True in paddlepaddle cpu version
     check_gpu(cfg.use_gpu)
+    # disable npu in config by default and check use_npu
+    if 'use_npu' not in cfg:
+        cfg.use_npu = False
+    check_npu(cfg.use_npu)
+    # disable xpu in config by default and check use_xpu
+    if 'use_xpu' not in cfg:
+        cfg.use_xpu = False
+    check_xpu(cfg.use_xpu)
     # check if paddlepaddle version is satisfied
     check_version()
 
@@ -119,7 +128,24 @@ def main():
     test_images = get_test_images(FLAGS.infer_dir, FLAGS.infer_img)
     dataset.set_images(test_images)
 
-    place = fluid.CUDAPlace(0) if cfg.use_gpu else fluid.CPUPlace()
+    if cfg.use_gpu and 'FLAGS_selected_gpus' in env:
+        device_id = int(env['FLAGS_selected_gpus'])
+    elif cfg.use_npu and 'FLAGS_selected_npus' in env:
+        device_id = int(env['FLAGS_selected_npus'])
+    elif cfg.use_xpu and 'FLAGS_selected_xpus' in env:
+        device_id = int(env['FLAGS_selected_xpus'])
+    else:
+        device_id = 0
+
+    # define executor
+    if cfg.use_gpu:
+        place = fluid.CUDAPlace(device_id)
+    elif cfg.use_npu:
+        place = fluid.NPUPlace(device_id)
+    elif cfg.use_xpu:
+        place = fluid.XPUPlace(device_id)
+    else:
+        place = fluid.CPUPlace()
     exe = fluid.Executor(place)
 
     model = create(main_arch)

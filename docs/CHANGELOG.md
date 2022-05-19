@@ -1,6 +1,69 @@
+简体中文 | [English](./CHANGELOG_en.md)
+
 # 版本更新信息
 
 ## 最新版本信息
+
+### 2.4(03.24/2022)
+
+- PP-YOLOE：
+  - 发布PP-YOLOE特色模型，l版本COCO test2017数据集精度51.4%，V100预测速度78.1 FPS，精度速度服务器端SOTA
+  - 发布s/m/l/x系列模型，打通TensorRT、ONNX部署能力
+  - 支持混合精度训练，训练较PP-YOLOv2加速33%
+
+- PP-PicoDet:
+  - 发布PP-PicoDet优化模型，精度提升2%左右，CPU预测速度提升63%。
+  - 新增参数量0.7M的PicoDet-XS模型
+  - 后处理集成到网络中，优化端到端部署成本
+
+- 行人分析Pipeline：
+  - 发布PP-Human行人分析Pipeline，覆盖行人检测、属性识别、行人跟踪、跨镜跟踪、人流量统计、动作识别多种功能，打通TensorRT部署
+  - 属性识别支持StrongBaseline模型
+  - ReID支持Centroid模型
+  - 动作识别支持ST-GCN摔倒检测
+
+- 模型丰富度:
+  - 发布YOLOX，支持nano/tiny/s/m/l/x版本，x版本COCO val2017数据集精度51.8%
+
+- 框架功能优化：
+  - EMA训练速度优化20%，优化EMA训练模型保存方式
+  - 支持infer预测结果保存为COCO格式
+
+- 部署优化：
+  - RCNN全系列模型支持Paddle2ONNX导出ONNX模型
+  - SSD模型支持导出时融合解码OP，优化边缘端部署速度
+  - 支持NMS导出TensorRT，TensorRT部署端到端速度提升
+
+### 2.3(11.03/2021)
+
+- 特色模型:
+  - 检测: 轻量级移动端检测模型PP-PicoDet，精度速度达到移动端SOTA
+  - 关键点: 轻量级移动端关键点模型PP-TinyPose
+
+- 模型丰富度:
+  - 检测：
+    - 新增Swin-Transformer目标检测模型
+    - 新增TOOD(Task-aligned One-stage Object Detection)模型
+    - 新增GFL(Generalized Focal Loss)目标检测模型
+    - 发布Sniper小目标检测优化方法，支持Faster RCNN及PP-YOLO系列模型
+    - 发布针对EdgeBoard优化的PP-YOLO-EB模型
+
+  - 跟踪
+    - 发布实时跟踪系统PP-Tracking
+    - 发布FairMot高精度模型、小尺度模型和轻量级模型
+    - 发布行人、人头和车辆实跟踪垂类模型库，覆盖航拍监控、自动驾驶、密集人群、极小目标等场景
+    - DeepSORT模型适配PP-YOLO, PP-PicoDet等更多检测器
+
+  - 关键点
+    - 新增Lite HRNet模型
+
+- 预测部署:
+  - YOLOv3系列模型支持NPU预测部署
+  - FairMot模型C++预测部署打通
+  - 关键点系列模型C++预测部署打通, Paddle Lite预测部署打通
+
+- 文档:
+  - 新增各系列模型英文文档
 
 ### 2.2(08.10/2021)
 

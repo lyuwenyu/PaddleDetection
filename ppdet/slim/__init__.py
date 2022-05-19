@@ -15,10 +15,13 @@
 from . import prune
 from . import quant
 from . import distill
+from . import unstructured_prune
 
 from .prune import *
 from .quant import *
 from .distill import *
+from .unstructured_prune import *
+from .ofa import *
 
 import yaml
 from ppdet.core.workspace import load_config
@@ -34,6 +37,15 @@ def build_slim_model(cfg, slim_cfg, mode='train'):
     if slim_load_cfg['slim'] == 'Distill':
         model = DistillModel(cfg, slim_cfg)
         cfg['model'] = model
+        cfg['slim_type'] = cfg.slim
+    elif slim_load_cfg['slim'] == 'OFA':
+        load_config(slim_cfg)
+        model = create(cfg.architecture)
+        load_pretrain_weight(model, cfg.weights)
+        slim = create(cfg.slim)
+        cfg['slim'] = slim
+        cfg['model'] = slim(model, model.state_dict())
+        cfg['slim_type'] = cfg.slim
     elif slim_load_cfg['slim'] == 'DistillPrune':
         if mode == 'train':
             model = DistillModel(cfg, slim_cfg)
@@ -48,6 +60,20 @@ def build_slim_model(cfg, slim_cfg, mode='train'):
             load_pretrain_weight(model, weights)
         cfg['model'] = model
         cfg['slim_type'] = cfg.slim
+    elif slim_load_cfg['slim'] == 'PTQ':
+        model = create(cfg.architecture)
+        load_config(slim_cfg)
+        load_pretrain_weight(model, cfg.weights)
+        slim = create(cfg.slim)
+        cfg['slim'] = slim
+        cfg['model'] = slim(model)
+        cfg['slim_type'] = cfg.slim
+    elif slim_load_cfg['slim'] == 'UnstructuredPruner':
+        load_config(slim_cfg)
+        slim = create(cfg.slim)
+        cfg['slim_type'] = cfg.slim
+        cfg['slim'] = slim
+        cfg['unstructured_prune'] = True
     else:
         load_config(slim_cfg)
         model = create(cfg.architecture)
@@ -55,6 +81,9 @@ def build_slim_model(cfg, slim_cfg, mode='train'):
             load_pretrain_weight(model, cfg.pretrain_weights)
         slim = create(cfg.slim)
         cfg['slim_type'] = cfg.slim
+        # TODO: fix quant export model in framework.
+        if mode == 'test' and slim_load_cfg['slim'] == 'QAT':
+            slim.quant_config['activation_preprocess_type'] = None
         cfg['model'] = slim(model)
         cfg['slim'] = slim
         if mode != 'train':

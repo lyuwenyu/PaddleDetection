@@ -19,7 +19,7 @@ PP-YOLO reached mmAP(IoU=0.5:0.95) as 45.9% on COCO test-dev2017 dataset, and in
   <img src="../../docs/images/ppyolo_map_fps.png" width=500 />
 </div>
 
-PP-YOLO improved performance and speed of YOLOv3 with following methods:
+PP-YOLO and PP-YOLOv2 improved performance and speed of YOLOv3 with following methods:
 
 - Better backbone: ResNet50vd-DCN
 - Larger training batch size: 8 GPUs and mini-batch size as 24 on each GPU
@@ -31,6 +31,9 @@ PP-YOLO improved performance and speed of YOLOv3 with following methods:
 - [CoordConv](https://arxiv.org/abs/1807.03247)
 - [Spatial Pyramid Pooling](https://arxiv.org/abs/1406.4729)
 - Better ImageNet pretrain weights
+- [PAN](https://arxiv.org/abs/1803.01534)
+- Iou aware Loss
+- larger input size
 
 ## Model Zoo
 
@@ -87,7 +90,7 @@ PP-YOLO improved performance and speed of YOLOv3 with following methods:
 |:----------------------------:|:----------:|:----------:| :---------: | :-----------------------: | :--------: | :----------:| :------------------: | :-------------------: | :------: | :----------------------: | :-----: |
 | PP-YOLO_MobileNetV3_small    |     4      |      32    |     75%     | PP-YOLO_MobileNetV3_large |   4.2MB    |     320     |         16.2         |      39.8      | [model](https://paddlemodels.bj.bcebos.com/object_detection/ppyolo_mobilenet_v3_small_prune75_distillby_mobilenet_v3_large.pdparams) | [model](https://paddlemodels.bj.bcebos.com/object_detection/ppyolo_mobilenet_v3_small_prune75_distillby_mobilenet_v3_large.tar) | [config](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/static/configs/ppyolo/ppyolo_mobilenet_v3_small.yml)                   |
 
-- Slim PP-YOLO is trained by slim traing method from [Distill pruned model](../../slim/extensions/distill_pruned_model/README.md)，distill training pruned PP-YOLO_MobileNetV3_small model with PP-YOLO_MobileNetV3_large model as the teacher model
+- Slim PP-YOLO is trained by slim training method from [Distill pruned model](../../slim/extensions/distill_pruned_model/README.md)，distill training pruned PP-YOLO_MobileNetV3_small model with PP-YOLO_MobileNetV3_large model as the teacher model
 - Pruning detectiom head of PP-YOLO model with ratio as 75%, while the arguments are `--pruned_params="yolo_block.0.2.conv.weights,yolo_block.0.tip.conv.weights,yolo_block.1.2.conv.weights,yolo_block.1.tip.conv.weights" --pruned_ratios="0.75,0.75,0.75,0.75"`
 - For Slim PP-YOLO training, evaluation, inference and model exporting, please see [Distill pruned model](../../slim/extensions/distill_pruned_model/README.md)
 
@@ -101,7 +104,7 @@ PP-YOLO improved performance and speed of YOLOv3 with following methods:
 **Notes:**
 
 - PP-YOLO-tiny is trained on COCO train2017 datast and evaluated on val2017 dataset，Box AP<sup>val</sup> is evaluation results of `mAP(IoU=0.5:0.95)`, Box AP<sup>val</sup> is evaluation results of `mAP(IoU=0.5)`.
-- PP-YOLO-tiny used 8 GPUs for training and mini-batch size as 32 on each GPU, if GPU number and mini-batch size is changed, learning rate and iteration times should be adjusted according [FAQ](https://github.com/PaddlePaddle/PaddleDetection/blob//develop/static/docs/FAQ.md).
+- PP-YOLO-tiny used 8 GPUs for training and mini-batch size as 32 on each GPU, if GPU number and mini-batch size is changed, learning rate and iteration times should be adjusted according [FAQ](https://github.com/PaddlePaddle/PaddleDetection/blob/develop/static/docs/FAQ.md).
 - PP-YOLO-tiny inference speed is tested on Kirin 990 with 4 threads by arm8
 - we alse provide PP-YOLO-tiny post quant inference model, which can compress model to **1.3MB** with nearly no inference on inference speed and performance
 
@@ -114,6 +117,9 @@ PP-YOLO trained on Pascal VOC dataset as follows:
 | PP-YOLO            |     8      |      12    | ResNet50vd |     608     |          84.9          | [model](https://paddlemodels.bj.bcebos.com/object_detection/ppyolo_voc.pdparams) | [config](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/static/configs/ppyolo/ppyolo_voc.yml)                   |
 | PP-YOLO            |     8      |      12    | ResNet50vd |     416     |          84.3          | [model](https://paddlemodels.bj.bcebos.com/object_detection/ppyolo_voc.pdparams) | [config](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/static/configs/ppyolo/ppyolo_voc.yml)                   |
 | PP-YOLO            |     8      |      12    | ResNet50vd |     320     |          82.2          | [model](https://paddlemodels.bj.bcebos.com/object_detection/ppyolo_voc.pdparams) | [config](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/static/configs/ppyolo/ppyolo_voc.yml)                   |
+| PP-YOLO_EB            |     8      |      8    | ResNet34vd |     480     |          86.4         | [model](https://bj.bcebos.com/v1/paddlemodels/object_detection/ppyolo_eb_voc.pdparams) | [config](https://github.com/PaddlePaddle/PaddleDetection/tree/develop/static/configs/ppyolo/ppyolo_eb_voc.yml)                   |
+
+**Notes:** PP-YOLO-EB is specially designed for [EdgeBoard](https://ai.baidu.com/tech/hardware/deepkit) hardware.
 
 ## Getting Start
 
@@ -194,11 +200,6 @@ CUDA_VISIBLE_DEVICES=0 python deploy/python/infer.py --model_dir=output/ppyolo -
 CUDA_VISIBLE_DEVICES=0 python deploy/python/infer.py --model_dir=output/ppyolo --image_file=demo/000000014439_640x640.jpg --use_gpu=True --run_benchmark=True --run_mode=trt_fp16
 ```
 
-## Future work
-
-1. more PP-YOLO tiny model
-2. PP-YOLO model with more backbones
-
 ## Appendix
 
 Optimizing method and ablation experiments of PP-YOLO compared with YOLOv3.
@@ -223,3 +224,29 @@ Optimizing method and ablation experiments of PP-YOLO compared with YOLOv3.
 - All models are trained on COCO train2017 datast and evaluated on val2017 & test-dev2017 dataset，`Box AP` is evaluation results as `mAP(IoU=0.5:0.95)`.
 - Inference speed is tested on single Tesla V100 with batch size as 1 following test method and environment configuration in benchmark above.
 - [YOLOv3-DarkNet53](../yolov3_darknet.yml) with mAP as 38.9 is optimized YOLOv3 model in PaddleDetection，see [Model Zoo](../../docs/MODEL_ZOO.md) for details.
+
+
+## Citation
+
+```
+@article{huang2021pp,
+  title={PP-YOLOv2: A Practical Object Detector},
+  author={Huang, Xin and Wang, Xinxin and Lv, Wenyu and Bai, Xiaying and Long, Xiang and Deng, Kaipeng and Dang, Qingqing and Han, Shumin and Liu, Qiwen and Hu, Xiaoguang and others},
+  journal={arXiv preprint arXiv:2104.10419},
+  year={2021}
+}
+@misc{long2020ppyolo,
+title={PP-YOLO: An Effective and Efficient Implementation of Object Detector},
+author={Xiang Long and Kaipeng Deng and Guanzhong Wang and Yang Zhang and Qingqing Dang and Yuan Gao and Hui Shen and Jianguo Ren and Shumin Han and Errui Ding and Shilei Wen},
+year={2020},
+eprint={2007.12099},
+archivePrefix={arXiv},
+primaryClass={cs.CV}
+}
+@misc{ppdet2019,
+title={PaddleDetection, Object detection and instance segmentation toolkit based on PaddlePaddle.},
+author={PaddlePaddle Authors},
+howpublished = {\url{https://github.com/PaddlePaddle/PaddleDetection}},
+year={2019}
+}
+```

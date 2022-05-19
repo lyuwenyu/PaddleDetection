@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# The code is based on:
+# https://github.com/WXinlong/SOLO/blob/master/mmdet/models/anchor_heads/solov2_head.py
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -379,6 +382,9 @@ class SOLOv2Head(object):
                     dtype="float32",
                     value=self.segm_strides[_ind]))
         strides = fluid.layers.concat(strides)
+        strides = fluid.layers.concat(
+            [strides, fluid.layers.zeros(
+                shape=[1], dtype='float32')])
         strides = fluid.layers.gather(strides, index=inds[:, 0])
 
         # mask encoding.

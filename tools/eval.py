@@ -21,8 +21,7 @@ import sys
 
 # add python path of PadleDetection to sys.path
 parent_path = os.path.abspath(os.path.join(__file__, *(['..'] * 2)))
-if parent_path not in sys.path:
-    sys.path.append(parent_path)
+sys.path.insert(0, parent_path)
 
 # ignore warning log
 import warnings
@@ -31,8 +30,8 @@ warnings.filterwarnings('ignore')
 import paddle
 
 from ppdet.core.workspace import load_config, merge_config
-from ppdet.utils.check import check_gpu, check_version, check_config
-from ppdet.utils.cli import ArgsParser
+from ppdet.utils.check import check_gpu, check_npu, check_xpu, check_version, check_config
+from ppdet.utils.cli import ArgsParser, merge_args
 from ppdet.engine import Trainer, init_parallel_env
 from ppdet.metrics.coco_utils import json_eval_results
 from ppdet.slim import build_slim_model
@@ -110,23 +109,33 @@ def run(FLAGS, cfg):
 def main():
     FLAGS = parse_args()
     cfg = load_config(FLAGS.config)
-    # TODO: bias should be unified
-    cfg['bias'] = 1 if FLAGS.bias else 0
-    cfg['classwise'] = True if FLAGS.classwise else False
-    cfg['output_eval'] = FLAGS.output_eval
-    cfg['save_prediction_only'] = FLAGS.save_prediction_only
+    merge_args(cfg, FLAGS)
     merge_config(FLAGS.opt)
 
-    place = paddle.set_device('gpu' if cfg.use_gpu else 'cpu')
+    # disable npu in config by default
+    if 'use_npu' not in cfg:
+        cfg.use_npu = False
 
-    if 'norm_type' in cfg and cfg['norm_type'] == 'sync_bn' and not cfg.use_gpu:
-        cfg['norm_type'] = 'bn'
+    # disable xpu in config by default
+    if 'use_xpu' not in cfg:
+        cfg.use_xpu = False
+
+    if cfg.use_gpu:
+        place = paddle.set_device('gpu')
+    elif cfg.use_npu:
+        place = paddle.set_device('npu')
+    elif cfg.use_xpu:
+        place = paddle.set_device('xpu')
+    else:
+        place = paddle.set_device('cpu')
 
     if FLAGS.slim_config:
         cfg = build_slim_model(cfg, FLAGS.slim_config, mode='eval')
 
     check_config(cfg)
     check_gpu(cfg.use_gpu)
+    check_npu(cfg.use_npu)
+    check_xpu(cfg.use_xpu)
     check_version()
 
     run(FLAGS, cfg)
