@@ -7,18 +7,23 @@ _BASE_: [
 weights: output/faster_rcnn_vit_base_16_fpn_coco/model_final
 
 
-snapshot_epoch: 2
+snapshot_epoch: 1
 
 
+# 1x optimizer
 epoch: 12
-base_lr: 0.0003
-milestones: [8, 11]
-# final_lr: 0.0
-warmup_iters: 500
+base_lr: 0.0001 # 0.0003
+# milestones: [8, 11]
+milestones: [9, 11]
+# warmup_iters: 2000 # 2 x 8 500
+warmup_iters: 500 # 2 x 8 500
+warmup_ratio: 0.001
 
 
-weight_decay: 0.05
+weight_decay: 0.05 # 0.0
+# weight_decay: 0.02 # 0.0
 layer_decay: 0.75
+
 
 
 worker_num: 2
@@ -96,9 +101,12 @@ BBoxHead:
 
   bbox_loss: GIoULoss
 
+
 GIoULoss:
   loss_weight: 10.
-  reduction: 'mean'
+  reduction: 'none'
+  eps: 0.000001 # 1e-6
+  # reduction: 'mean'
 
 
 BBoxAssigner:
