@@ -7,12 +7,12 @@ TrainDataset:
     # image_dir: dataset
     anno_path: ['coco/annotations/instances_train2017.json.csv',
                 'obj365/annos/zhiyuan_objv2_train.json.csv',
-                'oid/annos/oidv6-train-annotations-bbox.csv-tmp.csv']
+                'oid/full/annos/oidv6-train-annotations-bbox.csv-tmp.csv']
 
     data_fields: ['image', 'gt_bbox', 'gt_class',]
 
     use_cache: True
-    cache_file: '/paddle/dataset/cache.pkl'
+    cache_file: '/root/dataset/cache.pkl'
 
 
 EvalDataset:

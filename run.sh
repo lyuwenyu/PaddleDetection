@@ -5,7 +5,7 @@ pip install -r requirements.txt
 
 
 fleetrun \
---ips="ip1,ip2" \
+--ips="ip1,ip2,ip3" \
 --selected_gpu 0,1,2,3,4,5,6,7 \
 tools/train.py \
 --fleet  \
