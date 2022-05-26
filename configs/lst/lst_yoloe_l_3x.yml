@@ -43,14 +43,14 @@ PPYOLOEHead:
 
 epoch: 60
 LearningRate:
-  base_lr: 0.01  # 8x8
+  base_lr: 0.025  # 20x8
   schedulers:
     - !CosineDecay
       max_epochs: 72
     - !LinearWarmup
       start_factor: 0.
-      # epochs: 1
-      steps: 20000
+      epochs: 1
+      # steps: 10000
 
 OptimizerBuilder:
   optimizer:
