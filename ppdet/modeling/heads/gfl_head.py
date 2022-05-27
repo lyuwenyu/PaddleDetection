@@ -65,8 +65,9 @@ class Integral(nn.Layer):
     def __init__(self, reg_max=16):
         super(Integral, self).__init__()
         self.reg_max = reg_max
-        self.register_buffer('project',
-                             paddle.linspace(0, self.reg_max, self.reg_max + 1))
+        self.register_buffer(
+            'project',
+            paddle.linspace(0, self.reg_max, self.reg_max + 1).unsqueeze(-1))
 
     def forward(self, x):
         """Forward feature from the regression head to get integral result of

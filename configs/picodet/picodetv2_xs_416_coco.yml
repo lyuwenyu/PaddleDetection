@@ -1,0 +1,68 @@
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  '_base_/picodet_v2.yml',
+  '_base_/optimizer_300e.yml',
+  '_base_/picodet_416_reader.yml',
+]
+
+pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/LCNet_x0_35_pretrained.pdparams
+weights: output/picodet_xs_416_coco/best_model
+find_unused_parameters: True
+use_ema: true
+epoch: 300
+snapshot_epoch: 10
+
+LCNet:
+  scale: 0.35
+  feature_maps: [3, 4, 5]
+
+CSPPAN:
+  out_channels: 96
+  use_depthwise: True
+  num_csp_blocks: 1
+  num_features: 3
+
+PicoHeadV2:
+  conv_feat:
+    name: PicoFeat
+    feat_in: 96
+    feat_out: 96
+    num_convs: 3
+    num_fpn_stride: 3
+    norm_type: bn
+    share_cls_reg: True
+    use_se: True
+  feat_in_chan: 96
+  fpn_stride: [8, 16, 32]
+
+TrainReader:
+  sample_transforms:
+  - Decode: {}
+  - Mosaic:
+      prob: 0.8
+      input_dim: [640, 640]
+      degrees: [-10, 10]
+      scale: [0.1, 2.0]
+      shear: [-2, 2]
+      translate: [-0.1, 0.1]
+      enable_mixup: True
+  - AugmentHSV: {is_bgr: False, hgain: 5, sgain: 30, vgain: 30}
+  - RandomFlip: {prob: 0.5}
+  batch_transforms:
+  - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512], random_size: True, random_interp: True, keep_ratio: False}
+  - Permute: {}
+  - PadGT: {}
+  shuffle: true
+  drop_last: true
+  batch_size: 48
+
+LearningRate:
+  base_lr: 0.24
+  schedulers:
+  - !CosineDecay
+    max_epochs: 300
+    min_lr_ratio: 0.05
+    last_plateau_epochs: 30
+  - !ExpWarmup
+    epochs: 2

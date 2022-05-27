@@ -13,7 +13,7 @@
 
 ## 历史版本模型
 
-- 详情请参考：[PicoDet 2021.10版本](./legacy_model/)
+- 详情请参考：[PicoDetV1](./legacy_model/)
 
 ## 简介
 
