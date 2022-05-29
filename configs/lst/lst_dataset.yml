@@ -12,7 +12,7 @@ TrainDataset:
     data_fields: ['image', 'gt_bbox', 'gt_class',]
 
     use_cache: True
-    cache_file: '/root/dataset/cache.pkl'
+    cache_file: '../dataset/cache.pkl'
 
 
 EvalDataset:

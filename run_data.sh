@@ -1,5 +1,7 @@
 # code
 
+# nohup xx. & 
+
 
 git clone https://github.com/lyuwenyu/PaddleDetection.git
 cd PaddleDetection
@@ -7,28 +9,34 @@ git checkout large_scale_model_v1_L
 pip install -r requirements.txt 
 
 
+wget http://10.127.2.149:8000/PaddleDetection.tar                                                                   
+tar -xvf PaddleDetection.tar
+cd PaddleDetection
+git checkout large_scale_model_v1_L
 
+rm dataset -rf 
+ln -s /root/paddlejob/workspace/env_run/lvwenyu01/dataset/ ./dataset        
 
 # data 
 
-mkdir -p ~/dataset 
-cd ~/dataset 
+mkdir -p /root/paddlejob/workspace/env_run/lvwenyu01/dataset 
+cd /root/paddlejob/workspace/env_run/lvwenyu01/dataset 
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/cache.pkl
 
 
-mkdir -p ~/dataset/coco/
-cd ~/dataset/coco/
+mkdir -p /root/paddlejob/workspace/env_run/lvwenyu01/dataset/coco/
+cd /root/paddlejob/workspace/env_run/lvwenyu01/dataset/coco/
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/coco/train2017.zip
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/coco/val2017.zip
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/coco/annotations.zip
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/coco/annotations/instances_train2017.json.csv
 ls *.zip | xargs -n1 unzip -q 
 mv instances_train2017.json.csv annotations/
+rm *.zip  -rf 
 
 
-
-mkdir -p ~/dataset/obj365/
-cd ~/dataset/obj365/
+mkdir -p /root/paddlejob/workspace/env_run/lvwenyu01/dataset/obj365/
+cd /root/paddlejob/workspace/env_run/lvwenyu01/dataset/obj365/
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/obj365/train/train.tar
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/obj365/val/val.tar
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/obj365/annos/annos.tar
@@ -38,7 +46,8 @@ wget --no-proxy http://10.21.226.186:8787/workspace/dataset/obj365/annos/annos.t
 mkdir annos; tar -xvf annos.tar -C ./annos
 
 mkdir train; tar -xvf train.tar -C ./train 
-cd train; ls *.tar.gz | xargs -n1 tar -xf; cd ..
+cd train; ls *.tar.gz | xargs -n1 tar -xf; rm *.tar.gz; cd ..
+rm *.tar -rf
 
 
 # mkdir val
@@ -50,8 +59,9 @@ cd train; ls *.tar.gz | xargs -n1 tar -xf; cd ..
 
 
 
-mkdir -p ~/dataset/oid/full
-cd ~/dataset/oid/full
+mkdir -p /root/paddlejob/workspace/env_run/lvwenyu01/dataset/oid/full
+cd /root/paddlejob/workspace/env_run/lvwenyu01/dataset/oid/full
+
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/oid/full/annos.tar.gz
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/oid/full/test.tar.gz
 wget --no-proxy http://10.21.226.186:8787/workspace/dataset/oid/full/train_0.tar.gz
@@ -82,5 +92,7 @@ wget --no-proxy http://10.21.226.186:8787/workspace/dataset/oid/full/validation.
 mkdir train
 ls train_*.tar.gz | xargs -i tar -xvf {} --strip-components 1 -C train/
 
+
+rm *.tar.gz -rf
 
 
