@@ -2,6 +2,11 @@
 
 # nohup xx. & 
 
+wget http://10.127.2.149:8000/anaconda3.sh
+bash ./anaconda3.sh -b -p /root/paddlejob/workspace/env_run/lvwenyu01/anaconda3
+
+./anaconda3/bin/pip install paddlepaddle-gpu==2.2.2
+
 
 git clone https://github.com/lyuwenyu/PaddleDetection.git
 cd PaddleDetection
@@ -9,13 +14,16 @@ git checkout large_scale_model_v1_L
 pip install -r requirements.txt 
 
 
-wget http://10.127.2.149:8000/PaddleDetection.tar                                                                   
+# wget http://10.127.2.149:8000/PaddleDetection.tar  
+wget http://10.127.44.151:8000/PaddleDetection.tar  
+
 tar -xvf PaddleDetection.tar
 cd PaddleDetection
 git checkout large_scale_model_v1_L
 
 rm dataset -rf 
 ln -s /root/paddlejob/workspace/env_run/lvwenyu01/dataset/ ./dataset        
+
 
 # data 
 
@@ -44,10 +52,10 @@ wget --no-proxy http://10.21.226.186:8787/workspace/dataset/obj365/annos/annos.t
 # wget --no-proxy http://10.21.226.186:8787/workspace/dataset/obj365/annos/zhiyuan_objv2_train.json
 # wget --no-proxy http://10.21.226.186:8787/workspace/dataset/obj365/annos/zhiyuan_objv2_train.json.csv
 mkdir annos; tar -xvf annos.tar -C ./annos
-
 mkdir train; tar -xvf train.tar -C ./train 
-cd train; ls *.tar.gz | xargs -n1 tar -xf; rm *.tar.gz; cd ..
 rm *.tar -rf
+
+cd train; ls *.tar.gz | xargs -n1 tar -xf; rm *.tar.gz; cd ..
 
 
 # mkdir val
@@ -88,10 +96,10 @@ wget --no-proxy http://10.21.226.186:8787/workspace/dataset/oid/full/validation.
 # mv train_*/* ./train
 # find train_*/ -name "*.jpg" | xargs -i cp {} train
 # find train_*/ -name "*.jpg" | xargs -i mv {} train/
+tar -xvf annos.tar.gz  
 
 mkdir train
 ls train_*.tar.gz | xargs -i tar -xvf {} --strip-components 1 -C train/
-
 
 rm *.tar.gz -rf
 

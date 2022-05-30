@@ -11,7 +11,7 @@ ema_decay: 0.9998
 num_classes: 800
 
 log_iter: 100
-snapshot_epoch: 1
+snapshot_epoch: 2
 weights: output/lst_yoloe_l_3x/model_final
 
 depth_mult: 1.0
@@ -22,7 +22,7 @@ PPYOLOEHead:
   fpn_strides: [32, 16, 8]
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
-  static_assigner_epoch: 20  # epoch/3
+  static_assigner_epoch: 40  # epoch/3
   use_varifocal_loss: True
   loss_weight: {class: 1.0, iou: 2.5, dfl: 0.5}
   static_assigner:
@@ -41,16 +41,16 @@ PPYOLOEHead:
     nms_threshold: 0.6
 
 
-epoch: 60
+epoch: 120
 LearningRate:
-  base_lr: 0.025  # 20x8
+  base_lr: 0.08  # 4 * 16x8
   schedulers:
     - !CosineDecay
-      max_epochs: 72
+      max_epochs: 144 # + 1/5
     - !LinearWarmup
       start_factor: 0.
-      epochs: 1
-      # steps: 10000
+      epochs: 2
+
 
 OptimizerBuilder:
   optimizer:
