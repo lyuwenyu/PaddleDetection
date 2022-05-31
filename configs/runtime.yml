@@ -3,7 +3,7 @@ use_xpu: false
 log_iter: 20
 save_dir: output
 snapshot_epoch: 1
-print_flops: false
+print_flops_params: false   # Whether print model flops and params or not
 
 # Exporting the model
 export:

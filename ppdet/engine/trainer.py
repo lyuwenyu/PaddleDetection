@@ -415,10 +415,11 @@ class Trainer(object):
             self.cfg.log_iter, fmt='{avg:.4f}')
         self.status['training_staus'] = stats.TrainingStats(self.cfg.log_iter)
 
-        if self.cfg.get('print_flops', False):
+        if self.cfg.get('print_flops_params', False):
             flops_loader = create('{}Reader'.format(self.mode.capitalize()))(
                 self.dataset, self.cfg.worker_num)
             self._flops(flops_loader)
+            self._params()
         profiler_options = self.cfg.get('profiler_options', None)
 
         self._compose_callback.on_train_begin(self.status)
@@ -523,10 +524,11 @@ class Trainer(object):
         self._compose_callback.on_epoch_begin(self.status)
         self.status['mode'] = 'eval'
         self.model.eval()
-        if self.cfg.get('print_flops', False):
+        if self.cfg.get('print_flops_params', False):
             flops_loader = create('{}Reader'.format(self.mode.capitalize()))(
                 self.dataset, self.cfg.worker_num, self._eval_batch_sampler)
             self._flops(flops_loader)
+            self._params()
         for step_id, data in enumerate(loader):
             self.status['step_id'] = step_id
             self._compose_callback.on_step_begin(self.status)
@@ -611,9 +613,10 @@ class Trainer(object):
         # Run Infer 
         self.status['mode'] = 'test'
         self.model.eval()
-        if self.cfg.get('print_flops', False):
+        if self.cfg.get('print_flops_params', False):
             flops_loader = create('TestReader')(self.dataset, 0)
             self._flops(flops_loader)
+            self._params()
         results = []
         for step_id, data in enumerate(tqdm(loader)):
             self.status['step_id'] = step_id
@@ -869,3 +872,10 @@ class Trainer(object):
             logger.info("Found {} inference images in total.".format(
                 len(images)))
         return all_images
+
+    def _params(self):
+        params = sum([
+            p.numel() for n, p in self.model.named_parameters()
+            if all([x not in n for x in ['_mean', '_variance']])
+        ])  # exclude BatchNorm running status
+        logger.info('Model Params: {:.6f}M'.format(params))
