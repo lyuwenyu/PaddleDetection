@@ -43,7 +43,7 @@ PPYOLOEHead:
 
 epoch: 120
 LearningRate:
-  base_lr: 0.08  # 4 * 16x8
+  base_lr: 0.05  # 4 * 16x8 - > 0.08 (nan)
   schedulers:
     - !CosineDecay
       max_epochs: 144 # + 1/5
