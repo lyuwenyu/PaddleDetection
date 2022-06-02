@@ -9,7 +9,6 @@ pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/CSPResNetb_l
 use_ema: true
 ema_decay: 0.9998
 
-# num_classes: 800
 
 log_iter: 100
 snapshot_epoch: 2
