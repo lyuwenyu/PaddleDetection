@@ -30,3 +30,4 @@ from .sniper_coco import SniperCOCODataSet
 from .dataset import ImageFolder
 
 from .plain import *
+from .obj365 import Obj365DataSet

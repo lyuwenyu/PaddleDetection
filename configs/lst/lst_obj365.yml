@@ -3,7 +3,7 @@ metric: COCO
 num_classes: 365
 
 TrainDataset:
-  !COCODataSet
+  !Obj365DataSet
     image_dir: train
     anno_path: annos/zhiyuan_objv2_train.json
     dataset_dir: dataset/obj365
@@ -23,7 +23,7 @@ TrainDataset:
 
 
 EvalDataset:
-  !COCODataSet
+  !Obj365DataSet
     image_dir: val
     anno_path: annos/zhiyuan_objv2_val.json
     dataset_dir: dataset/obj365
