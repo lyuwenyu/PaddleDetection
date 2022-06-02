@@ -16,8 +16,8 @@ unset TRAINER_INSTANCES_NUM
 unset TRAINER_HOSTS
 
 
-# cfg="configs/lst/lst_yoloe_l_3x.yml"
-cfg="configs/faster_rcnn/faster_rcnn_r50_vd_fpn_2x_coco.yml"
+cfg="configs/lst/lst_yoloe_l_3x.yml"
+# cfg="configs/faster_rcnn/faster_rcnn_r50_vd_fpn_2x_coco.yml"
 
 
 fleetrun \
@@ -29,4 +29,5 @@ tools/train.py \
 --amp \
 --eval &>logs.txt 2>&1 & 
 
+# --amp \
 # -o weights=https://paddledet.bj.bcebos.com/models/ppyoloe_crn_l_300e_coco.pdparams

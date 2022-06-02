@@ -1,6 +1,7 @@
 _BASE_: [
   '../runtime.yml',
   './lst_dataset.yml',
+  # './lst_obj365.yml',
   '../ppyoloe/_base_/ppyoloe_crn.yml',
 ]
 pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/CSPResNetb_l_pretrained.pdparams
@@ -8,7 +9,7 @@ pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/CSPResNetb_l
 use_ema: true
 ema_decay: 0.9998
 
-num_classes: 800
+# num_classes: 800
 
 log_iter: 100
 snapshot_epoch: 2

@@ -53,9 +53,12 @@ wget --no-proxy http://10.21.226.186:8787/workspace/dataset/obj365/annos/annos.t
 # wget --no-proxy http://10.21.226.186:8787/workspace/dataset/obj365/annos/zhiyuan_objv2_train.json.csv
 mkdir annos; tar -xvf annos.tar -C ./annos
 mkdir train; tar -xvf train.tar -C ./train 
+mkdir val; tar -xvf val.tar -C ./val 
+
 rm *.tar -rf
 
 cd train; ls *.tar.gz | xargs -n1 tar -xf; rm *.tar.gz; cd ..
+cd val; ls *.tar.gz | xargs -n1 tar -xf; rm *.tar.gz; cd ..
 
 
 # mkdir val

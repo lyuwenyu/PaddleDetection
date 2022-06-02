@@ -1,32 +1,32 @@
 metric: COCO
 
-num_classes: 800
+num_classes: 365
 
 TrainDataset:
-  !PlainDetDataSet
-    dataset_dir: dataset
-    # image_dir: dataset
-    anno_path: ['coco/annotations/instances_train2017.json.csv',
-                'obj365/annos/zhiyuan_objv2_train.json.csv',
-                'oid/full/annos/oidv6-train-annotations-bbox.csv-tmp.csv']
+  !COCODataSet
+    image_dir: train
+    anno_path: annos/zhiyuan_objv2_train.json
+    dataset_dir: dataset/obj365
+    data_fields: ['image', 'gt_bbox', 'gt_class', 'is_crowd']
 
-    data_fields: ['image', 'gt_bbox', 'gt_class',]
 
-    use_cache: True
-    cache_file: '../dataset/cache.pkl'
+# TrainDataset:
+#   !PlainDetDataSet
+#     dataset_dir: dataset
+#     # image_dir: dataset
+#     anno_path: ['coco/annotations/instances_train2017.json.csv',
+#                 'obj365/annos/zhiyuan_objv2_train.json.csv',
+#                 'oid/full/annos/oidv6-train-annotations-bbox.csv-tmp.csv']
+#     data_fields: ['image', 'gt_bbox', 'gt_class',]
+#     use_cache: True
+#     cache_file: '../dataset/cache.pkl'
 
 
 EvalDataset:
   !COCODataSet
-    image_dir: val2017
-    anno_path: annotations/instances_val2017.json
-    dataset_dir: dataset/coco
-
-EvalDataset:
-  !COCODataSet
-    image_dir: val2017
-    anno_path: annotations/instances_val2017.json
-    dataset_dir: dataset/coco
+    image_dir: val
+    anno_path: annos/zhiyuan_objv2_val.json
+    dataset_dir: dataset/obj365
 
 
 worker_num: 4
@@ -36,9 +36,8 @@ eval_size: &eval_size [*eval_height, *eval_width]
 
 TrainReader:
   sample_transforms:
-    # - Decode: {}
-    - PlainDecode: {normalized: True}
-
+    - Decode: {}
+    # - PlainDecode: {normalized: True}
     - RandomDistort: {}
     - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
     - RandomCrop: {}
