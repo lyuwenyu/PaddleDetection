@@ -26,8 +26,9 @@ fleetrun \
 tools/train.py \
 -c ${cfg} \
 --fleet  \
---amp \
 --eval &>logs.txt 2>&1 & 
 
 # --amp \
 # -o weights=https://paddledet.bj.bcebos.com/models/ppyoloe_crn_l_300e_coco.pdparams
+
+
