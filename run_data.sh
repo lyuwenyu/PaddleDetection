@@ -60,6 +60,10 @@ rm *.tar -rf
 cd train; ls *.tar.gz | xargs -n1 tar -xf; rm *.tar.gz; cd ..
 cd val; ls *.tar.gz | xargs -n1 tar -xf; rm *.tar.gz; cd ..
 
+mkdir images
+ln -s /root/paddlejob/workspace/env_run/lvwenyu01/dataset/obj365/train ./images/v2 
+ln -s /root/paddlejob/workspace/env_run/lvwenyu01/dataset/obj365/val ./images/v1
+
 
 # mkdir val
 # tar -xvf val.tar -C ./val  
