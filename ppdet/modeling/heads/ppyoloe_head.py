@@ -18,7 +18,7 @@ import paddle.nn.functional as F
 from ppdet.core.workspace import register
 
 from ..bbox_utils import batch_distance2bbox
-from ..losses import GIoULoss
+from ..losses import GIoULoss, SIoULoss
 from ..initializer import bias_init_with_prob, constant_, normal_
 from ..assigners.utils import generate_anchors_for_grid_cell
 from ppdet.modeling.backbones.cspresnet import ConvBNLayer
