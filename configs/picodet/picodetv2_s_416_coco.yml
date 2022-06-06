@@ -34,6 +34,8 @@ PicoHeadV2:
     share_cls_reg: True
     use_se: True
   feat_in_chan: 96
+  # loss_bbox: GIoULoss
+  loss_bbox: SIoULoss
 
 TrainReader:
   batch_size: 40
