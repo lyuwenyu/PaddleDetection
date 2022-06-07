@@ -4,7 +4,7 @@ _BASE_: [
   # '_base_/optimizer_swin_1x.yml',
   '../faster_rcnn/_base_/faster_rcnn_swin_reader.yml',
 ]
-weights: output/faster_rcnn_vit_base_16_fpn_coco/model_final
+weights: output/faster_rcnn_vit_large_16_fpn_coco/model_final
 
 
 snapshot_epoch: 1
