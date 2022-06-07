@@ -187,7 +187,10 @@ class ConvNormLayer(nn.Layer):
             self.norm = None
 
     def forward(self, inputs):
+        from .backbones.vision_transformer import sync_bn_feat
         out = self.conv(inputs)
+        if sync_bn_feat is not None:
+            out += sync_bn_feat.sum() * 0
         if self.norm is not None:
             out = self.norm(out)
         return out
@@ -1437,7 +1440,7 @@ class ConvMixer(nn.Layer):
         Seq, ActBn = nn.Sequential, lambda x: Seq(x, nn.GELU(), nn.BatchNorm2D(dim))
         Residual = type('Residual', (Seq, ),
                         {'forward': lambda self, x: self[0](x) + x})
-        return Seq(* [
+        return Seq(*[
             Seq(Residual(
                 ActBn(
                     nn.Conv2D(

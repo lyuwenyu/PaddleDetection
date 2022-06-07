@@ -30,6 +30,9 @@ from ppdet.core.workspace import register, serializable
 
 zeros_ = Constant(value=0.)
 
+global sync_bn_feat
+sync_bn_feat = None
+
 
 class Mlp(nn.Layer):
     def __init__(self,
@@ -751,6 +754,10 @@ class VisionTransformer(nn.Layer):
         fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4]
         for i in range(len(feats)):
             feats[i] = fpns[i](feats[i])
+
+            if i == 0:
+                global sync_bn_feat
+                sync_bn_feat = feats[0]
 
         return feats
 
