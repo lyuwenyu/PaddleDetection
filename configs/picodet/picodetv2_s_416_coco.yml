@@ -37,6 +37,13 @@ PicoHeadV2:
   # loss_bbox: GIoULoss
   loss_bbox: SIoULoss
 
+
+SIoULoss:
+  keep_dim: True
+  theta: 2
+  loss_weight: 1
+
+
 TrainReader:
   batch_size: 40
 
