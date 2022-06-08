@@ -18,6 +18,7 @@ import paddle.nn as nn
 import paddle.nn.functional as F
 import numpy as np
 from paddle.nn.initializer import Constant
+from paddle.distributed.fleet.utils import recompute
 
 # from paddleseg.cvlibs import manager
 # from paddleseg.utils import utils, logger
@@ -405,10 +406,12 @@ class VisionTransformer(nn.Layer):
                  out_indices=[3, 5, 7, 11],
                  use_abs_pos_emb=False,
                  use_sincos_pos_emb=True,
+                 use_checkpoint=False,
                  **args):
         super().__init__()
         self.img_size = img_size
         self.embed_dim = embed_dim
+        self.use_checkpoint = use_checkpoint
 
         self.patch_embed = PatchEmbed(
             img_size=img_size,
@@ -588,10 +591,10 @@ class VisionTransformer(nn.Layer):
         # see discussion at https://github.com/facebookresearch/dino/issues/8
         w0, h0 = w0 + 0.1, h0 + 0.1
 
-        tmp = patch_pos_embed.reshape([
-            1, self.patch_embed.num_patches_w, self.patch_embed.num_patches_h,
-            dim
-        ]).transpose((0, 3, 1, 2))
+        # tmp = patch_pos_embed.reshape([
+        #     1, self.patch_embed.num_patches_w, self.patch_embed.num_patches_h,
+        #     dim
+        # ]).transpose((0, 3, 1, 2))
 
         patch_pos_embed = nn.functional.interpolate(
             patch_pos_embed.reshape([
@@ -704,13 +707,14 @@ class VisionTransformer(nn.Layer):
         if self.pos_embed is not None:
             x = x + self.interpolate_pos_encoding(x, w, h)
 
-#         if paddle.shape(x)[1] == self.pos_embed.shape[1]:
-#             x = x + self.pos_embed
-#         else:
-#             x = x + self.resize_pos_embed(self.pos_embed,
-#                                           (self.pos_h, self.pos_w), x_shape[2:])
+        #         if paddle.shape(x)[1] == self.pos_embed.shape[1]:
+        #             x = x + self.pos_embed
+        #         else:
+        #             x = x + self.resize_pos_embed(self.pos_embed,
+        #                                           (self.pos_h, self.pos_w), x_shape[2:])
 
-# print('pos_embed', x)
+        # print('pos_embed', x)
+
         x = self.pos_drop(x)
 
         #########add by xy
@@ -723,7 +727,11 @@ class VisionTransformer(nn.Layer):
 
         feats = []
         for idx, blk in enumerate(self.blocks):
-            x = blk(x, rel_pos_bias)
+            if self.use_checkpoint:
+                x = recompute(blk, x, rel_pos_bias,
+                              **{"preserve_rng_state": True})
+            else:
+                x = blk(x, rel_pos_bias)
 
             ###########del by xy
             #if self.final_norm and idx == len(self.blocks) - 1:
