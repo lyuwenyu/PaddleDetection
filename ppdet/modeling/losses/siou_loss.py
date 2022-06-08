@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from numpy import angle
 
 import paddle
 import math
@@ -80,10 +81,12 @@ def angle_cost(
     cxb, cyb, _, _ = boxb.unbind(-1)
 
     ch = paddle.maximum(cyb, cya) - paddle.minimum(cyb, cya)
-    sigma = ((cxb - cxa).pow(2) + (cyb - cya).pow(2)).sqrt()
-    # angle = paddle.asin(ch / (sigma + eps))
-    angle = paddle.asin(paddle.clip(ch / (sigma + eps), min=-1, max=1))
+    cw = paddle.maximum(cxb, cxa) - paddle.minimum(cxb, cxa)
 
+    # sigma = ((cxb - cxa).pow(2) + (cyb - cya).pow(2)).sqrt()
+    # angle = paddle.asin(paddle.clip(ch / (sigma + eps), min=-1, max=1))
+
+    angle = paddle.atan2(ch, cw)
     loss_angle = 1 - 2 * paddle.sin(angle - math.pi / 4).pow(2)
 
     return reduction_tensor(loss_angle, reduction=reduction)
@@ -103,13 +106,13 @@ def distance_cost(
     boxa = box_convert(boxa, in_fmt=box_fmt, out_fmt='cxcywh')
     boxb = box_convert(boxb, in_fmt=box_fmt, out_fmt='cxcywh')
 
-    cxa, cya, _, _ = boxa.unbind(-1)
-    cxb, cyb, _, _ = boxb.unbind(-1)
+    cxa, cya, ha, wa = boxa.unbind(-1)
+    cxb, cyb, hb, wb = boxb.unbind(-1)
 
     loss_angle = angle_cost(boxa, boxb, eps=eps, reduction='none')
 
-    ch = paddle.maximum(cyb, cya) - paddle.minimum(cyb, cya)
-    cw = paddle.maximum(cxb, cxa) - paddle.minimum(cxb, cxa)
+    ch = paddle.maximum(cyb, cya) - paddle.minimum(cyb, cya) + (ha + hb) / 2
+    cw = paddle.maximum(cxb, cxa) - paddle.minimum(cxb, cxa) + (wa + wb) / 2
 
     r_x = ((cxb - cxa) / (cw + eps)).pow(2)
     r_y = ((cyb - cya) / (ch + eps)).pow(2)
