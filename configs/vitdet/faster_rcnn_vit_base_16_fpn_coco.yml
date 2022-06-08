@@ -60,6 +60,7 @@ VisionTransformer:
   use_rel_pos_bias: False #
   epsilon: 0.000001 # 1e-6
   out_indices: [3, 5, 7, 11]
+  use_checkpoint: True
   # pretrained: ../params/pretrain_mae_vit_base_mask_0.75_400e.params
 
 
