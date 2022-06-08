@@ -53,6 +53,8 @@ from ppdet.utils.logger import setup_logger
 
 from ppdet.optimizer import create_optimizer, polynomial_scheduler, multistep_scheduler
 
+from paddle.distributed.fleet.utils.hybrid_parallel_util import fused_allreduce_gradients
+
 logger = setup_logger('ppdet.engine')
 
 __all__ = ['Trainer']
@@ -486,23 +488,68 @@ class Trainer(object):
                 self.optimizer.set_lr(self.lr_scheduler_values[epoch_id * len(
                     self.loader) + step_id])
 
+                # if self.cfg.get('amp', False):
+                #     with amp.auto_cast(enable=self.cfg.use_gpu):
+                #         # model forward
+                #         outputs = model(data)
+                #         loss = outputs['loss']
+
+                #     # model backward
+                #     scaled_loss = scaler.scale(loss)
+                #     scaled_loss.backward()
+                #     # in dygraph mode, optimizer.minimize is equal to optimizer.step
+                #     scaler.minimize(self.optimizer, scaled_loss)
+                # else:
+                #     # model forward
+                #     outputs = model(data)
+                #     loss = outputs['loss']
+                #     # model backward
+                #     loss.backward()
+                #     self.optimizer.step()
+
                 if self.cfg.get('amp', False):
-                    with amp.auto_cast(enable=self.cfg.use_gpu):
+                    if isinstance(model, paddle.DataParallel):
+                        with model.no_sync():
+                            with amp.auto_cast(enable=self.cfg.use_gpu):
+                                # model forward
+                                outputs = model(data)
+                                loss = outputs['loss']
+
+                            # model backward
+                            scaled_loss = scaler.scale(loss)
+                            scaled_loss.backward()
+                        fused_allreduce_gradients(
+                            list(model.parameters()), None)
+                    else:
+                        with amp.auto_cast(enable=self.cfg.use_gpu):
+                            # model forward
+                            outputs = model(data)
+                            loss = outputs['loss']
+
+                        # model backward
+                        scaled_loss = scaler.scale(loss)
+                        scaled_loss.backward()
+
+                    # in dygraph mode, optimizer.minimize is equal to optimizer.step
+                    scaler.minimize(self.optimizer, scaled_loss)
+
+                else:
+                    if isinstance(model, paddle.DataParallel):
+                        with model.no_sync():
+                            # model forward
+                            outputs = model(data)
+                            loss = outputs['loss']
+                            # model backward
+                            loss.backward()
+                        fused_allreduce_gradients(
+                            list(model.parameters()), None)
+                    else:
                         # model forward
                         outputs = model(data)
                         loss = outputs['loss']
+                        # model backward
+                        loss.backward()
 
-                    # model backward
-                    scaled_loss = scaler.scale(loss)
-                    scaled_loss.backward()
-                    # in dygraph mode, optimizer.minimize is equal to optimizer.step
-                    scaler.minimize(self.optimizer, scaled_loss)
-                else:
-                    # model forward
-                    outputs = model(data)
-                    loss = outputs['loss']
-                    # model backward
-                    loss.backward()
                     self.optimizer.step()
 
                 curr_lr = self.optimizer.get_lr()
