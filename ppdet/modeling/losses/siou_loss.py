@@ -80,13 +80,13 @@ def angle_cost(
     cxa, cya, _, _ = boxa.unbind(-1)
     cxb, cyb, _, _ = boxb.unbind(-1)
 
-    ch = paddle.maximum(cyb, cya) - paddle.minimum(cyb, cya)
-    cw = paddle.maximum(cxb, cxa) - paddle.minimum(cxb, cxa)
+    ch = (paddle.maximum(cyb, cya) - paddle.minimum(cyb, cya)).clip(min=0)
+    cw = (paddle.maximum(cxb, cxa) - paddle.minimum(cxb, cxa)).clip(min=0)
 
     # sigma = ((cxb - cxa).pow(2) + (cyb - cya).pow(2)).sqrt()
     # angle = paddle.asin(paddle.clip(ch / (sigma + eps), min=-1, max=1))
-
     angle = paddle.atan2(ch, cw)
+
     loss_angle = 1 - 2 * paddle.sin(angle - math.pi / 4).pow(2)
 
     return reduction_tensor(loss_angle, reduction=reduction)
