@@ -34,6 +34,9 @@ zeros_ = Constant(value=0.)
 global sync_bn_feat
 sync_bn_feat = None
 
+# for checkpoint
+paddle.seed(0)
+
 
 class Mlp(nn.Layer):
     def __init__(self,
