@@ -1,3 +1,5 @@
+# FLAGS_allocator_strategy=naive_best_fit
+# FLAGS_use_system_allocator=1
 
 ps aux | grep "tools/train.py" | awk '{print $2}' | xargs kill -9 
 
