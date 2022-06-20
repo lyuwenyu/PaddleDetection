@@ -89,8 +89,8 @@ class AdamWDL(AdamW):
             This parameter is required in dygraph mode. \
             The default value is None in static mode, at this time all parameters will be updated.
         weight_decay (float, optional): The weight decay coefficient, it can be float or Tensor. The default value is 0.01.
-        apply_decay_param_fun (function|None, optional): If it is not None,
-            only tensors that makes apply_decay_param_fun(Tensor.name)==True
+        apply_decay_param_func (function|None, optional): If it is not None,
+            only tensors that makes apply_decay_param_func(Tensor.name)==True
             will be updated. It only works when we want to specify tensors.
             Default: None.
         grad_clip (GradientClipBase, optional): Gradient cliping strategy, it's an instance of
@@ -156,7 +156,7 @@ class AdamWDL(AdamW):
                  epsilon=1e-8,
                  parameters=None,
                  weight_decay=0.01,
-                 apply_decay_param_fun=None,
+                 apply_decay_param_func=None,
                  grad_clip=None,
                  lazy_mode=False,
                  multi_precision=False,
@@ -180,7 +180,7 @@ class AdamWDL(AdamW):
             epsilon=epsilon,
             grad_clip=grad_clip,
             name=name,
-            apply_decay_param_fun=apply_decay_param_fun,
+            apply_decay_param_func=apply_decay_param_func,
             weight_decay=weight_decay,
             lazy_mode=lazy_mode,
             multi_precision=multi_precision)
@@ -224,7 +224,7 @@ def build_adamwdl(model,
         parameters=parameters, learning_rate=lr, weight_decay=weight_decay)
 
     if decay_dict is not None:
-        opt_args['apply_decay_param_fun'] = lambda n: decay_dict[n]
+        opt_args['apply_decay_param_func'] = lambda n: decay_dict[n]
 
     if isinstance(set_param_lr_func, str):
         set_param_lr_func = eval(set_param_lr_func)

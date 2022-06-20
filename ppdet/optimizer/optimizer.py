@@ -27,7 +27,7 @@ import paddle.regularizer as regularizer
 from ppdet.core.workspace import register, serializable
 import copy
 
-from .adamw import AdamWDL, build_adamwdl
+from .adamw import build_adamwdl
 
 __all__ = ['LearningRate', 'OptimizerBuilder']
 
