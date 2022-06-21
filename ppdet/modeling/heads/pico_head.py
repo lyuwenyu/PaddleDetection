@@ -648,8 +648,8 @@ class PicoHeadV2(GFLHead):
             fpn_feats, self.fpn_stride, self.grid_cell_scale, self.cell_offset)
         # anchors, _, num_anchors_list, stride_tensor_list = generate_anchors_for_grid_cell(
         #     fpn_feats, self.fpn_stride, self.grid_cell_scale, self.cell_offset)
-        stride_tensor_list = paddle.split(
-            stride_tensor, num_or_sections=num_anchors_list, axis=0)
+        # stride_tensor_list = paddle.split(
+        #     stride_tensor, num_or_sections=num_anchors_list, axis=0)
 
         centers = bbox_center(anchors)
 
@@ -663,12 +663,12 @@ class PicoHeadV2(GFLHead):
                 pad_gt_mask,
                 bg_index=self.num_classes,
                 gt_scores=gt_scores,
-                pred_bboxes=pred_bboxes.detach() * stride_tensor_list)
+                pred_bboxes=pred_bboxes.detach() * stride_tensor)
 
         else:
             assigned_labels, assigned_bboxes, assigned_scores = self.assigner(
                 pred_scores.detach(),
-                pred_bboxes.detach() * stride_tensor_list,
+                pred_bboxes.detach() * stride_tensor,
                 centers,
                 # num_anchors_list,
                 stride_tensor,
@@ -678,12 +678,12 @@ class PicoHeadV2(GFLHead):
                 bg_index=self.num_classes,
                 gt_scores=gt_scores)
 
-        assigned_bboxes /= stride_tensor_list
+        assigned_bboxes /= stride_tensor
 
         centers_shape = centers.shape
         flatten_centers = centers.expand(
             [num_imgs, centers_shape[0], centers_shape[1]]).reshape([-1, 2])
-        flatten_strides = stride_tensor_list.expand(
+        flatten_strides = stride_tensor.expand(
             [num_imgs, centers_shape[0], 1]).reshape([-1, 1])
         flatten_cls_preds = pred_scores.reshape([-1, self.num_classes])
         flatten_regs = pred_regs.reshape([-1, 4 * (self.reg_max + 1)])
