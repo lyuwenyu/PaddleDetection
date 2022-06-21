@@ -43,6 +43,7 @@ PicoHeadV2:
     topk: 13
     alpha: 1.0
     beta: 6.0
+    center_radius: 2.5
   loss_class:
     name: VarifocalLoss
     use_sigmoid: False
