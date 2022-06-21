@@ -434,27 +434,29 @@ class PicoHeadV2(GFLHead):
     ]
     __shared__ = ['num_classes', 'eval_size']
 
-    def __init__(self,
-                 conv_feat='PicoFeatV2',
-                 dgqp_module=None,
-                 num_classes=80,
-                 fpn_stride=[8, 16, 32],
-                 prior_prob=0.01,
-                 use_align_head=True,
-                 loss_class='VariFocalLoss',
-                 loss_dfl='DistributionFocalLoss',
-                 loss_bbox='GIoULoss',
-                 static_assigner_epoch=60,
-                 static_assigner='ATSSAssigner',
-                 assigner='TaskAlignedAssigner',
-                 reg_max=16,
-                 feat_in_chan=96,
-                 nms=None,
-                 nms_pre=1000,
-                 cell_offset=0,
-                 act='hard_swish',
-                 grid_cell_scale=5.0,
-                 eval_size=None):
+    def __init__(
+            self,
+            conv_feat='PicoFeatV2',
+            dgqp_module=None,
+            num_classes=80,
+            fpn_stride=[8, 16, 32],
+            prior_prob=0.01,
+            use_align_head=True,
+            loss_class='VariFocalLoss',
+            loss_dfl='DistributionFocalLoss',
+            loss_bbox='GIoULoss',
+            static_assigner_epoch=60,
+            static_assigner='ATSSAssigner',
+            assigner='TaskAlignedAssigner',
+            reg_max=16,
+            # reg_range=(-2, 16),
+            feat_in_chan=96,
+            nms=None,
+            nms_pre=1000,
+            cell_offset=0,
+            act='hard_swish',
+            grid_cell_scale=5.0,
+            eval_size=None):
         super(PicoHeadV2, self).__init__(
             conv_feat=conv_feat,
             dgqp_module=dgqp_module,
@@ -642,8 +644,12 @@ class PicoHeadV2(GFLHead):
         num_imgs = gt_meta['im_id'].shape[0]
         pad_gt_mask = gt_meta['pad_gt_mask']
 
-        anchors, _, num_anchors_list, stride_tensor_list = generate_anchors_for_grid_cell(
+        anchors, _, num_anchors_list, stride_tensor = generate_anchors_for_grid_cell(
             fpn_feats, self.fpn_stride, self.grid_cell_scale, self.cell_offset)
+        # anchors, _, num_anchors_list, stride_tensor_list = generate_anchors_for_grid_cell(
+        #     fpn_feats, self.fpn_stride, self.grid_cell_scale, self.cell_offset)
+        stride_tensor_list = paddle.split(
+            stride_tensor, num_or_sections=num_anchors_list, axis=0)
 
         centers = bbox_center(anchors)
 
@@ -664,7 +670,8 @@ class PicoHeadV2(GFLHead):
                 pred_scores.detach(),
                 pred_bboxes.detach() * stride_tensor_list,
                 centers,
-                num_anchors_list,
+                # num_anchors_list,
+                stride_tensor,
                 gt_labels,
                 gt_bboxes,
                 pad_gt_mask,
