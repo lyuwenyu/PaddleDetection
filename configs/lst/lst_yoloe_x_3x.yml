@@ -11,15 +11,16 @@ ema_decay: 0.9998
 
 log_iter: 100
 snapshot_epoch: 10
-weights: output/lst_yoloe_s_3x/model_final
 
-pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/CSPResNetb_s_pretrained.pdparams
-depth_mult: 0.33
-width_mult: 0.50
+weights: output/lst_yoloe_x_3x/model_final
+
+pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/CSPResNetb_x_pretrained.pdparams
+depth_mult: 1.33
+width_mult: 1.25
 
 
 TrainReader:
-  batch_size: 16 # 32
+  batch_size: 8
 
 
 PPYOLOEHead:
@@ -47,7 +48,7 @@ PPYOLOEHead:
 
 epoch: 60
 LearningRate:
-  base_lr: 0.02 # 0.04
+  base_lr: 0.01
   schedulers:
     - !CosineDecay
       max_epochs: 72 # + 1/5
@@ -63,26 +64,3 @@ OptimizerBuilder:
   regularizer:
     factor: 0.0005
     type: L2
-
-
-# epoch: 36 # 24 # 36 53-day
-# LearningRate:
-#   # base_lr: 0.005 # 0.0075
-#   base_lr: 0.00333 # 0.0075  8 vs 12
-#   schedulers:
-#   - !PiecewiseDecay
-#     gamma: 0.1
-#     milestones:
-#     - 24 # 16 # 24
-#   - !LinearWarmup
-#     start_factor: 0.
-#     steps: 10000
-
-# OptimizerBuilder:
-#   clip_grad_by_norm: 35.
-#   optimizer:
-#     momentum: 0.9
-#     type: Momentum
-#   regularizer:
-#     factor: 0.0005
-#     type: L2
