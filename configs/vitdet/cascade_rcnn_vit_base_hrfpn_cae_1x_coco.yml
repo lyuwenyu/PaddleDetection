@@ -31,7 +31,7 @@ CascadeRCNN:
   backbone: VisionTransformer
   neck: HRFPN
   rpn_head: RPNHead
-  bbox_head: CascadeHeadL
+  bbox_head: CascadeHead
   # post process
   bbox_post_process: BBoxPostProcess
 
@@ -111,7 +111,7 @@ BBoxAssigner:
 
 CascadeXConvNormHead:
     norm_type: bn
-    reset_initialized_parameter: False
+    # reset_initialized_parameter: False
 
 
 GIoULoss:
