@@ -22,7 +22,7 @@ PPYOLOEHead:
   fpn_strides: [32, 16, 8]
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
-  static_assigner_epoch: 40  # epoch/3
+  static_assigner_epoch: 20  # epoch/3
   use_varifocal_loss: True
   loss_weight: {class: 1.0, iou: 2.5, dfl: 0.5}
   static_assigner:
@@ -41,15 +41,16 @@ PPYOLOEHead:
     nms_threshold: 0.6
 
 
-epoch: 120
+epoch: 60
+
 LearningRate:
-  base_lr: 0.01  # 4 * 16x8 - > 0.08 (nan)
+  base_lr: 0.01
   schedulers:
     - !CosineDecay
-      max_epochs: 144 # + 1/5
+      max_epochs: 72 # + 1/5
     - !LinearWarmup
       start_factor: 0.
-      epochs: 2
+      epochs: 1 # 60
 
 
 OptimizerBuilder:
@@ -59,6 +60,25 @@ OptimizerBuilder:
   regularizer:
     factor: 0.0005
     type: L2
+
+# epoch: 120
+# LearningRate:
+#   base_lr: 0.01  # 4 * 16x8 - > 0.08 (nan)
+#   schedulers:
+#     - !CosineDecay
+#       max_epochs: 144 # + 1/5
+#     - !LinearWarmup
+#       start_factor: 0.
+#       epochs: 2
+
+
+# OptimizerBuilder:
+#   optimizer:
+#     momentum: 0.9
+#     type: Momentum
+#   regularizer:
+#     factor: 0.0005
+#     type: L2
 
 
 # epoch: 36 # 24 # 36 53-day
