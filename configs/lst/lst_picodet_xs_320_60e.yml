@@ -1,6 +1,6 @@
 _BASE_: [
   '../runtime.yml',
-  '../picodet/picodet_s_416_coco_lcnet.yml',
+  '../picodet/picodet_xs_320_coco_lcnet.yml',
   './lst_dataset_obj365.yml',
 ]
 
@@ -8,7 +8,7 @@ _BASE_: [
 
 log_iter: 100
 snapshot_epoch: 10
-weights: output/lst_picodet_s_416_60e/model_final
+weights: output/lst_picodet_xs_320_60e/model_final
 
 PicoHeadV2:
   static_assigner_epoch: 20
@@ -17,10 +17,10 @@ PicoHeadV2:
 epoch: 60
 
 TrainReader:
-  batch_size: 48
+  batch_size: 64
 
 LearningRate:
-  base_lr: 0.24
+  base_lr: 0.32
   schedulers:
   - !CosineDecay
     max_epochs: 60

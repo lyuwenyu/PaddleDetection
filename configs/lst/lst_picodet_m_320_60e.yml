@@ -1,14 +1,14 @@
 _BASE_: [
   '../runtime.yml',
-  '../picodet/picodet_s_416_coco_lcnet.yml',
+  '../picodet/picodet_m_320_coco_lcnet.yml',
   './lst_dataset_obj365.yml',
 ]
 
 
-
 log_iter: 100
 snapshot_epoch: 10
-weights: output/lst_picodet_s_416_60e/model_final
+weights: output/lst_picodet_m_320_60e/model_final
+
 
 PicoHeadV2:
   static_assigner_epoch: 20

@@ -5,6 +5,10 @@ _BASE_: [
 ]
 
 
+log_iter: 100
+snapshot_epoch: 10
+weights: output/lst_picodet_s_320_60e/model_final
+
 PicoHeadV2:
   static_assigner_epoch: 20
 
@@ -13,7 +17,6 @@ epoch: 60
 
 TrainReader:
   batch_size: 64
-
 
 LearningRate:
   base_lr: 0.32
