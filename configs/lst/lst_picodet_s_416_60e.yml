@@ -1,8 +1,9 @@
 _BASE_: [
   '../runtime.yml',
-  './lst_obj365.yml',
   '../picodet/picodet_s_416_coco_lcnet.yml',
+  './lst_dataset_obj365.yml',
 ]
+
 
 
 PicoHeadV2:

@@ -1,0 +1,18 @@
+metric: COCO
+
+num_classes: 365
+TrainDataset:
+  !Obj365DataSet
+    image_dir: train
+    anno_path: annos/zhiyuan_objv2_train.json
+    dataset_dir: dataset/obj365
+    data_fields: ['image', 'gt_bbox', 'gt_class', 'is_crowd']
+    use_cache: True
+    cache_file: 'cache_train.pkl'
+
+EvalDataset:
+  !Obj365DataSet
+    image_dir: val
+    anno_path: annos/zhiyuan_objv2_val.json
+    dataset_dir: dataset/obj365
+    use_cache: False
