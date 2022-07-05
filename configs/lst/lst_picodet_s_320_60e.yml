@@ -1,0 +1,25 @@
+_BASE_: [
+  '../runtime.yml',
+  './lst_obj365.yml',
+  '../picodet/picodet_s_320_coco_lcnet.yml',
+]
+
+
+
+epoch: 60
+
+TrainReader:
+  batch_size: 64
+
+PicoHeadV2:
+  static_assigner_epoch: 20
+
+
+LearningRate:
+  base_lr: 0.32
+  schedulers:
+  - !CosineDecay
+    max_epochs: 60
+  - !LinearWarmup
+    start_factor: 0.1
+    epochs: 1 # 60
