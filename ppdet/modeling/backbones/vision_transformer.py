@@ -352,7 +352,7 @@ class VisionTransformer(nn.Layer):
         self.final_norm = final_norm
 
         if use_checkpoint:
-            print('please set: FLAGS_allocator_strategy=naive_best_fit')
+            print('please export FLAGS_allocator_strategy=naive_best_fit')
             paddle.seed(0)
 
         self.patch_embed = PatchEmbed(

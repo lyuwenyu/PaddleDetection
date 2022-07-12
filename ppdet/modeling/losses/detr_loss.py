@@ -43,7 +43,8 @@ class DETRLoss(nn.Layer):
                      'dice': 1
                  },
                  aux_loss=True,
-                 use_focal_loss=False):
+                 use_focal_loss=False,
+                 aux_loss_weights=[1., 1., 1., 1., 1.]):
         r"""
         Args:
             num_classes (int): The number of classes.
@@ -66,6 +67,7 @@ class DETRLoss(nn.Layer):
                                                    loss_coeff['class'])
             self.loss_coeff['class'][-1] = loss_coeff['no_object']
         self.giou_loss = GIoULoss()
+        self.aux_loss_weights = aux_loss_weights
 
     def _get_loss_class(self, logits, gt_class, match_indices, bg_index,
                         num_gts):
@@ -143,16 +145,18 @@ class DETRLoss(nn.Layer):
         loss_class = []
         loss_bbox = []
         loss_giou = []
-        for aux_boxes, aux_logits in zip(boxes, logits):
+        for i, (aux_boxes, aux_logits) in enumerate(zip(boxes, logits)):
             match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
                                          gt_class)
             loss_class.append(
                 self._get_loss_class(aux_logits, gt_class, match_indices,
-                                     bg_index, num_gts)['loss_class'])
+                                     bg_index, num_gts)['loss_class'] *
+                self.aux_loss_weights[i])
             loss_ = self._get_loss_bbox(aux_boxes, gt_bbox, match_indices,
                                         num_gts)
-            loss_bbox.append(loss_['loss_bbox'])
-            loss_giou.append(loss_['loss_giou'])
+            loss_bbox.append(loss_['loss_bbox'] * self.aux_loss_weights[i])
+            loss_giou.append(loss_['loss_giou'] * self.aux_loss_weights[i])
+
         loss = {
             'loss_class_aux': paddle.add_n(loss_class),
             'loss_bbox_aux': paddle.add_n(loss_bbox),

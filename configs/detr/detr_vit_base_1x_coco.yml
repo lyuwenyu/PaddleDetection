@@ -88,7 +88,7 @@ DETRHead:
 DETRLoss:
   loss_coeff: {class: 1, bbox: 5, giou: 2, no_object: 0.1, mask: 1, dice: 1}
   aux_loss: True
-
+  aux_loss_weights: [0.1, 0.2, 0.5, 0.5, 0.5]
 
 HungarianMatcher:
   matcher_coeff: {class: 1, bbox: 5, giou: 2}
