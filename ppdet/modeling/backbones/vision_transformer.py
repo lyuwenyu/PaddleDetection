@@ -353,6 +353,8 @@ class VisionTransformer(nn.Layer):
 
         if use_checkpoint:
             print('please set: FLAGS_allocator_strategy=naive_best_fit')
+            paddle.seed(0)
+
         self.patch_embed = PatchEmbed(
             img_size=img_size,
             patch_size=patch_size,

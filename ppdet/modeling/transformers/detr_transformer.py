@@ -337,16 +337,17 @@ class DETRTransformer(nn.Layer):
         else:
             src_mask = paddle.ones([bs, h, w], dtype='bool')
 
-        # pos_embed = self.position_embedding(src_mask).flatten(2).transpose(
-        #     [0, 2, 1])
-
         src_mask = _convert_attention_mask(src_mask, src_flatten.dtype)
         src_mask = src_mask.reshape([bs, 1, 1, -1])
 
-        # memory = self.encoder(
-        #     src_flatten, src_mask=src_mask, pos_embed=pos_embed)
-
-        memory = src_flatten
+        if not self.without_encoder:
+            pos_embed = self.position_embedding(src_mask).flatten(2).transpose(
+                [0, 2, 1])
+            memory = self.encoder(
+                src_flatten, src_mask=src_mask, pos_embed=pos_embed)
+        else:
+            pos_embed = None
+            memory = src_flatten
 
         query_pos_embed = self.query_pos_embed.weight.unsqueeze(0).tile(
             [bs, 1, 1])
@@ -355,8 +356,7 @@ class DETRTransformer(nn.Layer):
             tgt,
             memory,
             memory_mask=src_mask,
-            # pos_embed=pos_embed,
-            pos_embed=None,
+            pos_embed=pos_embed,
             query_pos_embed=query_pos_embed)
 
         return (output, memory.transpose([0, 2, 1]).reshape([bs, c, h, w]),

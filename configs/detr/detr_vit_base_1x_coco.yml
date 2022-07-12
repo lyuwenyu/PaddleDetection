@@ -63,6 +63,7 @@ VisionTransformer:
   out_indices: [11, ]
   # out_indices: [3, 5, 7, 11]
   with_fpn: False
+  use_checkpoint: True
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
 
 
@@ -75,7 +76,10 @@ DETRTransformer:
   dim_feedforward: 1024 # 2048
   dropout: 0.1
   activation: gelu
+  backbone_num_channels: 768
+  hidden_dim: 256
   without_encoder: True
+
 
 DETRHead:
   num_mlp_layers: 3
