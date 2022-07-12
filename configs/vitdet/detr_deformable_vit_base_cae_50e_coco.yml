@@ -42,6 +42,7 @@ OptimizerBuilder:
 architecture: DETR
 
 hidden_dim: 256
+use_focal_loss: True
 
 DETR:
   backbone: VisionTransformer
