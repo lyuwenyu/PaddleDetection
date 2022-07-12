@@ -251,7 +251,8 @@ class DETRTransformer(nn.Layer):
                  activation="relu",
                  attn_dropout=None,
                  act_dropout=None,
-                 normalize_before=False):
+                 normalize_before=False,
+                 without_encoder=False):
         super(DETRTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'],\
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -320,7 +321,10 @@ class DETRTransformer(nn.Layer):
             memory (Tensor): [batch_size, hidden_dim, h, w]
         """
         # use last level feature map
-        src_proj = self.input_proj(src[-1])
+        # src_proj = self.input_proj(src[-1])
+
+        src_proj = src[-1]
+
         bs, c, h, w = src_proj.shape
         # flatten [B, C, H, W] to [B, HxW, C]
         src_flatten = src_proj.flatten(2).transpose([0, 2, 1])
@@ -330,14 +334,17 @@ class DETRTransformer(nn.Layer):
                 size=(h, w))[0].astype('bool')
         else:
             src_mask = paddle.ones([bs, h, w], dtype='bool')
+
         pos_embed = self.position_embedding(src_mask).flatten(2).transpose(
             [0, 2, 1])
 
         src_mask = _convert_attention_mask(src_mask, src_flatten.dtype)
         src_mask = src_mask.reshape([bs, 1, 1, -1])
 
-        memory = self.encoder(
-            src_flatten, src_mask=src_mask, pos_embed=pos_embed)
+        # memory = self.encoder(
+        #     src_flatten, src_mask=src_mask, pos_embed=pos_embed)
+
+        memory = src_proj
 
         query_pos_embed = self.query_pos_embed.weight.unsqueeze(0).tile(
             [bs, 1, 1])
@@ -346,7 +353,8 @@ class DETRTransformer(nn.Layer):
             tgt,
             memory,
             memory_mask=src_mask,
-            pos_embed=pos_embed,
+            # pos_embed=pos_embed,
+            pos_embed=None,
             query_pos_embed=query_pos_embed)
 
         return (output, memory.transpose([0, 2, 1]).reshape([bs, c, h, w]),
