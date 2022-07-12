@@ -258,13 +258,16 @@ class DETRTransformer(nn.Layer):
             f'ValueError: position_embed_type not supported {position_embed_type}!'
         self.hidden_dim = hidden_dim
         self.nhead = nhead
+        self.without_encoder = without_encoder
 
-        encoder_layer = TransformerEncoderLayer(
-            hidden_dim, nhead, dim_feedforward, dropout, activation,
-            attn_dropout, act_dropout, normalize_before)
-        encoder_norm = nn.LayerNorm(hidden_dim) if normalize_before else None
-        self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers,
-                                          encoder_norm)
+        if not without_encoder:
+            encoder_layer = TransformerEncoderLayer(
+                hidden_dim, nhead, dim_feedforward, dropout, activation,
+                attn_dropout, act_dropout, normalize_before)
+            encoder_norm = nn.LayerNorm(
+                hidden_dim) if normalize_before else None
+            self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers,
+                                              encoder_norm)
 
         decoder_layer = TransformerDecoderLayer(
             hidden_dim, nhead, dim_feedforward, dropout, activation,
@@ -321,9 +324,8 @@ class DETRTransformer(nn.Layer):
             memory (Tensor): [batch_size, hidden_dim, h, w]
         """
         # use last level feature map
-        # src_proj = self.input_proj(src[-1])
-
-        src_proj = src[-1]
+        src_proj = self.input_proj(src[-1])
+        # src_proj = src[-1]
 
         bs, c, h, w = src_proj.shape
         # flatten [B, C, H, W] to [B, HxW, C]
