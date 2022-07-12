@@ -367,7 +367,8 @@ class DeformableTransformer(nn.Layer):
                  activation="relu",
                  lr_mult=0.1,
                  weight_attr=None,
-                 bias_attr=None):
+                 bias_attr=None,
+                 without_encoder=False):
         super(DeformableTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -376,12 +377,14 @@ class DeformableTransformer(nn.Layer):
         self.hidden_dim = hidden_dim
         self.nhead = nhead
         self.num_feature_levels = num_feature_levels
+        self.without_encoder = without_encoder
 
-        encoder_layer = DeformableTransformerEncoderLayer(
-            hidden_dim, nhead, dim_feedforward, dropout, activation,
-            num_feature_levels, num_encoder_points, weight_attr, bias_attr)
-        self.encoder = DeformableTransformerEncoder(encoder_layer,
-                                                    num_encoder_layers)
+        if not without_encoder:
+            encoder_layer = DeformableTransformerEncoderLayer(
+                hidden_dim, nhead, dim_feedforward, dropout, activation,
+                num_feature_levels, num_encoder_points, weight_attr, bias_attr)
+            self.encoder = DeformableTransformerEncoder(encoder_layer,
+                                                        num_encoder_layers)
 
         decoder_layer = DeformableTransformerDecoderLayer(
             hidden_dim, nhead, dim_feedforward, dropout, activation,
@@ -499,8 +502,11 @@ class DeformableTransformer(nn.Layer):
         valid_ratios = paddle.stack(valid_ratios, 1)
 
         # encoder
-        memory = self.encoder(src_flatten, spatial_shapes, mask_flatten,
-                              lvl_pos_embed_flatten, valid_ratios)
+        if not self.without_encoder:
+            memory = self.encoder(src_flatten, spatial_shapes, mask_flatten,
+                                  lvl_pos_embed_flatten, valid_ratios)
+        else:
+            memory = src_flatten
 
         # prepare input for decoder
         bs, _, c = memory.shape

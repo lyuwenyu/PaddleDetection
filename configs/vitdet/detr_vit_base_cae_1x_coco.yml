@@ -3,12 +3,12 @@ _BASE_: [
   '../runtime.yml',
   # '_base_/optimizer_1x.yml',
   # '_base_/detr_r50.yml',
-  '_base_/detr_reader.yml',
+  '../detr/_base_/detr_reader.yml',
 ]
-weights: output/detr_vit_base_1x_coco/model_final
+weights: output/detr_vit_base_cae_1x_coco/model_final
 
 TrainReader:
-  batch_size: 2
+  batch_size: 1
 
 epoch: 12
 log_iter: 20
