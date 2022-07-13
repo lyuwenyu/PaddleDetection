@@ -618,15 +618,18 @@ class VisionTransformer(nn.Layer):
 
         outputs = []
         if self.with_fpn:
-            fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4]
+            fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4][
+                -self.num_features:]
             if self.use_last_feature:
                 for m in fpns:
                     outputs.append(m(feats[-1]))
             else:
-                for i in range(len(feats)):
-                    outputs.append(fpns[i](feats[i]))
+                # for i in range(len(feats)):
+                #     outputs.append(fpns[i](feats[i]))
+                for m, f in zip(fpns[::-1], feats[::-1]):
+                    outputs.insert(0, m(f))
 
-        return outputs[-self.num_features:]
+        return outputs
 
     @property
     def num_layers(self):
