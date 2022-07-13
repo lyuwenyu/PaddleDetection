@@ -1,7 +1,9 @@
 _BASE_: [
   '../datasets/coco_detection.yml',
   '../runtime.yml',
+  './_base_/reader.yml',
 ]
+
 use_gpu: false
 
 architecture: Backbone
@@ -25,5 +27,5 @@ VisionTransformer:
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
   out_indices: [3, 5, 7, 11]
-  with_fpn: True
+  with_fpn: False
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
