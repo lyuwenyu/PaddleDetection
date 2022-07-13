@@ -44,7 +44,7 @@ from utils import argsparser, Timer, get_current_memory_mb
 SUPPORT_MODELS = {
     'YOLO', 'RCNN', 'SSD', 'Face', 'FCOS', 'SOLOv2', 'TTFNet', 'S2ANet', 'JDE',
     'FairMOT', 'DeepSORT', 'GFL', 'PicoDet', 'CenterNet', 'TOOD', 'RetinaNet',
-    'StrongBaseline', 'STGCN', 'YOLOX', 'PPHGNet'
+    'StrongBaseline', 'STGCN', 'YOLOX', 'PPHGNet', 'Backbone'
 }
 
 
