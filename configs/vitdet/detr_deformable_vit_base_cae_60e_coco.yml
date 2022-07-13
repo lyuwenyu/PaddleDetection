@@ -11,10 +11,14 @@ TrainReader:
   batch_size: 1
 
 
+
+
 epoch: 60
 log_iter: 20
 snapshot_epoch: 1
 find_unused_parameters: True
+fused_allreduce_gradients: &use_checkpoint False
+
 
 LearningRate:
   base_lr: 0.0001
@@ -101,5 +105,5 @@ VisionTransformer:
   with_fpn: True
   use_last_feature: True
 
-  use_checkpoint: True
+  use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
