@@ -342,6 +342,7 @@ class VisionTransformer(nn.Layer):
                  with_fpn=True,
                  use_checkpoint=False,
                  use_last_feature=False,
+                 num_features=None,
                  **args):
         super().__init__()
         self.img_size = img_size
@@ -352,6 +353,7 @@ class VisionTransformer(nn.Layer):
         self.use_rel_pos_bias = use_rel_pos_bias
         self.final_norm = final_norm
         self.use_last_feature = use_last_feature
+        self.num_features = 0 if num_features is None else num_features
 
         if use_checkpoint:
             print('please export FLAGS_allocator_strategy=naive_best_fit')
@@ -480,6 +482,7 @@ class VisionTransformer(nn.Layer):
             self.fpn3 = Identity()
 
             self.fpn4 = nn.MaxPool2D(kernel_size=2, stride=2)
+
         elif patch_size == 8:
             self.fpn1 = nn.Sequential(
                 nn.Conv2DTranspose(
@@ -623,7 +626,7 @@ class VisionTransformer(nn.Layer):
                 for i in range(len(feats)):
                     outputs.append(fpns[i](feats[i]))
 
-        return outputs
+        return outputs[-self.num_features:]
 
     @property
     def num_layers(self):
