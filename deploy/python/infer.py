@@ -31,6 +31,8 @@ import sys
 parent_path = os.path.abspath(os.path.join(__file__, *(['..'])))
 sys.path.insert(0, parent_path)
 
+# paddle.device.cuda.synchronize()
+
 from benchmark_utils import PaddleInferBenchmark
 from picodet_postprocess import PicoDetPostProcess
 from preprocess import preprocess, Resize, NormalizeImage, Permute, PadStride, LetterBoxResize, WarpAffine, Pad, decode_image
@@ -196,7 +198,11 @@ class Detector(object):
         # model prediction
         np_boxes, np_masks = None, None
         for i in range(repeats):
+
+            # paddle.device.cuda.synchronize()
             self.predictor.run()
+            # paddle.device.cuda.synchronize()
+
             output_names = self.predictor.get_output_names()
             boxes_tensor = self.predictor.get_output_handle(output_names[0])
             np_boxes = boxes_tensor.copy_to_cpu()
@@ -243,10 +249,20 @@ class Detector(object):
                 inputs = self.preprocess(batch_image_list)
                 self.det_times.preprocess_time_s.end()
 
+                # TODO by lyuwenyu
                 # model prediction
                 result = self.predict(repeats=50)  # warmup
+
+                paddle.device.cuda.synchronize()
+
                 self.det_times.inference_time_s.start()
-                result = self.predict(repeats=repeats)
+
+                # result = self.predict(repeats=repeats)
+
+                for i in range(repeats):
+                    self.predictor.run()
+                    paddle.device.cuda.synchronize()
+
                 self.det_times.inference_time_s.end(repeats=repeats)
 
                 # postprocess
