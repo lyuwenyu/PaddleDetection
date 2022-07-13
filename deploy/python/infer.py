@@ -266,9 +266,9 @@ class Detector(object):
                 self.det_times.inference_time_s.end(repeats=repeats)
 
                 # postprocess
-                result_warmup = self.postprocess(inputs, result)  # warmup
+                # result_warmup = self.postprocess(inputs, result)  # warmup
                 self.det_times.postprocess_time_s.start()
-                result = self.postprocess(inputs, result)
+                # result = self.postprocess(inputs, result)
                 self.det_times.postprocess_time_s.end()
                 self.det_times.img_num += len(batch_image_list)
 
@@ -276,6 +276,7 @@ class Detector(object):
                 self.cpu_mem += cm
                 self.gpu_mem += gm
                 self.gpu_util += gu
+
             else:
                 # preprocess
                 self.det_times.preprocess_time_s.start()

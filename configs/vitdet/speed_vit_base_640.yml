@@ -4,8 +4,21 @@ _BASE_: [
   './_base_/reader.yml',
 ]
 
-use_gpu: true
+TestReader:
+  inputs_def:
+    image_shape: [-1, 3, 640, 640]
+  sample_transforms:
+  - Decode: {}
+  - LetterBoxResize: {target_size: 640}
+  - NormalizeImage: {is_scale: true, mean: [0.485,0.456,0.406], std: [0.229, 0.224,0.225]}
+  - Permute: {}
+  batch_size: 1
+  shuffle: false
+  drop_last: false
 
+
+
+use_gpu: true
 architecture: Backbone
 
 Backbone:
