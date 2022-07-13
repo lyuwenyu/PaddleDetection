@@ -62,3 +62,5 @@ from .tood import *
 from .retinanet import *
 from .bytetrack import *
 from .yolox import *
+
+from .backbone import *

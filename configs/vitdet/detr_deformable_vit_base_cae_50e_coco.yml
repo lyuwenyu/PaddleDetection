@@ -11,9 +11,9 @@ TrainReader:
   batch_size: 1
 
 
-epoch: 50
+epoch: 60
 log_iter: 20
-snapshot_epoch: 1
+snapshot_epoch: 5
 find_unused_parameters: True
 
 LearningRate:
@@ -21,7 +21,7 @@ LearningRate:
   schedulers:
   - !PiecewiseDecay
     gamma: 0.1
-    milestones: [38, 46]
+    milestones: [45, 55]
   - !LinearWarmup
     start_factor: 0.001
     steps: 2000
