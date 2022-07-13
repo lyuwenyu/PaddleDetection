@@ -4,7 +4,7 @@ _BASE_: [
   './_base_/reader.yml',
 ]
 
-use_gpu: false
+use_gpu: true
 
 architecture: Backbone
 
