@@ -13,7 +13,7 @@ TrainReader:
 
 epoch: 60
 log_iter: 20
-snapshot_epoch: 5
+snapshot_epoch: 1
 find_unused_parameters: True
 
 LearningRate:
@@ -59,12 +59,13 @@ DeformableTransformer:
   num_decoder_layers: 6
   dim_feedforward: 1024
   dropout: 0.1
-  activation: relu
-  num_feature_levels: 3
+  activation: gelu # relu
   num_encoder_points: 4
   num_decoder_points: 4
-  backbone_num_channels: [768, 768, 768]
+  num_feature_levels: 4
+  backbone_num_channels: [768, 768, 768, 768]
   without_encoder: True
+
 
 DeformableDETRHead:
   num_mlp_layers: 3
@@ -94,8 +95,11 @@ VisionTransformer:
   use_rel_pos_bias: False
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
-  out_indices: [5, 7, 11]
+  out_indices: [3, 5, 7, 11]
   # out_indices: [3, 5, 7, 11]
-  with_fpn: False
+
+  with_fpn: True
+  use_last_feature: True
+
   use_checkpoint: True
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams

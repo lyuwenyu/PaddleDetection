@@ -341,6 +341,7 @@ class VisionTransformer(nn.Layer):
                  use_sincos_pos_emb=True,
                  with_fpn=True,
                  use_checkpoint=False,
+                 use_last_feature=False,
                  **args):
         super().__init__()
         self.img_size = img_size
@@ -350,6 +351,7 @@ class VisionTransformer(nn.Layer):
         self.use_sincos_pos_emb = use_sincos_pos_emb
         self.use_rel_pos_bias = use_rel_pos_bias
         self.final_norm = final_norm
+        self.use_last_feature = use_last_feature
 
         if use_checkpoint:
             print('please export FLAGS_allocator_strategy=naive_best_fit')
@@ -611,12 +613,17 @@ class VisionTransformer(nn.Layer):
                     shape=[B, D, Hp, Wp])
                 feats.append(xp)
 
+        outputs = []
         if self.with_fpn:
             fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4]
-            for i in range(len(feats)):
-                feats[i] = fpns[i](feats[i])
+            if self.use_last_feature:
+                for m in fpns:
+                    outputs.append(m(feats[-1]))
+            else:
+                for i in range(len(feats)):
+                    outputs.append(fpns[i](feats[i]))
 
-        return feats
+        return outputs
 
     @property
     def num_layers(self):
