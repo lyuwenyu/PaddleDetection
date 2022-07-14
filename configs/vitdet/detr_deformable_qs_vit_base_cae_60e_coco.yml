@@ -75,6 +75,7 @@ DeformableTransformer:
 
 DeformableDETRHead:
   num_mlp_layers: 3
+  use_sigmoid: False
 
 
 DETRLoss:

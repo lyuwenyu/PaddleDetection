@@ -298,12 +298,14 @@ class DeformableDETRHead(nn.Layer):
                  hidden_dim=512,
                  nhead=8,
                  num_mlp_layers=3,
-                 loss='DETRLoss'):
+                 loss='DETRLoss',
+                 use_sigmoid=True):
         super(DeformableDETRHead, self).__init__()
         self.num_classes = num_classes
         self.hidden_dim = hidden_dim
         self.nhead = nhead
         self.loss = loss
+        self.use_sigmoid = use_sigmoid
 
         self.score_head = nn.Linear(hidden_dim, self.num_classes)
         self.bbox_head = MLP(hidden_dim,
@@ -339,7 +341,9 @@ class DeformableDETRHead(nn.Layer):
             inputs (dict): dict(inputs)
         """
         feats, memory, reference_points = out_transformer
-        reference_points = inverse_sigmoid(reference_points.unsqueeze(0))
+        if self.use_sigmoid:
+            reference_points = inverse_sigmoid(reference_points.unsqueeze(0))
+
         outputs_bbox = self.bbox_head(feats)
 
         # It's equivalent to "outputs_bbox[:, :, :, :2] += reference_points",
@@ -351,7 +355,9 @@ class DeformableDETRHead(nn.Layer):
             ],
             axis=-1)
 
-        outputs_bbox = F.sigmoid(outputs_bbox)
+        if self.use_sigmoid:
+            outputs_bbox = F.sigmoid(outputs_bbox)
+
         outputs_logit = self.score_head(feats)
 
         if self.training:

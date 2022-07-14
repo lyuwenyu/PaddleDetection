@@ -75,7 +75,8 @@ class DETR(BaseArch):
             query_selection_losses = {}
 
             if query_masks is not None:
-                query_selection_losses['query_selection_losse'] = 0
+                query_selection_losses['query_selection_losse'] = paddle.zeros(
+                    [1., ], dtype='float32')
 
             return { ** detr_losses, ** query_selection_losses}
 
@@ -100,3 +101,6 @@ class DETR(BaseArch):
             "bbox_num": bbox_num,
         }
         return output
+
+    def mask_loss(self, ):
+        pass

@@ -396,16 +396,16 @@ class DeformableTransformer(nn.Layer):
             decoder_layer, num_decoder_layers, return_intermediate_dec)
 
         self.level_embed = nn.Embedding(num_feature_levels, hidden_dim)
+        self.query_pos_embed = nn.Embedding(num_queries, hidden_dim)
 
         if self.query_selection:
             self.query_selection_convs = nn.LayerList([
-                nn.Sequential(nn.Conv2D(c, 1, 1, 1), nn.Sigmoid())
+                nn.Sequential(nn.Conv2D(c, 1, 1, 1), )
                 for c in backbone_num_channels
             ])
 
         else:
             self.tgt_embed = nn.Embedding(num_queries, hidden_dim)
-            self.query_pos_embed = nn.Embedding(num_queries, hidden_dim)
 
             self.reference_points = nn.Linear(
                 hidden_dim,
@@ -531,37 +531,58 @@ class DeformableTransformer(nn.Layer):
         query_selection_masks = None
 
         if self.query_selection:
+            bs, L, c = memory.shape
             query_selection_masks = [
-                _m(_x)
-                for _m, _x in zip(self.query_selection_convs, self.src_feats)
+                _m(_x) for _m, _x in zip(self.query_selection_convs, src_feats)
             ]
 
             # N L_src
             queries = paddle.concat(
                 [
-                    _x.flatten(2).transpose(0, 2, 1)
+                    _x.flatten(2).transpose([0, 2, 1])
                     for _x in query_selection_masks
                 ],
-                axis=1).unsqueeze(-1)
+                axis=1).squeeze(-1)
 
             # tgt means query embeded, query_embed means query_pos_embeded
             _, index = paddle.topk(queries, k=self.num_queries, axis=-1)
 
-            assert queries.shape[1] == src_flatten.shape[1], ''
+            assert queries.shape[1] == src_flatten.shape[1] == L, ''
 
-            query_pos_embeded = (F.one_hot(index, queries.shape[1]) *
-                                 src_flatten[:, None]).sum(axis=-1)
+            # print(index.shape, queries.shape[1], src_flatten.shape)
+
+            query_embeded = (F.one_hot(index, queries.shape[1]).unsqueeze(-1) *
+                             src_flatten[:, None]).sum(axis=-2)
+
+            query_pos_embeded = self.query_pos_embed.weight.unsqueeze(0).tile(
+                [bs, 1, 1])
+
+            # print('query_embeded: ', query_embeded.shape, query_pos_embeded.shape)
 
             if valid_ratios is None:
                 valid_ratios = paddle.ones(
                     [src.shape[0], spatial_shapes.shape[0], 2])
 
-            reference_points = DeformableTransformerEncoder.get_reference_points(
+            reference_points, reference_points_valid = self.get_reference_points(
                 spatial_shapes, valid_ratios)
-            print('reference_points: ', reference_points.shape)
 
-            reference_points_input = (F.one_hot(index, queries.shape[1]) *
-                                      reference_points[:, None]).sum(axis=-1)
+            # print('reference_points: ', reference_points.shape)
+            # 1 300 7080 -> 1 300 7080 1 1
+            # reference_points:  [1, 7080, 3, 2] -> 1 1 7080 3 2
+
+            reference_points_input = (
+                F.one_hot(index, queries.shape[1]).unsqueeze(-1).unsqueeze(-1) *
+                reference_points_valid[:, None]).sum(axis=2)
+
+            reference_points = (
+                F.one_hot(index, queries.shape[1]).unsqueeze(-1).unsqueeze(-1) *
+                reference_points[:, None]).sum(axis=2).squeeze(-2)
+
+            # reference_points_input = None 
+            # reference_points:  [1, 300, 1, 2] [1, 300, 3, 2]
+            # query_embeded:  [1, 300, 256] [1, 300, 256]
+            # reference_points:  [1, 5040, 3, 2] [1, 300, 3, 2]
+            # print('reference_points: ', reference_points.shape, reference_points_input.shape)
 
         else:
             # prepare input for decoder
@@ -574,8 +595,30 @@ class DeformableTransformer(nn.Layer):
             reference_points_input = reference_points.unsqueeze(
                 2) * valid_ratios.unsqueeze(1)
 
+            # query_embeded:  [1, 300, 256] [1, 300, 256]
+            # reference_points:  [1, 300, 2] [1, 300, 3, 2]
+            # print('query_embeded: ', query_embeded.shape, query_pos_embeded.shape)
+            # print('reference_points: ', reference_points.shape, reference_points_input.shape)
+
         # decoder
         hs = self.decoder(query_embeded, reference_points_input, memory,
                           spatial_shapes, mask_flatten, query_pos_embeded)
 
         return hs, memory, reference_points, query_selection_masks
+
+    @staticmethod
+    def get_reference_points(spatial_shapes, valid_ratios):
+        valid_ratios = valid_ratios.unsqueeze(1)
+        reference_points = []
+        for i, (H, W) in enumerate(spatial_shapes.tolist()):
+            ref_y, ref_x = paddle.meshgrid(
+                paddle.linspace(0.5, H - 0.5, H),
+                paddle.linspace(0.5, W - 0.5, W))
+            ref_y = ref_y.flatten().unsqueeze(0) / (valid_ratios[:, :, i, 1] *
+                                                    H)
+            ref_x = ref_x.flatten().unsqueeze(0) / (valid_ratios[:, :, i, 0] *
+                                                    W)
+            reference_points.append(paddle.stack((ref_x, ref_y), axis=-1))
+        reference_points = paddle.concat(reference_points, 1).unsqueeze(2)
+        # reference_points = reference_points * valid_ratios
+        return reference_points, reference_points * valid_ratios
