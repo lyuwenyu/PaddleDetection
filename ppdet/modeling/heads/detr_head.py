@@ -32,13 +32,14 @@ class MLP(nn.Layer):
         https://github.com/facebookresearch/detr/blob/main/models/detr.py
     """
 
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers,
+                 activation):
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
         self.layers = nn.LayerList(
             nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
-
+        self.activation = activation
         self._reset_parameters()
 
     def _reset_parameters(self):
@@ -47,7 +48,9 @@ class MLP(nn.Layer):
 
     def forward(self, x):
         for i, layer in enumerate(self.layers):
-            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+            # x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+            x = getattr(F, self.activation)(layer(
+                x)) if i < self.num_layers - 1 else layer(x)
         return x
 
 
@@ -299,7 +302,8 @@ class DeformableDETRHead(nn.Layer):
                  nhead=8,
                  num_mlp_layers=3,
                  loss='DETRLoss',
-                 use_sigmoid=True):
+                 use_sigmoid=True,
+                 activation='relu'):
         super(DeformableDETRHead, self).__init__()
         self.num_classes = num_classes
         self.hidden_dim = hidden_dim
@@ -311,7 +315,8 @@ class DeformableDETRHead(nn.Layer):
         self.bbox_head = MLP(hidden_dim,
                              hidden_dim,
                              output_dim=4,
-                             num_layers=num_mlp_layers)
+                             num_layers=num_mlp_layers,
+                             activation=activation)
 
         self._reset_parameters()
 

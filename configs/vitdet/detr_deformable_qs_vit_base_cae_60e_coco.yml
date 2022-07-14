@@ -63,7 +63,7 @@ DeformableTransformer:
   num_decoder_layers: 6
   dim_feedforward: 1024
   dropout: 0.1
-  activation: gelu # relu
+  activation: 'gelu' # relu
   num_encoder_points: 4
   num_decoder_points: 4
 
@@ -76,6 +76,7 @@ DeformableTransformer:
 DeformableDETRHead:
   num_mlp_layers: 3
   use_sigmoid: False
+  activation: 'gelu'
 
 
 DETRLoss:
