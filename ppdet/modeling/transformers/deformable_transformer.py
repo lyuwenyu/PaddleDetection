@@ -403,12 +403,12 @@ class DeformableTransformer(nn.Layer):
                 nn.Sequential(nn.Conv2D(c, 1, 1, 1), )
                 for c in backbone_num_channels
             ])
-            self.query_selection_convs = nn.LayerList([
-                nn.Sequential(
-                    nn.GELU(),
-                    nn.Conv2D(hidden_dim, 1, 1, 1), )
-                for _ in range(num_feature_levels)
-            ])
+            # self.query_selection_convs = nn.LayerList([
+            #     nn.Sequential(
+            #         nn.GELU(),
+            #         nn.Conv2D(hidden_dim, 1, 1, 1), )
+            #     for _ in range(num_feature_levels)
+            # ])
 
         else:
             self.tgt_embed = nn.Embedding(num_queries, hidden_dim)
@@ -538,14 +538,12 @@ class DeformableTransformer(nn.Layer):
 
         if self.query_selection:
             bs, L, c = memory.shape
-            # query_selection_masks = [
-            #     _m(_x)
-            #     for _m, _x in zip(self.query_selection_convs, src_feats)
-            # ]
-
             query_selection_masks = [
-                _m(_x) for _m, _x in zip(self.query_selection_convs, src)
+                _m(_x) for _m, _x in zip(self.query_selection_convs, src_feats)
             ]
+            # query_selection_masks = [
+            #     _m(_x) for _m, _x in zip(self.query_selection_convs, src)
+            # ]
 
             # N L_src
             queries = paddle.concat(
