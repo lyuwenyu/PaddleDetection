@@ -507,6 +507,7 @@ class DeformableTransformer(nn.Layer):
                                   lvl_pos_embed_flatten, valid_ratios)
         else:
             memory = src_flatten
+            mask_flatten = None
 
         # prepare input for decoder
         bs, _, c = memory.shape

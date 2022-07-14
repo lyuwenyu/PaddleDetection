@@ -99,8 +99,10 @@ VisionTransformer:
   use_rel_pos_bias: False
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
-  out_indices: [3, 5, 7, 11]
+
   # out_indices: [3, 5, 7, 11]
+  out_indices: [11, ]
+  out_with_norm: True
 
   with_fpn: True
   use_last_feature: True

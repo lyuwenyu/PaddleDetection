@@ -340,6 +340,7 @@ class VisionTransformer(nn.Layer):
                  use_abs_pos_emb=False,
                  use_sincos_pos_emb=True,
                  with_fpn=True,
+                 out_with_norm=False,
                  use_checkpoint=False,
                  use_last_feature=False,
                  num_output_features=4,
@@ -354,6 +355,7 @@ class VisionTransformer(nn.Layer):
         self.final_norm = final_norm
         self.use_last_feature = use_last_feature
         self.num_output_features = num_output_features
+        self.out_with_norm = out_with_norm
 
         if use_checkpoint:
             print('please export FLAGS_allocator_strategy=naive_best_fit')
@@ -425,7 +427,13 @@ class VisionTransformer(nn.Layer):
             8 for _ in range(len(out_indices))
         ]
 
-        self.norm = Identity()
+        if not self.out_with_norm:
+            self.norms = nn.LayerList([Identity() for _ in self.out_indices])
+        else:
+            self.norms = nn.LayerList([
+                nn.LayerNorm(
+                    embed_dim, epsilon=1e-6) for _ in self.out_indices
+            ])
 
         if self.with_fpn:
             self.init_fpn(
@@ -484,23 +492,20 @@ class VisionTransformer(nn.Layer):
             fpn4 = nn.MaxPool2D(kernel_size=2, stride=2)
 
         elif patch_size == 8:
-            fpn1 = nn.Sequential(
-                nn.Conv2DTranspose(
-                    embed_dim, embed_dim, kernel_size=2, stride=2), )
 
-            fpn2 = Identity()
+            # fpn1 = nn.Sequential(
+            #     nn.Conv2DTranspose(
+            #         embed_dim, embed_dim, kernel_size=2, stride=2), )
 
-            fpn3 = nn.Sequential(nn.MaxPool2D(kernel_size=2, stride=2), )
+            # fpn2 = Identity()
 
-            fpn4 = nn.Sequential(nn.MaxPool2D(kernel_size=4, stride=4), )
+            # fpn3 = nn.Sequential(nn.MaxPool2D(kernel_size=2, stride=2), )
+
+            # fpn4 = nn.Sequential(nn.MaxPool2D(kernel_size=4, stride=4), )
+            pass
 
         fpns = [fpn1, fpn2, fpn3, fpn4]
         self.fpns = nn.LayerList(fpns[-self.num_output_features:])
-
-        if not out_with_norm:
-            self.norm = Identity()
-        else:
-            self.norm = nn.LayerNorm(embed_dim, epsilon=1e-6)
 
     def interpolate_pos_encoding(self, x, w, h):
         npatch = x.shape[1] - 1
@@ -615,9 +620,11 @@ class VisionTransformer(nn.Layer):
             if idx in self.out_indices:
                 xp = paddle.reshape(
                     paddle.transpose(
-                        self.norm(x[:, 1:, :]), perm=[0, 2, 1]),
+                        x[:, 1:, :], perm=[0, 2, 1]),
                     shape=[B, D, Hp, Wp])
                 feats.append(xp)
+
+        feats = [self.norms[_i](_x) for _i, _x in enumerate(feats)]
 
         outputs = []
         if self.with_fpn:
