@@ -137,15 +137,17 @@ class DETR(BaseArch):
             for (h, w) in shapes:
                 _mask = paddle.zeros([h, w], dtype='float32')
                 # TODO
-                _mask[paddle.cast(_cent[:, 0] * w, 'int'), paddle.cast(
-                    _cent[:, 1] * h, 'int')] = 1
-                _mask[paddle.cast(_cent[:, 0] * w, 'int'), paddle.cast(
-                    _cent[:, 1] * h + 0.5, 'int').clip(0, h - 1)] = 1
-                _mask[paddle.cast(_cent[:, 0] * w + 0.5, 'int').clip(0, w - 1),
-                      paddle.cast(_cent[:, 1] * h, 'int')] = 1
-                _mask[paddle.cast(_cent[:, 0] * w + 0.5, 'int').clip(0, w - 1),
-                      paddle.cast(_cent[:, 1] * h + 0.5, 'int').clip(0, h -
+                _mask[paddle.cast(_cent[:, 1] * h, 'int').clip(0, h - 1),
+                      paddle.cast(_cent[:, 0] * w, 'int').clip(0, w - 1)] = 1
+                _mask[paddle.cast(_cent[:, 1] * h + 0.5, 'int').clip(0, h - 1),
+                      paddle.cast(_cent[:, 0] * w, 'int').clip(0, w - 1)] = 1
+                _mask[paddle.cast(_cent[:, 1] * h, 'int').clip(0, h - 1),
+                      paddle.cast(_cent[:, 0] * w + 0.5, 'int').clip(0, w -
                                                                      1)] = 1
+                _mask[paddle.cast(_cent[:, 1] * h + 0.5, 'int').clip(0, h - 1),
+                      paddle.cast(_cent[:, 0] * w + 0.5, 'int').clip(0, w -
+                                                                     1)] = 1
+
                 _gt_masks_per.append(_mask.flatten())
 
             gt_masks.append(paddle.concat(_gt_masks_per, axis=0).unsqueeze(0))
