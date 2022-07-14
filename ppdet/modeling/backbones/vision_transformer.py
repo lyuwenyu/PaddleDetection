@@ -428,12 +428,13 @@ class VisionTransformer(nn.Layer):
         ]
 
         if not self.out_with_norm:
-            self.norms = nn.LayerList([Identity() for _ in self.out_indices])
+            self.norms = nn.LayerDict(
+                {_idx: Identity()
+                 for _idx in self.out_indices})
         else:
-            self.norms = nn.LayerList([
-                nn.LayerNorm(
-                    embed_dim, epsilon=1e-6) for _ in self.out_indices
-            ])
+            self.norms = nn.LayerDict(
+                {_idx: nn.LayerNorm(embed_dim)
+                 for _idx in self.out_indices})
 
         if self.with_fpn:
             self.init_fpn(
@@ -618,13 +619,18 @@ class VisionTransformer(nn.Layer):
                 x = blk(x, rel_pos_bias)
 
             if idx in self.out_indices:
-                xp = paddle.reshape(
-                    paddle.transpose(
-                        x[:, 1:, :], perm=[0, 2, 1]),
-                    shape=[B, D, Hp, Wp])
+
+                xp = self.norms[idx](x[:, 1:, :]).transpose([0, 2, 1]).reshape(
+                    [B, D, Hp, Wp])
+
+                # xp = paddle.reshape(
+                #     paddle.transpose(
+                #         x[:, 1:, :], perm=[0, 2, 1]),
+                #     shape=[B, D, Hp, Wp])
+
                 feats.append(xp)
 
-        feats = [self.norms[_i](_x) for _i, _x in enumerate(feats)]
+        # feats = [self.norms[_i](_x) for _i, _x in enumerate(feats)]
 
         outputs = []
         if self.with_fpn:
