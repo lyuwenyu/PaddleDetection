@@ -446,9 +446,9 @@ class DeformableTransformer(nn.Layer):
             xavier_uniform_(l[0].weight)
             constant_(l[0].bias)
 
-    @classmethod
-    def from_config(cls, cfg, input_shape):
-        return {'backbone_num_channels': [i.channels for i in input_shape], }
+    # @classmethod
+    # def from_config(cls, cfg, input_shape):
+    #     return {'backbone_num_channels': [i.channels for i in input_shape], }
 
     def _get_valid_ratio(self, mask):
         mask = mask.astype(paddle.float32)

@@ -644,7 +644,7 @@ class VisionTransformer(nn.Layer):
                 for i in range(len(feats)):
                     outputs.append(fpns[i](feats[i]))
 
-        print([o.shape for o in outputs])
+        # print([o.shape for o in outputs])
 
         return outputs
 
