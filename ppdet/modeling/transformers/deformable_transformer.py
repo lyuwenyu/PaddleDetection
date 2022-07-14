@@ -368,7 +368,8 @@ class DeformableTransformer(nn.Layer):
                  lr_mult=0.1,
                  weight_attr=None,
                  bias_attr=None,
-                 without_encoder=False):
+                 without_encoder=False,
+                 query_selection=False):
         super(DeformableTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -378,6 +379,8 @@ class DeformableTransformer(nn.Layer):
         self.nhead = nhead
         self.num_feature_levels = num_feature_levels
         self.without_encoder = without_encoder
+        self.query_selection = query_selection
+        self.num_queries = num_queries
 
         if not without_encoder:
             encoder_layer = DeformableTransformerEncoderLayer(
@@ -393,14 +396,22 @@ class DeformableTransformer(nn.Layer):
             decoder_layer, num_decoder_layers, return_intermediate_dec)
 
         self.level_embed = nn.Embedding(num_feature_levels, hidden_dim)
-        self.tgt_embed = nn.Embedding(num_queries, hidden_dim)
-        self.query_pos_embed = nn.Embedding(num_queries, hidden_dim)
 
-        self.reference_points = nn.Linear(
-            hidden_dim,
-            2,
-            weight_attr=ParamAttr(learning_rate=lr_mult),
-            bias_attr=ParamAttr(learning_rate=lr_mult))
+        if self.query_selection:
+            self.query_selection_convs = nn.LayerList([
+                nn.Sequential(nn.Conv2D(c, 1, 1, 1), nn.Sigmoid())
+                for c in backbone_num_channels
+            ])
+
+        else:
+            self.tgt_embed = nn.Embedding(num_queries, hidden_dim)
+            self.query_pos_embed = nn.Embedding(num_queries, hidden_dim)
+
+            self.reference_points = nn.Linear(
+                hidden_dim,
+                2,
+                weight_attr=ParamAttr(learning_rate=lr_mult),
+                bias_attr=ParamAttr(learning_rate=lr_mult))
 
         self.input_proj = nn.LayerList()
         for in_channels in backbone_num_channels:
@@ -509,16 +520,54 @@ class DeformableTransformer(nn.Layer):
             memory = src_flatten
             mask_flatten = None
 
-        # prepare input for decoder
-        bs, _, c = memory.shape
-        query_embed = self.query_pos_embed.weight.unsqueeze(0).tile([bs, 1, 1])
-        tgt = self.tgt_embed.weight.unsqueeze(0).tile([bs, 1, 1])
-        reference_points = F.sigmoid(self.reference_points(query_embed))
-        reference_points_input = reference_points.unsqueeze(
-            2) * valid_ratios.unsqueeze(1)
+        query_selection_masks = None
+
+        if self.query_selection:
+            query_selection_masks = [
+                _m(_x)
+                for _m, _x in zip(self.query_selection_convs, self.src_feats)
+            ]
+
+            # N L_src
+            queries = paddle.concat(
+                [
+                    _x.flatten(2).transpose(0, 2, 1)
+                    for _x in query_selection_masks
+                ],
+                axis=1).unsqueeze(-1)
+
+            # tgt means query embeded, query_embed means query_pos_embeded
+            _, index = paddle.topk(queries, k=self.num_queries, axis=-1)
+
+            assert queries.shape[1] == src_flatten.shape[1], ''
+
+            query_pos_embeded = (F.one_hot(index, queries.shape[1]) *
+                                 src_flatten[:, None]).sum(axis=-1)
+
+            if valid_ratios is None:
+                valid_ratios = paddle.ones(
+                    [src.shape[0], spatial_shapes.shape[0], 2])
+
+            reference_points = DeformableTransformerEncoder.get_reference_points(
+                spatial_shapes, valid_ratios)
+            print('reference_points: ', reference_points.shape)
+
+            reference_points_input = (F.one_hot(index, queries.shape[1]) *
+                                      reference_points[:, None]).sum(axis=-1)
+
+        else:
+            # prepare input for decoder
+            bs, _, c = memory.shape
+            query_pos_embeded = self.query_pos_embed.weight.unsqueeze(0).tile(
+                [bs, 1, 1])
+            query_embeded = self.tgt_embed.weight.unsqueeze(0).tile([bs, 1, 1])
+            reference_points = F.sigmoid(
+                self.reference_points(query_pos_embeded))
+            reference_points_input = reference_points.unsqueeze(
+                2) * valid_ratios.unsqueeze(1)
 
         # decoder
-        hs = self.decoder(tgt, reference_points_input, memory, spatial_shapes,
-                          mask_flatten, query_embed)
+        hs = self.decoder(query_embeded, reference_points_input, memory,
+                          spatial_shapes, mask_flatten, query_pos_embeded)
 
-        return (hs, memory, reference_points)
+        return hs, memory, reference_points, query_selection_masks

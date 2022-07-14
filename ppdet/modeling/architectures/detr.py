@@ -65,11 +65,20 @@ class DETR(BaseArch):
         body_feats = self.backbone(self.inputs)
 
         # Transformer
-        out_transformer = self.transformer(body_feats, self.inputs['pad_mask'])
+        *out_transformer, query_masks = self.transformer(
+            body_feats, self.inputs['pad_mask'])
 
         # DETR Head
         if self.training:
-            return self.detr_head(out_transformer, body_feats, self.inputs)
+            detr_losses = self.detr_head(out_transformer, body_feats,
+                                         self.inputs)
+            query_selection_losses = {}
+
+            if query_masks is not None:
+                query_selection_losses['query_selection_losse'] = 0
+
+            return { ** detr_losses, ** query_selection_losses}
+
         else:
             preds = self.detr_head(out_transformer, body_feats)
             bbox, bbox_num = self.post_process(preds, self.inputs['im_shape'],

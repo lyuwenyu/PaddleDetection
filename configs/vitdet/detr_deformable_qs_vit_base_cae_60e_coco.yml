@@ -1,0 +1,113 @@
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  # '_base_/optimizer_1x.yml',
+  # '_base_/detr_r50.yml',
+  '../deformable_detr/_base_/deformable_detr_reader.yml',
+]
+weights: output/detr_vit_base_cae_1x_coco/model_final
+
+TrainReader:
+  batch_size: 1
+
+
+
+
+epoch: 60
+log_iter: 20
+snapshot_epoch: 1
+find_unused_parameters: True
+fused_allreduce_gradients: &use_checkpoint False
+
+
+LearningRate:
+  base_lr: 0.0001
+  schedulers:
+  - !PiecewiseDecay
+    gamma: 0.1
+    milestones: [45, 55]
+  - !LinearWarmup
+    start_factor: 0.001
+    steps: 2000
+
+OptimizerBuilder:
+  optimizer:
+    type: AdamWDL
+    betas: [0.9, 0.999]
+    layer_decay: 0.75
+    weight_decay: 0.02
+    num_layers: 12
+    filter_bias_and_bn: True
+    skip_decay_names: ['pos_embed', 'cls_token']
+    set_param_lr_func: 'layerwise_lr_decay'
+
+
+
+architecture: DETR
+
+hidden_dim: 256
+use_focal_loss: True
+
+DETR:
+  backbone: VisionTransformer
+  transformer: DeformableTransformer
+  detr_head: DeformableDETRHead
+  post_process: DETRBBoxPostProcess
+
+
+DeformableTransformer:
+  num_queries: 300
+  position_embed_type: sine
+  nhead: 8
+  num_encoder_layers: 6
+  num_decoder_layers: 6
+  dim_feedforward: 1024
+  dropout: 0.1
+  activation: gelu # relu
+  num_encoder_points: 4
+  num_decoder_points: 4
+
+  num_feature_levels: 3
+  backbone_num_channels: [768, 768, 768]
+  without_encoder: True
+
+
+DeformableDETRHead:
+  num_mlp_layers: 3
+
+
+DETRLoss:
+  loss_coeff: {class: 1, bbox: 5, giou: 2, no_object: 0.1, mask: 1, dice: 1}
+  aux_loss: True
+  # aux_loss_weights: [0.1, 0.1, 0.2, 0.2, 0.5]
+
+
+HungarianMatcher:
+  matcher_coeff: {class: 2, bbox: 5, giou: 2}
+
+
+VisionTransformer:
+  patch_size: 16
+  embed_dim: 768
+  depth: 12
+  num_heads: 12
+  mlp_ratio: 4
+  qkv_bias: True
+  drop_rate: 0.0
+  drop_path_rate: 0.2
+  init_values: 0.1
+  final_norm: False
+  use_rel_pos_bias: False
+  use_sincos_pos_emb: True
+  epsilon: 0.000001 # 1e-6
+
+  # out_indices: [3, 5, 7, 11]
+  out_indices: [11, ]
+  out_with_norm: True
+
+  with_fpn: True
+  use_last_feature: True
+  num_output_features: 3
+
+  use_checkpoint: *use_checkpoint
+  pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
