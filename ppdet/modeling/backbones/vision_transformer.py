@@ -429,12 +429,13 @@ class VisionTransformer(nn.Layer):
 
         if not self.out_with_norm:
             self.norms = nn.LayerDict(
-                {_idx: Identity()
+                {str(_idx): Identity()
                  for _idx in self.out_indices})
         else:
-            self.norms = nn.LayerDict(
-                {_idx: nn.LayerNorm(embed_dim)
-                 for _idx in self.out_indices})
+            self.norms = nn.LayerDict({
+                str(_idx): nn.LayerNorm(embed_dim)
+                for _idx in self.out_indices
+            })
 
         if self.with_fpn:
             self.init_fpn(
@@ -620,8 +621,8 @@ class VisionTransformer(nn.Layer):
 
             if idx in self.out_indices:
 
-                xp = self.norms[idx](x[:, 1:, :]).transpose([0, 2, 1]).reshape(
-                    [B, D, Hp, Wp])
+                xp = self.norms[str(idx)](x[:, 1:, :]).transpose(
+                    [0, 2, 1]).reshape([B, D, Hp, Wp])
 
                 # xp = paddle.reshape(
                 #     paddle.transpose(
