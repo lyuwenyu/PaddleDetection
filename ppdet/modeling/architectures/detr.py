@@ -76,7 +76,7 @@ class DETR(BaseArch):
 
             if query_masks is not None:
                 query_selection_losses['query_selection_losse'] = paddle.zeros(
-                    [1., ], dtype='float32')
+                    [1, ], dtype='float32')
 
             return { ** detr_losses, ** query_selection_losses}
 

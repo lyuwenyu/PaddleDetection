@@ -344,19 +344,31 @@ class DeformableDETRHead(nn.Layer):
         if self.use_sigmoid:
             reference_points = inverse_sigmoid(reference_points.unsqueeze(0))
 
-        outputs_bbox = self.bbox_head(feats)
+            outputs_bbox = self.bbox_head(feats)
 
-        # It's equivalent to "outputs_bbox[:, :, :, :2] += reference_points",
-        # but the gradient is wrong in paddle.
-        outputs_bbox = paddle.concat(
-            [
-                outputs_bbox[:, :, :, :2] + reference_points,
-                outputs_bbox[:, :, :, 2:]
-            ],
-            axis=-1)
+            # It's equivalent to "outputs_bbox[:, :, :, :2] += reference_points",
+            # but the gradient is wrong in paddle.
+            outputs_bbox = paddle.concat(
+                [
+                    outputs_bbox[:, :, :, :2] + reference_points,
+                    outputs_bbox[:, :, :, 2:]
+                ],
+                axis=-1)
 
-        if self.use_sigmoid:
             outputs_bbox = F.sigmoid(outputs_bbox)
+
+        else:
+
+            outputs_bbox = self.bbox_head(feats)
+            outputs_bbox = 2 * F.sigmoid(outputs_bbox) - 1
+
+            outputs_bbox = paddle.concat(
+                [
+                    outputs_bbox[:, :, :, :2] + reference_points,
+                    outputs_bbox[:, :, :, 2:]
+                ],
+                axis=-1)
+            outputs_bbox = paddle.clip(outputs_bbox, min=0., max=1.)
 
         outputs_logit = self.score_head(feats)
 
