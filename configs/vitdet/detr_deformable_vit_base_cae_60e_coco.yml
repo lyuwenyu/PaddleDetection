@@ -104,7 +104,7 @@ VisionTransformer:
 
   with_fpn: True
   use_last_feature: True
-  num_features: 3
+  num_output_features: 3
 
   use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams

@@ -342,7 +342,7 @@ class VisionTransformer(nn.Layer):
                  with_fpn=True,
                  use_checkpoint=False,
                  use_last_feature=False,
-                 num_features=None,
+                 num_output_features=4,
                  **args):
         super().__init__()
         self.img_size = img_size
@@ -353,7 +353,7 @@ class VisionTransformer(nn.Layer):
         self.use_rel_pos_bias = use_rel_pos_bias
         self.final_norm = final_norm
         self.use_last_feature = use_last_feature
-        self.num_features = 0 if num_features is None else num_features
+        self.num_output_features = num_output_features
 
         if use_checkpoint:
             print('please export FLAGS_allocator_strategy=naive_best_fit')
@@ -467,7 +467,7 @@ class VisionTransformer(nn.Layer):
 
     def init_fpn(self, embed_dim=768, patch_size=16, out_with_norm=False):
         if patch_size == 16:
-            self.fpn1 = nn.Sequential(
+            fpn1 = nn.Sequential(
                 nn.Conv2DTranspose(
                     embed_dim, embed_dim, kernel_size=2, stride=2),
                 nn.BatchNorm2D(embed_dim),
@@ -475,24 +475,27 @@ class VisionTransformer(nn.Layer):
                 nn.Conv2DTranspose(
                     embed_dim, embed_dim, kernel_size=2, stride=2), )
 
-            self.fpn2 = nn.Sequential(
+            fpn2 = nn.Sequential(
                 nn.Conv2DTranspose(
                     embed_dim, embed_dim, kernel_size=2, stride=2), )
 
-            self.fpn3 = Identity()
+            fpn3 = Identity()
 
-            self.fpn4 = nn.MaxPool2D(kernel_size=2, stride=2)
+            fpn4 = nn.MaxPool2D(kernel_size=2, stride=2)
 
         elif patch_size == 8:
-            self.fpn1 = nn.Sequential(
+            fpn1 = nn.Sequential(
                 nn.Conv2DTranspose(
                     embed_dim, embed_dim, kernel_size=2, stride=2), )
 
-            self.fpn2 = Identity()
+            fpn2 = Identity()
 
-            self.fpn3 = nn.Sequential(nn.MaxPool2D(kernel_size=2, stride=2), )
+            fpn3 = nn.Sequential(nn.MaxPool2D(kernel_size=2, stride=2), )
 
-            self.fpn4 = nn.Sequential(nn.MaxPool2D(kernel_size=4, stride=4), )
+            fpn4 = nn.Sequential(nn.MaxPool2D(kernel_size=4, stride=4), )
+
+        fpns = [fpn1, fpn2, fpn3, fpn4]
+        self.fpns = nn.LayerList(fpns[-self.num_output_features:])
 
         if not out_with_norm:
             self.norm = Identity()
@@ -618,8 +621,7 @@ class VisionTransformer(nn.Layer):
 
         outputs = []
         if self.with_fpn:
-            fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4][
-                -self.num_features:]
+            fpns = self.fpns
             if self.use_last_feature:
                 for m in fpns:
                     outputs.append(m(feats[-1]))
@@ -627,8 +629,6 @@ class VisionTransformer(nn.Layer):
                 assert len(feats) == len(fpns), ''
                 for i in range(len(feats)):
                     outputs.append(fpns[i](feats[i]))
-                # for m, f in zip(fpns[::-1], feats[::-1]):
-                #     outputs.insert(0, m(f))
 
         return outputs
 
