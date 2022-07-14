@@ -448,11 +448,19 @@ class DeformableTransformer(nn.Layer):
         self._reset_parameters()
 
     def _reset_parameters(self):
-        normal_(self.level_embed.weight)
-        normal_(self.tgt_embed.weight)
-        normal_(self.query_pos_embed.weight)
-        xavier_uniform_(self.reference_points.weight)
-        constant_(self.reference_points.bias)
+        if hasattr(self, 'level_embed'):
+            normal_(self.level_embed.weight)
+
+        if hasattr(self, 'tgt_embed'):
+            normal_(self.tgt_embed.weight)
+
+        if hasattr(self, 'query_pos_embed'):
+            normal_(self.query_pos_embed.weight)
+
+        if hasattr(self, 'reference_points'):
+            xavier_uniform_(self.reference_points.weight)
+            constant_(self.reference_points.bias)
+
         for l in self.input_proj:
             xavier_uniform_(l[0].weight)
             constant_(l[0].bias)

@@ -70,6 +70,7 @@ DeformableTransformer:
   num_feature_levels: 3
   backbone_num_channels: [768, 768, 768]
   without_encoder: True
+  query_selection: True
 
 
 DeformableDETRHead:
