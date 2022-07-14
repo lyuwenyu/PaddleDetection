@@ -140,11 +140,12 @@ class DETR(BaseArch):
                 _mask[paddle.cast(_cent[:, 0] * w, 'int'), paddle.cast(
                     _cent[:, 1] * h, 'int')] = 1
                 _mask[paddle.cast(_cent[:, 0] * w, 'int'), paddle.cast(
-                    _cent[:, 1] * h + 0.5, 'int')] = 1
-                _mask[paddle.cast(_cent[:, 0] * w + 0.5, 'int'), paddle.cast(
-                    _cent[:, 1] * h + 0.5, 'int')] = 1
-                _mask[paddle.cast(_cent[:, 0] * w + 0.5, 'int'), paddle.cast(
-                    _cent[:, 1] * h + 0.5, 'int')] = 1
+                    _cent[:, 1] * h + 0.5, 'int').clip(0, h - 1)] = 1
+                _mask[paddle.cast(_cent[:, 0] * w + 0.5, 'int').clip(0, w - 1),
+                      paddle.cast(_cent[:, 1] * h, 'int')] = 1
+                _mask[paddle.cast(_cent[:, 0] * w + 0.5, 'int').clip(0, w - 1),
+                      paddle.cast(_cent[:, 1] * h + 0.5, 'int').clip(0, h -
+                                                                     1)] = 1
                 _gt_masks_per.append(_mask.flatten())
 
             gt_masks.append(paddle.concat(_gt_masks_per, axis=0).unsqueeze(0))
@@ -154,7 +155,7 @@ class DETR(BaseArch):
             [x.squeeze(1).flatten(1) for x in query_masks], axis=-1)
 
         loss = F.binary_cross_entropy_with_logits(
-            query_masks, gt_masks, reduction='mean')
+            query_masks, gt_masks, reduction='mean') * n_pos
 
         # print(gt_masks.shape, query_masks.shape)
         # print(gt_masks.stop_gradient, query_masks.stop_gradient)
