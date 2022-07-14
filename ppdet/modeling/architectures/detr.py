@@ -17,6 +17,10 @@ from __future__ import division
 from __future__ import print_function
 
 import paddle
+import paddle.nn as nn
+import paddle.nn.functional as F
+from sympy import re
+
 from .meta_arch import BaseArch
 from ppdet.core.workspace import register, create
 
@@ -72,11 +76,8 @@ class DETR(BaseArch):
         if self.training:
             detr_losses = self.detr_head(out_transformer, body_feats,
                                          self.inputs)
-            query_selection_losses = {}
 
-            if query_masks is not None:
-                query_selection_losses['query_selection_losse'] = paddle.zeros(
-                    [1, ], dtype='float32')
+            query_selection_losses = self.get_location_loss(query_masks)
 
             return { ** detr_losses, ** query_selection_losses}
 
@@ -102,5 +103,86 @@ class DETR(BaseArch):
         }
         return output
 
-    def mask_loss(self, ):
-        pass
+    def get_location_loss(self, query_masks):
+        '''
+        inputs: ['im_id', 'is_crowd', 'gt_class', 'gt_bbox', 'curr_iter', 'image', 'im_shape', 'scale_factor', 'pad_mask', 'epoch_id']
+        inputs['gt_bbox']: list, [13, 4], cxcywh, normalized  [[0.07688655, 0.49768999, 0.07883899, 0.27166003], ...]
+
+        query_masks, [[1, 1, 80, 80], [1, 1, 40, 40], [1, 1, 20, 20]]
+        im_shape, 
+        - NormalizeBox: {}
+        - BboxXYXY2XYWH: {}
+        '''
+        inputs = self.inputs
+
+        # print(inputs.keys())
+        # print(inputs['gt_bbox'][0].shape)
+        # print(inputs['gt_bbox'][0])
+        # print([x.shape for x in query_masks])
+        # print(inputs['im_shape'])
+
+        if query_masks is None:
+            return {'query_selection_loss': paddle.zeros([1], dtype='float32')}
+
+        shapes = [_feat.shape[-2:] for _feat in query_masks]
+
+        gt_masks = []
+        n_pos = 0
+
+        for i in range(len(inputs['gt_bbox'])):
+            _cent = inputs['gt_bbox'][i][:, :2]
+            n_pos += len(_cent)
+
+            _gt_masks_per = []
+            for (h, w) in shapes:
+                _mask = paddle.zeros([h, w], dtype='float32')
+                # TODO
+                _mask[paddle.cast(_cent[:, 0] * w, 'int'), paddle.cast(
+                    _cent[:, 1] * h, 'int')] = 1
+                _mask[paddle.cast(_cent[:, 0] * w, 'int'), paddle.cast(
+                    _cent[:, 1] * h + 0.5, 'int')] = 1
+                _mask[paddle.cast(_cent[:, 0] * w + 0.5, 'int'), paddle.cast(
+                    _cent[:, 1] * h + 0.5, 'int')] = 1
+                _mask[paddle.cast(_cent[:, 0] * w + 0.5, 'int'), paddle.cast(
+                    _cent[:, 1] * h + 0.5, 'int')] = 1
+                _gt_masks_per.append(_mask.flatten())
+
+            gt_masks.append(paddle.concat(_gt_masks_per, axis=0).unsqueeze(0))
+
+        gt_masks = paddle.concat(gt_masks, axis=0)
+        query_masks = paddle.concat(
+            [x.squeeze(1).flatten(1) for x in query_masks], axis=-1)
+
+        loss = F.binary_cross_entropy_with_logits(
+            query_masks, gt_masks, reduction='mean')
+
+        # print(gt_masks.shape, query_masks.shape)
+        # print(gt_masks.stop_gradient, query_masks.stop_gradient)
+        # print(loss)
+
+        return {'query_selection_loss': loss}
+
+
+from paddle import Tensor
+
+
+def box_convert(boxes: Tensor, in_fmt='xyxy', out_fmt='cxcywh'):
+    '''boxes convert
+    '''
+    if in_fmt == out_fmt:
+        return boxes
+
+    if in_fmt == 'xyxy' and out_fmt == 'cxcywh':
+        x1, y1, x2, y2 = boxes.unbind(-1)
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        w, h = x2 - x1, y2 - y1
+        return paddle.stack((cx, cy, w, h), axis=-1)
+
+    elif in_fmt == 'cxcywh' and out_fmt == 'xyxy':
+        cx, cy, w, h = boxes.unbind(-1)
+        x1, y1 = cx - w / 2, cy - h / 2
+        x2, y2 = cx + w / 2, cy + h / 2
+        return paddle.stack((x1, y1, x2, y2), axis=-1)
+
+    else:
+        raise AttributeError('')

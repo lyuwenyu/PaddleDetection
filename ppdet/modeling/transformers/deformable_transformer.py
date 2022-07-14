@@ -555,12 +555,13 @@ class DeformableTransformer(nn.Layer):
 
             # tgt means query embeded, query_embed means query_pos_embeded
             _, index = paddle.topk(queries, k=self.num_queries, axis=-1)
+            _index = F.one_hot(index, queries.shape[1])
 
             assert queries.shape[1] == src_flatten.shape[1] == L, ''
 
             # print(index.shape, queries.shape[1], src_flatten.shape)
 
-            query_embeded = (F.one_hot(index, queries.shape[1]).unsqueeze(-1) *
+            query_embeded = (_index.unsqueeze(-1) *
                              src_flatten[:, None]).sum(axis=-2)
 
             query_pos_embeded = self.query_pos_embed.weight.unsqueeze(0).tile(
@@ -580,11 +581,11 @@ class DeformableTransformer(nn.Layer):
             # reference_points:  [1, 7080, 3, 2] -> 1 1 7080 3 2
 
             reference_points_input = (
-                F.one_hot(index, queries.shape[1]).unsqueeze(-1).unsqueeze(-1) *
+                _index.unsqueeze(-1).unsqueeze(-1) *
                 reference_points_valid[:, None]).sum(axis=2)
 
             reference_points = (
-                F.one_hot(index, queries.shape[1]).unsqueeze(-1).unsqueeze(-1) *
+                _index.unsqueeze(-1).unsqueeze(-1) *
                 reference_points[:, None]).sum(axis=2).squeeze(-2)
 
             # reference_points_input = None 
