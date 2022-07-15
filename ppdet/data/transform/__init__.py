@@ -21,6 +21,7 @@ from .operators import *
 from .batch_operators import *
 from .keypoint_operators import *
 from .mot_operators import *
+from .heatmap import *
 
 __all__ = []
 __all__ += registered_ops

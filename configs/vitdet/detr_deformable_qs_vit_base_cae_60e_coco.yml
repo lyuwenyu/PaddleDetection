@@ -3,8 +3,10 @@ _BASE_: [
   '../runtime.yml',
   # '_base_/optimizer_1x.yml',
   # '_base_/detr_r50.yml',
-  '../deformable_detr/_base_/deformable_detr_reader.yml',
+  # '../deformable_detr/_base_/deformable_detr_reader.yml',
+  '_base_/deformable_detr_reader.yml'
 ]
+
 weights: output/detr_vit_base_cae_1x_coco/model_final
 
 TrainReader:
@@ -71,6 +73,7 @@ DeformableTransformer:
   backbone_num_channels: [768, 768, 768]
   without_encoder: True
   query_selection: True
+  query_selection_level_percent: ~
   use_project_featurs: True
 
 DeformableDETRHead:

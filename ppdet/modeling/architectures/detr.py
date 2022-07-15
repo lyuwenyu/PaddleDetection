@@ -120,6 +120,7 @@ class DETR(BaseArch):
         # print(inputs['gt_bbox'][0])
         # print([x.shape for x in query_masks])
         # print(inputs['im_shape'])
+        # print(inputs['heatmap'].shape)
 
         if query_masks is None:
             return {'query_selection_loss': paddle.zeros([1], dtype='float32')}
@@ -128,6 +129,9 @@ class DETR(BaseArch):
 
         gt_masks = []
         n_pos = 0
+
+        if 'heatmap' in inputs:
+            print('heatmap', inputs['heatmap'].shape)
 
         for i in range(len(inputs['gt_bbox'])):
 
@@ -149,7 +153,7 @@ class DETR(BaseArch):
                     _points = paddle.concat(_points, axis=0)
                     _points[:, 0] = _points[:, 0].clip(0, w - 1)
                     _points[:, 1] = _points[:, 1].clip(0, h - 1)
-                    _mask[_points[:, 1], _points[:, 0]] = 1
+                    _mask[_points[:, 1], _points[:, 0]] = 1.
 
                 # _mask[paddle.cast(_cents[:, 1] * h, 'int'), paddle.cast(
                 #     _cents[:, 0] * w, 'int')] = 1
@@ -179,17 +183,36 @@ class DETR(BaseArch):
         # loss = F.binary_cross_entropy_with_logits(
         #     query_masks, gt_masks, reduction='mean', ) 
 
-        loss = F.binary_cross_entropy_with_logits(
-            query_masks,
-            gt_masks,
-            reduction='none', ) * gt_masks * 10
-        loss = loss.mean() * n_pos
+        # loss = F.binary_cross_entropy_with_logits(
+        #     query_masks,
+        #     gt_masks,
+        #     reduction='none', ) * ( (gt_masks == 0) * 1. + gt_masks * 10. )
+        # loss = loss.mean() * n_pos
+
+        # loss = binary_focal_loss_with_logits(query_masks, gt_masks)
+        loss = binary_focal_loss_with_logits(query_masks, gt_masks) / (
+            n_pos + 1)
 
         # print(gt_masks.shape, query_masks.shape)
         # print(gt_masks.stop_gradient, query_masks.stop_gradient)
         # print(loss)
 
         return {'query_selection_loss': loss}
+
+
+import paddle.nn.functional as F
+
+
+def binary_focal_loss_with_logits(logits, label, alpha=0.25, gamma=2.0):
+    score = F.sigmoid(logits)
+
+    weight = (score - label).pow(gamma)
+    if alpha > 0:
+        alpha_t = alpha * label + (1 - alpha) * (1 - label)
+        weight *= alpha_t
+    loss = F.binary_cross_entropy(score, label, weight=weight, reduction='sum')
+
+    return loss
 
 
 def box_convert(boxes, in_fmt='xyxy', out_fmt='cxcywh'):

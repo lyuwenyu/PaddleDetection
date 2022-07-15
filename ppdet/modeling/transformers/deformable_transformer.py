@@ -370,7 +370,8 @@ class DeformableTransformer(nn.Layer):
                  bias_attr=None,
                  without_encoder=False,
                  query_selection=False,
-                 use_project_featurs=False):
+                 use_project_featurs=False,
+                 query_selection_level_percent=None):
         super(DeformableTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -383,6 +384,7 @@ class DeformableTransformer(nn.Layer):
         self.query_selection = query_selection
         self.num_queries = num_queries
         self.use_project_featurs = use_project_featurs
+        self.query_selection_level_percent = query_selection_level_percent
 
         if not without_encoder:
             encoder_layer = DeformableTransformerEncoderLayer(
@@ -552,19 +554,40 @@ class DeformableTransformer(nn.Layer):
                     for _m, _x in zip(self.query_selection_convs, src_feats)
                 ]
 
-            # N L_src
-            queries = paddle.concat(
-                [
-                    _x.flatten(2).transpose([0, 2, 1])
-                    for _x in query_selection_masks
-                ],
-                axis=1).squeeze(-1)
+            if self.query_selection_level_percent is not None:
+                # assert self.num_queries % self.num_feature_levels == 0, ''
 
-            # tgt means query embeded, query_embed means query_pos_embeded
-            _, index = paddle.topk(queries, k=self.num_queries, axis=-1)
-            _index = F.one_hot(index, queries.shape[1])
+                _level_queries = [
+                    int(self.num_queries * _p)
+                    for _p in self.query_selection_level_percent
+                ]
+                assert sum(_level_queries) == self.num_queries, ''
 
-            assert queries.shape[1] == src_flatten.shape[1] == L, ''
+                _index = []
+                _offset = 0
+                for _i, _mask in enumerate(query_selection_masks):
+                    _mask = _mask.flatten(2).transpose([0, 2, 1]).squeeze(-1)
+                    _, index = paddle.topk(_mask, k=_level_queries[_i], axis=-1)
+                    _index.append(index + _offset)
+                    _offset += _mask.shape[1]
+
+                _index = paddle.concat(_index, axis=1)
+                _index = F.one_hot(_index, _offset)
+                assert _index.shape[1] == _offset == L, ''
+
+            else:
+                # N L_src
+                queries = paddle.concat(
+                    [
+                        _x.flatten(2).transpose([0, 2, 1])
+                        for _x in query_selection_masks
+                    ],
+                    axis=1).squeeze(-1)
+
+                _, index = paddle.topk(queries, k=self.num_queries, axis=-1)
+                _index = F.one_hot(index, queries.shape[1])
+
+                assert queries.shape[1] == src_flatten.shape[1] == L, ''
 
             # print(index.shape, queries.shape[1], src_flatten.shape)
 

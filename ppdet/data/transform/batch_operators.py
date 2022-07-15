@@ -981,6 +981,12 @@ class PadMaskBatch(BaseOperator):
                 padding_mask[:im_h, :im_w] = 1.
                 data['pad_mask'] = padding_mask
 
+            if 'heatmap' in data:
+                padding_heatmap = np.zeros(
+                    (max_shape[1], max_shape[2]), dtype=np.float32)
+                padding_heatmap[:im_h, :im_w] = data['heatmap']
+                data['heatmap'] = padding_heatmap
+
             if 'gt_rbox2poly' in data and data['gt_rbox2poly'] is not None:
                 # ploy to rbox
                 polys = data['gt_rbox2poly']
