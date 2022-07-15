@@ -74,7 +74,7 @@ DeformableTransformer:
   without_encoder: True
   query_selection: True
   query_selection_level_percent: ~
-  use_project_featurs: True
+  use_project_featurs: False
 
 DeformableDETRHead:
   num_mlp_layers: 3

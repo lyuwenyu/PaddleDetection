@@ -7,9 +7,12 @@ from .operators import register_op
 
 @register_op
 class BoxCenterGaussianMask(BaseOperator):
-    def __init__(self, min_overlap=0.9):
+    def __init__(self, min_overlap=0.9, ignore_min_overlap=0.5,
+                 ignore_value=-1):
         super().__init__()
         self.min_overlap = min_overlap
+        self.ignore_min_overlap = ignore_min_overlap
+        self.ignore_value = ignore_value
 
     def apply(self, sample, context=None):
         gt_bbox = sample['gt_bbox']
@@ -21,6 +24,21 @@ class BoxCenterGaussianMask(BaseOperator):
 
         if len(gt_bbox) > 0:
 
+            # ignore area
+            r = gaussian_radius(gt_bbox[:, -2:],
+                                self.ignore_min_overlap).astype(np.int32)
+
+            cx = gt_bbox[:, 0].astype(np.int32)
+            cy = gt_bbox[:, 1].astype(np.int32)
+
+            left, right = np.minimum(cx, r), np.minimum(w - cx, r + 1)
+            top, bottom = np.minimum(cy, r), np.minimum(h - cy, r + 1)
+
+            for i in range(len(gt_bbox)):
+                heatmap[cy[i] - top[i]:cy[i] + bottom[i], cx[i] - left[i]:cx[i]
+                        + right[i]] = self.ignore_value
+
+            # gt area
             r = gaussian_radius(gt_bbox[:, -2:],
                                 self.min_overlap).astype(np.int32)
 

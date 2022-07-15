@@ -14,7 +14,7 @@ TrainReader:
   # - BboxXYXY2XYWH: {}
 
   - BboxXYXY2XYWH: {}
-  - BoxCenterGaussianMask: {min_overlap: 0.9}
+  - BoxCenterGaussianMask: {min_overlap: 0.9, ignore_min_overlap: 0.5}
   - NormalizeBox: {}
 
 

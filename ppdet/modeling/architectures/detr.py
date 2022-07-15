@@ -15,12 +15,10 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from numpy import nonzero
 
 import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
-from sympy import re
 
 from .meta_arch import BaseArch
 from ppdet.core.workspace import register, create
@@ -200,12 +198,22 @@ class DETR(BaseArch):
         # loss = F.binary_cross_entropy_with_logits(
         #     query_masks, gt_masks, reduction='mean', ) 
 
-        loss = F.binary_cross_entropy_with_logits(
-            query_masks,
-            gt_masks,
-            reduction='none', ) * ((gt_masks == 0) * 1. + gt_masks * 10.)
+        # loss = F.binary_cross_entropy_with_logits(
+        #     query_masks,
+        #     gt_masks,
+        #     reduction='none', ) * ((gt_masks == 0) * 1. + gt_masks * 10.)
 
-        loss = loss.mean() * (gt_masks == 1).sum()
+        # loss = loss.mean() * (gt_masks == 1).sum()
+
+        loss_pos = F.binary_cross_entropy_with_logits(
+            query_masks[gt_masks == 1],
+            gt_masks[gt_masks == 1],
+            reduction='mean')
+        loss_neg = F.binary_cross_entropy_with_logits(
+            query_masks[gt_masks == 0],
+            gt_masks[gt_masks == 0],
+            reduction='mean')
+        loss = loss_pos + loss_neg
 
         # loss = binary_focal_loss_with_logits(query_masks, gt_masks)
         # loss = binary_focal_loss_with_logits(query_masks, gt_masks) / (
