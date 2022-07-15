@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from numpy import nonzero
 
 import paddle
 import paddle.nn as nn
@@ -131,67 +132,84 @@ class DETR(BaseArch):
         n_pos = 0
 
         if 'heatmap' in inputs:
-            print('heatmap', inputs['heatmap'].shape)
+            heatmap = inputs['heatmap'][:, None]
+            # print('heatmap', heatmap.shape)
+            heatmaps = [
+                F.interpolate(
+                    heatmap, size=m.shape[-2:], mode='nearest')
+                for m in query_masks
+            ]
+            # print('heatmaps', [m.shape for m in heatmaps])
+            # print('query_masks', [m.shape for m in query_masks])
+            # print('heatmaps', [m.sum() for m in heatmaps])
+            gt_masks = paddle.concat(
+                [x.squeeze(1).flatten(1) for x in heatmaps], axis=-1)
 
-        for i in range(len(inputs['gt_bbox'])):
+        else:
 
-            _cents = inputs['gt_bbox'][i][:, :2]
-            n_pos += len(_cents)
+            for i in range(len(inputs['gt_bbox'])):
 
-            _gt_masks_per = []
-            for (h, w) in shapes:
-                _mask = paddle.zeros([h, w], dtype='float32')
-                # TODO
+                _cents = inputs['gt_bbox'][i][:, :2]
+                n_pos += len(_cents)
 
-                if len(_cents) > 0:
-                    _points = []
-                    for _pt in [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)]:
-                        _pts = _cents * paddle.to_tensor(
-                            [w, h]) + paddle.to_tensor(_pt)
-                        _points.append(paddle.cast(_pts, 'int'))
+                _gt_masks_per = []
+                for (h, w) in shapes:
+                    _mask = paddle.zeros([h, w], dtype='float32')
+                    # TODO
 
-                    _points = paddle.concat(_points, axis=0)
-                    _points[:, 0] = _points[:, 0].clip(0, w - 1)
-                    _points[:, 1] = _points[:, 1].clip(0, h - 1)
-                    _mask[_points[:, 1], _points[:, 0]] = 1.
+                    if len(_cents) > 0:
+                        _points = []
+                        for _pt in [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)]:
+                            _pts = _cents * paddle.to_tensor(
+                                [w, h]) + paddle.to_tensor(_pt)
+                            _points.append(paddle.cast(_pts, 'int'))
 
-                # _mask[paddle.cast(_cents[:, 1] * h, 'int'), paddle.cast(
-                #     _cents[:, 0] * w, 'int')] = 1
+                        _points = paddle.concat(_points, axis=0)
+                        _points[:, 0] = _points[:, 0].clip(0, w - 1)
+                        _points[:, 1] = _points[:, 1].clip(0, h - 1)
+                        _mask[_points[:, 1], _points[:, 0]] = 1.
 
-                # _mask[paddle.cast(_cents[:, 1] * h, 'int'),
-                #       paddle.cast(_cents[:, 0] * w, 'int')] = 1
+                    # _mask[paddle.cast(_cents[:, 1] * h, 'int'), paddle.cast(
+                    #     _cents[:, 0] * w, 'int')] = 1
 
-                # _mask[paddle.cast(_cents[:, 1] * h + 0.5, 'int').clip(0, h - 1),
-                #       paddle.cast(_cents[:, 0] * w, 'int')] = 1
+                    # _mask[paddle.cast(_cents[:, 1] * h, 'int'),
+                    #       paddle.cast(_cents[:, 0] * w, 'int')] = 1
 
-                # _mask[paddle.cast(_cents[:, 1] * h, 'int'),
-                #       paddle.cast(_cents[:, 0] * w + 0.5, 'int').clip(0, w -
-                #                                                      1)] = 1
+                    # _mask[paddle.cast(_cents[:, 1] * h + 0.5, 'int').clip(0, h - 1),
+                    #       paddle.cast(_cents[:, 0] * w, 'int')] = 1
 
-                # _mask[paddle.cast(_cents[:, 1] * h + 0.5, 'int').clip(0, h - 1),
-                #       paddle.cast(_cents[:, 0] * w + 0.5, 'int').clip(0, w -
-                #                                                      1)] = 1
+                    # _mask[paddle.cast(_cents[:, 1] * h, 'int'),
+                    #       paddle.cast(_cents[:, 0] * w + 0.5, 'int').clip(0, w -
+                    #                                                      1)] = 1
 
-                _gt_masks_per.append(_mask.flatten())
+                    # _mask[paddle.cast(_cents[:, 1] * h + 0.5, 'int').clip(0, h - 1),
+                    #       paddle.cast(_cents[:, 0] * w + 0.5, 'int').clip(0, w -
+                    #                                                      1)] = 1
 
-            gt_masks.append(paddle.concat(_gt_masks_per, axis=0).unsqueeze(0))
+                    _gt_masks_per.append(_mask.flatten())
 
-        gt_masks = paddle.concat(gt_masks, axis=0)
+                gt_masks.append(
+                    paddle.concat(
+                        _gt_masks_per, axis=0).unsqueeze(0))
+
+            gt_masks = paddle.concat(gt_masks, axis=0)
+
         query_masks = paddle.concat(
             [x.squeeze(1).flatten(1) for x in query_masks], axis=-1)
 
         # loss = F.binary_cross_entropy_with_logits(
         #     query_masks, gt_masks, reduction='mean', ) 
 
-        # loss = F.binary_cross_entropy_with_logits(
-        #     query_masks,
-        #     gt_masks,
-        #     reduction='none', ) * ( (gt_masks == 0) * 1. + gt_masks * 10. )
-        # loss = loss.mean() * n_pos
+        loss = F.binary_cross_entropy_with_logits(
+            query_masks,
+            gt_masks,
+            reduction='none', ) * ((gt_masks == 0) * 1. + gt_masks * 10.)
+
+        loss = loss.mean() * (gt_masks == 1).sum()
 
         # loss = binary_focal_loss_with_logits(query_masks, gt_masks)
-        loss = binary_focal_loss_with_logits(query_masks, gt_masks) / (
-            n_pos + 1)
+        # loss = binary_focal_loss_with_logits(query_masks, gt_masks) / (
+        #     n_pos + 1)
 
         # print(gt_masks.shape, query_masks.shape)
         # print(gt_masks.stop_gradient, query_masks.stop_gradient)
