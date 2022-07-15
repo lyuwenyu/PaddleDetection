@@ -371,7 +371,7 @@ class DeformableTransformer(nn.Layer):
                  without_encoder=False,
                  query_selection=False,
                  use_project_featurs=False,
-                 query_selection_level_percent=None):
+                 query_selection_level_numbers=None):
         super(DeformableTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -384,7 +384,7 @@ class DeformableTransformer(nn.Layer):
         self.query_selection = query_selection
         self.num_queries = num_queries
         self.use_project_featurs = use_project_featurs
-        self.query_selection_level_percent = query_selection_level_percent
+        self.query_selection_level_numbers = query_selection_level_numbers
 
         if not without_encoder:
             encoder_layer = DeformableTransformerEncoderLayer(
@@ -554,13 +554,14 @@ class DeformableTransformer(nn.Layer):
                     for _m, _x in zip(self.query_selection_convs, src_feats)
                 ]
 
-            if self.query_selection_level_percent is not None:
+            if self.query_selection_level_numbers is not None:
                 # assert self.num_queries % self.num_feature_levels == 0, ''
 
-                _level_queries = [
-                    int(self.num_queries * _p)
-                    for _p in self.query_selection_level_percent
-                ]
+                # _level_queries = [
+                #     int(self.num_queries * _p)
+                #     for _p in self.query_selection_level_percent
+                # ]
+                _level_queries = self.query_selection_level_numbers
                 assert sum(_level_queries) == self.num_queries, ''
 
                 _index = []

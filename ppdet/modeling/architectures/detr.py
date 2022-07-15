@@ -148,21 +148,28 @@ class DETR(BaseArch):
             for i in range(len(inputs['gt_bbox'])):
 
                 _cents = inputs['gt_bbox'][i][:, :2]
-                n_pos += len(_cents)
+                n_pos += len(_cents) * 7
 
                 _gt_masks_per = []
-                for (h, w) in shapes:
+                for _, (h, w) in enumerate(shapes):
                     _mask = paddle.zeros([h, w], dtype='float32')
                     # TODO
 
                     if len(_cents) > 0:
-                        _points = []
-                        for _pt in [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)]:
-                            _pts = _cents * paddle.to_tensor(
-                                [w, h]) + paddle.to_tensor(_pt)
-                            _points.append(paddle.cast(_pts, 'int'))
 
-                        _points = paddle.concat(_points, axis=0)
+                        # _points = []
+                        # for _pt in [(-0.5, -0.5), (0, -0.5), (-0.5, 0), (0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)]:
+                        #     _pts = _cents * paddle.to_tensor(
+                        #         [w, h]) + paddle.to_tensor(_pt)
+                        #     _points.append(paddle.cast(_pts, 'int'))
+                        # _points = paddle.concat(_points, axis=0)
+
+                        _offsets = paddle.to_tensor([(-0.5, -0.5), (0, -0.5), (
+                            -0.5, 0), (0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)])
+                        _cents = _cents * paddle.to_tensor([w, h])
+                        _points = (_cents[:, None] + _offsets).reshape([-1, 2])
+                        _points = paddle.cast(_points, 'int32')
+
                         _points[:, 0] = _points[:, 0].clip(0, w - 1)
                         _points[:, 1] = _points[:, 1].clip(0, h - 1)
                         _mask[_points[:, 1], _points[:, 0]] = 1.
@@ -205,15 +212,22 @@ class DETR(BaseArch):
 
         # loss = loss.mean() * (gt_masks == 1).sum()
 
-        loss_pos = F.binary_cross_entropy_with_logits(
-            query_masks[gt_masks == 1],
-            gt_masks[gt_masks == 1],
-            reduction='mean')
+        loss = 0
+        if (gt_masks == 1).sum().item() > 0:
+            loss_pos = F.binary_cross_entropy_with_logits(
+                query_masks[gt_masks == 1],
+                gt_masks[gt_masks == 1],
+                reduction='mean')
+
+            loss += loss_pos
+
         loss_neg = F.binary_cross_entropy_with_logits(
             query_masks[gt_masks == 0],
             gt_masks[gt_masks == 0],
             reduction='mean')
-        loss = loss_pos + loss_neg
+
+        loss += loss_neg
+        # loss = loss / (gt_masks != -1).sum()
 
         # loss = binary_focal_loss_with_logits(query_masks, gt_masks)
         # loss = binary_focal_loss_with_logits(query_masks, gt_masks) / (

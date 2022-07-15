@@ -73,7 +73,7 @@ DeformableTransformer:
   backbone_num_channels: [768, 768, 768]
   without_encoder: True
   query_selection: True
-  query_selection_level_percent: ~
+  query_selection_level_numbers: [150, 100, 50]
   use_project_featurs: False
 
 DeformableDETRHead:

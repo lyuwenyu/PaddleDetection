@@ -7,12 +7,16 @@ from .operators import register_op
 
 @register_op
 class BoxCenterGaussianMask(BaseOperator):
-    def __init__(self, min_overlap=0.9, ignore_min_overlap=0.5,
-                 ignore_value=-1):
+    def __init__(self,
+                 min_overlap=0.9,
+                 ignore_min_overlap=0.5,
+                 ignore_value=-1,
+                 num_fixed=4):
         super().__init__()
         self.min_overlap = min_overlap
         self.ignore_min_overlap = ignore_min_overlap
         self.ignore_value = ignore_value
+        self.num_fixed = num_fixed
 
     def apply(self, sample, context=None):
         gt_bbox = sample['gt_bbox']
