@@ -130,24 +130,42 @@ class DETR(BaseArch):
         n_pos = 0
 
         for i in range(len(inputs['gt_bbox'])):
-            _cent = inputs['gt_bbox'][i][:, :2]
-            n_pos += len(_cent)
+
+            _cents = inputs['gt_bbox'][i][:, :2]
+            n_pos += len(_cents)
 
             _gt_masks_per = []
             for (h, w) in shapes:
                 _mask = paddle.zeros([h, w], dtype='float32')
                 # TODO
-                _mask[paddle.cast(_cent[:, 1] * h, 'int'), paddle.cast(
-                    _cent[:, 0] * w, 'int')] = 1
-                # _mask[paddle.cast(_cent[:, 1] * h, 'int').clip(0, h - 1),
-                #       paddle.cast(_cent[:, 0] * w, 'int').clip(0, w - 1)] = 1
-                # _mask[paddle.cast(_cent[:, 1] * h + 0.5, 'int').clip(0, h - 1),
-                #       paddle.cast(_cent[:, 0] * w, 'int').clip(0, w - 1)] = 1
-                # _mask[paddle.cast(_cent[:, 1] * h, 'int').clip(0, h - 1),
-                #       paddle.cast(_cent[:, 0] * w + 0.5, 'int').clip(0, w -
+
+                if len(_cents) > 0:
+                    _points = []
+                    for _pt in [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)]:
+                        _pts = _cents * paddle.to_tensor(
+                            [w, h]) + paddle.to_tensor(_pt)
+                        _points.append(paddle.cast(_pts, 'int'))
+
+                    _points = paddle.concat(_points, axis=0)
+                    _points[:, 0] = _points[:, 0].clip(0, w - 1)
+                    _points[:, 1] = _points[:, 1].clip(0, h - 1)
+                    _mask[_points[:, 1], _points[:, 0]] = 1
+
+                # _mask[paddle.cast(_cents[:, 1] * h, 'int'), paddle.cast(
+                #     _cents[:, 0] * w, 'int')] = 1
+
+                # _mask[paddle.cast(_cents[:, 1] * h, 'int'),
+                #       paddle.cast(_cents[:, 0] * w, 'int')] = 1
+
+                # _mask[paddle.cast(_cents[:, 1] * h + 0.5, 'int').clip(0, h - 1),
+                #       paddle.cast(_cents[:, 0] * w, 'int')] = 1
+
+                # _mask[paddle.cast(_cents[:, 1] * h, 'int'),
+                #       paddle.cast(_cents[:, 0] * w + 0.5, 'int').clip(0, w -
                 #                                                      1)] = 1
-                # _mask[paddle.cast(_cent[:, 1] * h + 0.5, 'int').clip(0, h - 1),
-                #       paddle.cast(_cent[:, 0] * w + 0.5, 'int').clip(0, w -
+
+                # _mask[paddle.cast(_cents[:, 1] * h + 0.5, 'int').clip(0, h - 1),
+                #       paddle.cast(_cents[:, 0] * w + 0.5, 'int').clip(0, w -
                 #                                                      1)] = 1
 
                 _gt_masks_per.append(_mask.flatten())
@@ -158,8 +176,14 @@ class DETR(BaseArch):
         query_masks = paddle.concat(
             [x.squeeze(1).flatten(1) for x in query_masks], axis=-1)
 
+        # loss = F.binary_cross_entropy_with_logits(
+        #     query_masks, gt_masks, reduction='mean', ) 
+
         loss = F.binary_cross_entropy_with_logits(
-            query_masks, gt_masks, reduction='mean') * n_pos
+            query_masks,
+            gt_masks,
+            reduction='none', ) * gt_masks * 10
+        loss = loss.mean() * n_pos
 
         # print(gt_masks.shape, query_masks.shape)
         # print(gt_masks.stop_gradient, query_masks.stop_gradient)
@@ -168,10 +192,7 @@ class DETR(BaseArch):
         return {'query_selection_loss': loss}
 
 
-from paddle import Tensor
-
-
-def box_convert(boxes: Tensor, in_fmt='xyxy', out_fmt='cxcywh'):
+def box_convert(boxes, in_fmt='xyxy', out_fmt='cxcywh'):
     '''boxes convert
     '''
     if in_fmt == out_fmt:
@@ -191,3 +212,14 @@ def box_convert(boxes: Tensor, in_fmt='xyxy', out_fmt='cxcywh'):
 
     else:
         raise AttributeError('')
+
+
+# 6265   File "/root/paddlejob/workspace/env_run/lvwenyu01/PaddleDetection/ppdet/modeling/architectures/detr.py", line 80, in
+# 6266     query_selection_losses = self.get_location_loss(query_masks)
+# 6267   File "/root/paddlejob/workspace/env_run/lvwenyu01/PaddleDetection/ppdet/modeling/architectures/detr.py", line 144, i
+# 6268     _pts = _cent * paddle.to_tensor([w, h]) + paddle.to_tensor(_pt)
+# 6269   File "/root/anaconda3/lib/python3.8/site-packages/paddle/fluid/dygraph/math_op_patch.py", line 264, in __impl__
+# 6270     return math_op(self, other_var, 'axis', axis)
+# 6271 RuntimeError: (PreconditionNotMet) The Tensor's element number must be equal or greater than zero. The Tensor's shape
+# 6272   [Hint: Expected numel() >= 0, but received numel():-2 < 0:0.] (at /paddle/paddle/fluid/framework/tensor.cc:59)
+# 6273   [operator < elementwise_mul > error]

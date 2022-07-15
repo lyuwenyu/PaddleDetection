@@ -71,7 +71,7 @@ DeformableTransformer:
   backbone_num_channels: [768, 768, 768]
   without_encoder: True
   query_selection: True
-
+  use_project_featurs: True
 
 DeformableDETRHead:
   num_mlp_layers: 3

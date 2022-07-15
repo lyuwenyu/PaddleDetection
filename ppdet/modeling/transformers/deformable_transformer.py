@@ -369,7 +369,8 @@ class DeformableTransformer(nn.Layer):
                  weight_attr=None,
                  bias_attr=None,
                  without_encoder=False,
-                 query_selection=False):
+                 query_selection=False,
+                 use_project_featurs=False):
         super(DeformableTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -381,6 +382,7 @@ class DeformableTransformer(nn.Layer):
         self.without_encoder = without_encoder
         self.query_selection = query_selection
         self.num_queries = num_queries
+        self.use_project_featurs = use_project_featurs
 
         if not without_encoder:
             encoder_layer = DeformableTransformerEncoderLayer(
@@ -399,16 +401,18 @@ class DeformableTransformer(nn.Layer):
         self.query_pos_embed = nn.Embedding(num_queries, hidden_dim)
 
         if self.query_selection:
-            self.query_selection_convs = nn.LayerList([
-                nn.Sequential(nn.Conv2D(c, 1, 1, 1), )
-                for c in backbone_num_channels
-            ])
-            # self.query_selection_convs = nn.LayerList([
-            #     nn.Sequential(
-            #         nn.GELU(),
-            #         nn.Conv2D(hidden_dim, 1, 1, 1), )
-            #     for _ in range(num_feature_levels)
-            # ])
+            if self.use_project_featurs:
+                self.query_selection_convs = nn.LayerList([
+                    nn.Sequential(
+                        nn.GELU(),
+                        nn.Conv2D(hidden_dim, 1, 1, 1), )
+                    for _ in range(num_feature_levels)
+                ])
+            else:
+                self.query_selection_convs = nn.LayerList([
+                    nn.Sequential(nn.Conv2D(c, 1, 1, 1), )
+                    for c in backbone_num_channels
+                ])
 
         else:
             self.tgt_embed = nn.Embedding(num_queries, hidden_dim)
@@ -538,12 +542,15 @@ class DeformableTransformer(nn.Layer):
 
         if self.query_selection:
             bs, L, c = memory.shape
-            query_selection_masks = [
-                _m(_x) for _m, _x in zip(self.query_selection_convs, src_feats)
-            ]
-            # query_selection_masks = [
-            #     _m(_x) for _m, _x in zip(self.query_selection_convs, src)
-            # ]
+            if self.use_project_featurs:
+                query_selection_masks = [
+                    _m(_x) for _m, _x in zip(self.query_selection_convs, srcs)
+                ]
+            else:
+                query_selection_masks = [
+                    _m(_x)
+                    for _m, _x in zip(self.query_selection_convs, src_feats)
+                ]
 
             # N L_src
             queries = paddle.concat(
