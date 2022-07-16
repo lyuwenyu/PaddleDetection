@@ -216,7 +216,7 @@ class DETR(BaseArch):
         # loss = F.binary_cross_entropy_with_logits(
         #     query_masks,
         #     gt_masks,
-        #     reduction='mean', )
+        #     reduction='mean', ) * n_pos
 
         loss = F.binary_cross_entropy_with_logits(
             query_masks,
@@ -299,3 +299,5 @@ def box_convert(boxes, in_fmt='xyxy', out_fmt='cxcywh'):
 # 6271 RuntimeError: (PreconditionNotMet) The Tensor's element number must be equal or greater than zero. The Tensor's shape
 # 6272   [Hint: Expected numel() >= 0, but received numel():-2 < 0:0.] (at /paddle/paddle/fluid/framework/tensor.cc:59)
 # 6273   [operator < elementwise_mul > error]
+
+# https://github.com/lyuwenyu/PaddleDetection/blob/fe3f97961b2f5d04ba8eae77924f616084823fdb/configs/vitdet/detr_deformable_qs_vit_base_cae_60e_coco.yml

@@ -76,9 +76,10 @@ DeformableTransformer:
   # query_selection_level_numbers: [150, 100, 50]
   use_project_featurs: False
 
+
 DeformableDETRHead:
   num_mlp_layers: 3
-  use_sigmoid: True
+  use_sigmoid: False # True
   activation: 'gelu'
 
 
