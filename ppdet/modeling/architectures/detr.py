@@ -42,9 +42,10 @@ class DETR(BaseArch):
         self.detr_head = detr_head
         self.post_process = post_process
 
-        # self._offsets = paddle.to_tensor([(0, 0), (0, 1), (1, 0), (1, 1)], dtype='int32') 
         self._offsets = paddle.to_tensor(
-            [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)], dtype='int32')
+            [(0, 0), (0, 1), (1, 0), (1, 1)], dtype='int32')
+        # self._offsets = paddle.to_tensor(
+        #     [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)], dtype='int32')
 
         # self._offsets = paddle.to_tensor([(0, 0), (0, 1), (1, 0), (1, 1),
         #                                   (-1, -1), (-1, 0), (-1, 1), (0, -1), (1, -1)], dtype='int32')                
@@ -174,11 +175,11 @@ class DETR(BaseArch):
                         _offsets = self._offsets
                         _cents = _cents * paddle.to_tensor([w, h])
 
-                        # _cents = paddle.cast(_cents, 'int32')
-                        # _points = (_cents[:, None] + _offsets).reshape([-1, 2])
-
+                        _cents = paddle.cast(_cents, 'int32')
                         _points = (_cents[:, None] + _offsets).reshape([-1, 2])
-                        _points = paddle.cast(_points, 'int32')
+
+                        # _points = (_cents[:, None] + _offsets).reshape([-1, 2])
+                        # _points = paddle.cast(_points, 'int32')
 
                         _points[:, 0] = _points[:, 0].clip(0, w - 1)
                         _points[:, 1] = _points[:, 1].clip(0, h - 1)
@@ -212,15 +213,15 @@ class DETR(BaseArch):
         query_masks = paddle.concat(
             [x.squeeze(1).flatten(1) for x in query_masks], axis=-1)
 
-        loss = F.binary_cross_entropy_with_logits(
-            query_masks,
-            gt_masks,
-            reduction='mean', )
-
         # loss = F.binary_cross_entropy_with_logits(
         #     query_masks,
         #     gt_masks,
-        #     reduction='none', ) * ((gt_masks == 0) * 1. + gt_masks * 10.)
+        #     reduction='mean', )
+
+        loss = F.binary_cross_entropy_with_logits(
+            query_masks,
+            gt_masks,
+            reduction='none', ) * ((gt_masks == 0) * 1. + gt_masks * 10.)
 
         # loss = loss.mean() # * (gt_masks == 1).sum()
 
