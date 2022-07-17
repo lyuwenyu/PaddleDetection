@@ -73,13 +73,13 @@ DeformableTransformer:
   backbone_num_channels: [768, 768, 768]
   without_encoder: True
   query_selection: True
-  # query_selection_level_numbers: [150, 100, 50]
+  # query_selection_level_numbers: [100, 100, 100]
   use_project_featurs: False
 
 
 DeformableDETRHead:
   num_mlp_layers: 3
-  use_sigmoid: False # True
+  use_sigmoid: True # True
   activation: 'gelu'
 
 

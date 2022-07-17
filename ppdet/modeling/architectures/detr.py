@@ -42,6 +42,7 @@ class DETR(BaseArch):
         self.detr_head = detr_head
         self.post_process = post_process
 
+        self.use_focal_loss = True
         self._offsets = paddle.to_tensor(
             [(0, 0), (0, 1), (1, 0), (1, 1)], dtype='int32')
         # self._offsets = paddle.to_tensor(
@@ -213,42 +214,49 @@ class DETR(BaseArch):
         query_masks = paddle.concat(
             [x.squeeze(1).flatten(1) for x in query_masks], axis=-1)
 
-        # loss = F.binary_cross_entropy_with_logits(
-        #     query_masks,
-        #     gt_masks,
-        #     reduction='mean', ) * n_pos
+        if self.use_focal_loss:
+            loss = binary_focal_loss_with_logits(
+                query_masks, gt_masks, reduction='mean') * n_pos
 
-        loss = F.binary_cross_entropy_with_logits(
-            query_masks,
-            gt_masks,
-            reduction='none', ) * ((gt_masks == 0) * 1. + gt_masks * 10.)
+        else:
 
-        # loss = loss.mean() # * (gt_masks == 1).sum()
+            # loss = F.binary_cross_entropy_with_logits(
+            #     query_masks,
+            #     gt_masks,
+            #     reduction='mean', ) * n_pos
 
-        # loss = 0
-        # if (gt_masks == 1).sum().item() > 0:
-        #     loss_pos = F.binary_cross_entropy_with_logits(
-        #         query_masks[gt_masks == 1],
-        #         gt_masks[gt_masks == 1],
-        #         reduction='mean')
+            loss = F.binary_cross_entropy_with_logits(
+                query_masks,
+                gt_masks,
+                reduction='none', ) * (
+                    (gt_masks == 0) * 1. + gt_masks * 10.).mean()
 
-        #     loss += loss_pos
+            # loss = loss.mean() # * (gt_masks == 1).sum()
 
-        # loss_neg = F.binary_cross_entropy_with_logits(
-        #     query_masks[gt_masks == 0],
-        #     gt_masks[gt_masks == 0],
-        #     reduction='mean')
+            # loss = 0
+            # if (gt_masks == 1).sum().item() > 0:
+            #     loss_pos = F.binary_cross_entropy_with_logits(
+            #         query_masks[gt_masks == 1],
+            #         gt_masks[gt_masks == 1],
+            #         reduction='mean')
 
-        # loss += loss_neg
-        # loss = loss / (gt_masks != -1).sum()
+            #     loss += loss_pos
 
-        # loss = binary_focal_loss_with_logits(query_masks, gt_masks)
-        # loss = binary_focal_loss_with_logits(query_masks, gt_masks) / (
-        #     n_pos + 1)
+            # loss_neg = F.binary_cross_entropy_with_logits(
+            #     query_masks[gt_masks == 0],
+            #     gt_masks[gt_masks == 0],
+            #     reduction='mean')
 
-        # print(gt_masks.shape, query_masks.shape)
-        # print(gt_masks.stop_gradient, query_masks.stop_gradient)
-        # print(loss)
+            # loss += loss_neg
+            # loss = loss / (gt_masks != -1).sum()
+
+            # loss = binary_focal_loss_with_logits(query_masks, gt_masks)
+            # loss = binary_focal_loss_with_logits(query_masks, gt_masks) / (
+            #     n_pos + 1)
+
+            # print(gt_masks.shape, query_masks.shape)
+            # print(gt_masks.stop_gradient, query_masks.stop_gradient)
+            # print(loss)
 
         return {'query_selection_loss': loss}
 
@@ -256,14 +264,20 @@ class DETR(BaseArch):
 import paddle.nn.functional as F
 
 
-def binary_focal_loss_with_logits(logits, label, alpha=0.25, gamma=2.0):
+def binary_focal_loss_with_logits(logits,
+                                  label,
+                                  alpha=0.25,
+                                  gamma=2.0,
+                                  reduction='mean'):
     score = F.sigmoid(logits)
 
     weight = (score - label).pow(gamma)
     if alpha > 0:
         alpha_t = alpha * label + (1 - alpha) * (1 - label)
         weight *= alpha_t
-    loss = F.binary_cross_entropy(score, label, weight=weight, reduction='sum')
+
+    loss = F.binary_cross_entropy(
+        score, label, weight=weight, reduction=reduction)
 
     return loss
 

@@ -574,7 +574,9 @@ class DeformableTransformer(nn.Layer):
 
                 _index = paddle.concat(_index, axis=1)
                 _index = F.one_hot(_index, _offset)
-                assert _index.shape[1] == _offset == L, ''
+
+                assert _index.shape[1] == self.num_queries, ''
+                assert _index.shape[-1] == _offset == L, ''
 
             else:
                 # N L_src
