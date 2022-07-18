@@ -18,6 +18,16 @@ class BoxCenterGaussianMask(BaseOperator):
         self.ignore_value = ignore_value
         self.num_fixed = num_fixed
 
+    def show_gaussian(self, heatmap, name=''):
+        '''n x h x w
+        '''
+        from PIL import Image
+        # _im = np.max(heatmap, axis=-1)
+        _im = np.floor(heatmap * 255)
+        _im = Image.fromarray(_im).convert('L')
+        # _im.save(f'./tmp/{name}_heatmap.jpg')
+        return _im
+
     def apply(self, sample, context=None):
         gt_bbox = sample['gt_bbox']
 

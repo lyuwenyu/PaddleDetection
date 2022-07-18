@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from random import sample
 
 import paddle
 import paddle.nn as nn
@@ -45,6 +46,9 @@ class DETR(BaseArch):
         self.use_focal_loss = True
         self._offsets = paddle.to_tensor(
             [(0, 0), (0, 1), (1, 0), (1, 1)], dtype='int32')
+        self.use_gaussian = True
+        self.draw_gaussian_mask = BoxCenterGaussianMask(0.8)
+
         # self._offsets = paddle.to_tensor(
         #     [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)], dtype='int32')
 
@@ -151,6 +155,14 @@ class DETR(BaseArch):
             # print('heatmaps', [m.sum() for m in heatmaps])
             gt_masks = paddle.concat(
                 [x.squeeze(1).flatten(1) for x in heatmaps], axis=-1)
+
+        elif self.use_gaussian:
+            shapes = [_feat.shape[-2:] for _feat in query_masks]
+            heatmaps = [
+                self.draw_gaussian_mask(
+                    sample=inputs, shape=shape) for shape in shapes
+            ]
+            gt_masks = paddle.concat([x.flatten(1) for x in heatmaps], axis=-1)
 
         else:
 
@@ -315,3 +327,117 @@ def box_convert(boxes, in_fmt='xyxy', out_fmt='cxcywh'):
 # 6273   [operator < elementwise_mul > error]
 
 # https://github.com/lyuwenyu/PaddleDetection/blob/fe3f97961b2f5d04ba8eae77924f616084823fdb/configs/vitdet/detr_deformable_qs_vit_base_cae_60e_coco.yml
+
+import math
+import numpy as np
+
+
+def gaussian_radius(sizes, min_overlap=0.5):
+    '''
+        sizes: [n, 2], w, h
+    '''
+    width, height = sizes[:, 0], sizes[:, 1]
+
+    a1 = 1
+    b1 = (height + width)
+    c1 = width * height * (1 - min_overlap) / (1 + min_overlap)
+    sq1 = np.sqrt(b1**2 - 4 * a1 * c1)
+    r1 = (b1 + sq1) / 2
+
+    a2 = 4
+    b2 = 2 * (height + width)
+    c2 = (1 - min_overlap) * width * height
+    sq2 = np.sqrt(b2**2 - 4 * a2 * c2)
+    r2 = (b2 + sq2) / 2
+
+    a3 = 4 * min_overlap
+    b3 = -2 * min_overlap * (height + width)
+    c3 = (min_overlap - 1) * width * height
+    sq3 = np.sqrt(b3**2 - 4 * a3 * c3)
+    r3 = (b3 + sq3) / 2
+
+    r = np.concatenate((r1[None], r2[None], r3[None]), axis=0)
+
+    return np.maximum(np.amin(r, axis=0), 0)
+
+
+def gaussian2D(shape, sigma=1):
+    m, n = [(ss - 1.) / 2. for ss in shape]
+    y, x = np.ogrid[-m:m + 1, -n:n + 1]
+
+    h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
+    return h
+
+
+def draw_umich_gaussian(heatmap, center, radius, k=1):
+    diameter = 2 * radius + 1
+    gaussian = gaussian2D((diameter, diameter), sigma=diameter / 6)
+
+    x, y = int(center[0]), int(center[1])
+
+    height, width = heatmap.shape[0:2]
+
+    left, right = min(x, radius), min(width - x, radius + 1)
+    top, bottom = min(y, radius), min(height - y, radius + 1)
+
+    masked_heatmap = heatmap[y - top:y + bottom, x - left:x + right]
+    masked_gaussian = gaussian[radius - top:radius + bottom, radius - left:
+                               radius + right]
+
+    # print(masked_heatmap.dtype)
+    # print(masked_gaussian.dtype)
+
+    if min(masked_gaussian.shape) > 0 and min(
+            masked_heatmap.shape) > 0:  # TODO debug
+        np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
+
+    return heatmap
+
+
+class BoxCenterGaussianMask:
+    def __init__(
+            self,
+            min_overlap=0.9, ):
+        super().__init__()
+        self.min_overlap = min_overlap
+
+    def __call__(self, sample, shape):
+
+        gt_bbox = sample['gt_bbox']
+
+        # image = sample['image']
+        # h, w, _ = image.shape
+
+        h, w = shape
+
+        heatmap = np.zeros((h, w)).astype(np.float32)
+
+        if len(gt_bbox) > 0:
+
+            # gt area
+            r = gaussian_radius(gt_bbox[:, -2:],
+                                self.min_overlap).astype(np.int32)
+
+            cx = gt_bbox[:, 0].astype(np.int32)
+            cy = gt_bbox[:, 1].astype(np.int32)
+
+            # left, right = np.minimum(cx, r), np.minimum(w - cx, r + 1)
+            # top, bottom = np.minimum(cy, r), np.minimum(h - cy, r + 1)
+
+            for i in range(len(gt_bbox)):
+                draw_umich_gaussian(heatmap, (cx[i], cy[i]), r[i])
+
+        # sample['heatmap'] = heatmap
+        heatmap = paddle.to_tensor(heatmap)
+
+        return heatmap
+
+    def show_gaussian(self, heatmap, name=''):
+        '''n x h x w
+        '''
+        from PIL import Image
+        _im = np.max(heatmap, axis=-1)
+        _im = np.floor(_im * 255)
+        _im = Image.fromarray(_im).convert('L')
+        _im.save(f'./tmp/{name}_heatmap.jpg')
