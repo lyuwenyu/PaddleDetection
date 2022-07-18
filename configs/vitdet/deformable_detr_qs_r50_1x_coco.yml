@@ -16,6 +16,9 @@ snapshot_epoch: 1
 TrainReader:
   batch_size: 1
 
+LearningRate:
+  base_lr: 0.0001
+
 
 architecture: DETR
 pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vb_normal_pretrained.pdparams
