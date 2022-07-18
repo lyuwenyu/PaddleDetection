@@ -538,6 +538,8 @@ class DeformableTransformer(nn.Layer):
                                   lvl_pos_embed_flatten, valid_ratios)
         else:
             memory = src_flatten
+
+            # TODO
             mask_flatten = None
 
         query_selection_masks = None

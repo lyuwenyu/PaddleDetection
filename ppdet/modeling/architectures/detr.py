@@ -216,7 +216,7 @@ class DETR(BaseArch):
 
         if self.use_focal_loss:
             loss = binary_focal_loss_with_logits(
-                query_masks, gt_masks, reduction='mean') * n_pos
+                query_masks, gt_masks, reduction='mean') * 10  # * n_pos
 
         else:
 
