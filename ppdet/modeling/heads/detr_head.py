@@ -365,15 +365,16 @@ class DeformableDETRHead(nn.Layer):
         else:
 
             outputs_bbox = self.bbox_head(feats)
-            outputs_bbox = 2 * F.sigmoid(outputs_bbox) - 1
+            outputs_bbox = F.sigmoid(outputs_bbox)
 
             outputs_bbox = paddle.concat(
                 [
-                    outputs_bbox[:, :, :, :2] + reference_points,
-                    outputs_bbox[:, :, :, 2:]
+                    paddle.clip(
+                        (2 * outputs_bbox[:, :, :, :2] - 1) + reference_points,
+                        0., 1.), outputs_bbox[:, :, :, 2:]
                 ],
                 axis=-1)
-            outputs_bbox = paddle.clip(outputs_bbox, min=0., max=1.)
+            # outputs_bbox = paddle.clip(outputs_bbox, min=0., max=1.)
 
         outputs_logit = self.score_head(feats)
 

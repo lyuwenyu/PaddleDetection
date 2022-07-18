@@ -442,6 +442,9 @@ class VisionTransformer(nn.Layer):
                 embed_dim=embed_dim,
                 patch_size=patch_size, )
 
+        # self.fpns = nn.LayerList([
+        # ])
+
     def init_weight(self):
         pretrained = self.pretrained
 
@@ -489,9 +492,17 @@ class VisionTransformer(nn.Layer):
                 nn.Conv2DTranspose(
                     embed_dim, embed_dim, kernel_size=2, stride=2), )
 
+            # fpn2 = nn.Sequential(
+            #     nn.Conv2DTranspose(
+            #         embed_dim, embed_dim, kernel_size=2, stride=2),
+            #     nn.GroupNorm(32, embed_dim),
+            #     nn.GELU())
+
             fpn3 = Identity()
+            # fpn3 = nn.Sequential(nn.Conv2D(embed_dim, embed_dim, kernel_size=1, stride=1))
 
             fpn4 = nn.MaxPool2D(kernel_size=2, stride=2)
+            # fpn4 = nn.Sequential(nn.Conv2D(embed_dim, embed_dim, kernel_size=2, stride=2), nn.GroupNorm(32, embed_dim), nn.GELU())
 
         elif patch_size == 8:
 

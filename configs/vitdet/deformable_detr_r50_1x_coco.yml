@@ -1,0 +1,87 @@
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  '../deformable_detr/_base_/deformable_optimizer_1x.yml',
+  '../deformable_detr/_base_/deformable_detr_r50.yml',
+  '../deformable_detr/_base_/deformable_detr_reader.yml',
+]
+weights: output/deformable_detr_r50_1x_coco/model_final
+find_unused_parameters: True
+
+
+TrainReader:
+  batch_size: 1
+
+
+architecture: DETR
+pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vb_normal_pretrained.pdparams
+hidden_dim: 256
+use_focal_loss: True
+
+
+DETR:
+  backbone: ResNet
+  transformer: DeformableTransformer
+  detr_head: DeformableDETRHead
+  post_process: DETRBBoxPostProcess
+
+
+ResNet:
+  # index 0 stands for res2
+  depth: 50
+  norm_type: bn
+  freeze_at: 0
+  return_idx: [1, 2, 3]
+  lr_mult_list: [0.0, 0.1, 0.1, 0.1]
+  num_stages: 4
+
+
+DeformableTransformer:
+  num_queries: 300
+  position_embed_type: sine
+  nhead: 8
+  num_encoder_layers: 6
+  num_decoder_layers: 6
+  dim_feedforward: 1024
+  dropout: 0.1
+  activation: relu
+  num_feature_levels: 4
+  num_encoder_points: 4
+  num_decoder_points: 4
+
+  query_selection: True
+  backbone_num_channels: [512, 1024, 2048]
+  use_project_featurs: True
+
+
+# DeformableTransformer:
+#   num_queries: 300
+#   position_embed_type: sine
+#   nhead: 8
+#   num_encoder_layers: 6
+#   num_decoder_layers: 6
+#   dim_feedforward: 1024
+#   dropout: 0.1
+#   activation: 'relu' # relu
+#   num_encoder_points: 4
+#   num_decoder_points: 4
+#   num_feature_levels: 3
+#   backbone_num_channels: [768, 768, 768]
+#   without_encoder: True
+#   query_selection: True
+#   # query_selection_level_numbers: [100, 100, 100]
+#   use_project_featurs: False
+
+
+
+DeformableDETRHead:
+  num_mlp_layers: 3
+
+
+DETRLoss:
+  loss_coeff: {class: 2, bbox: 5, giou: 2, mask: 1, dice: 1}
+  aux_loss: True
+
+
+HungarianMatcher:
+  matcher_coeff: {class: 2, bbox: 5, giou: 2}

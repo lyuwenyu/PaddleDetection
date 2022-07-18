@@ -611,6 +611,8 @@ class DeformableTransformer(nn.Layer):
             reference_points, reference_points_valid = self.get_reference_points(
                 spatial_shapes, valid_ratios)
 
+            # reference_points = reference_points_valid = self.get_reference_points_v1(spatial_shapes)
+
             # print('reference_points: ', reference_points.shape)
             # 1 300 7080 -> 1 300 7080 1 1
             # reference_points:  [1, 7080, 3, 2] -> 1 1 7080 3 2
@@ -667,3 +669,18 @@ class DeformableTransformer(nn.Layer):
         reference_points = paddle.concat(reference_points, 1).unsqueeze(2)
         # reference_points = reference_points * valid_ratios
         return reference_points, reference_points * valid_ratios
+
+    @staticmethod
+    def get_reference_points_v1(spatial_shapes):
+        # valid_ratios = valid_ratios.unsqueeze(1)
+        reference_points = []
+        for i, (H, W) in enumerate(spatial_shapes.tolist()):
+            ref_y, ref_x = paddle.meshgrid(
+                paddle.linspace(0.5, H - 0.5, H),
+                paddle.linspace(0.5, W - 0.5, W))
+            ref_y = ref_y.flatten().unsqueeze(0) / H
+            ref_x = ref_x.flatten().unsqueeze(0) / W
+            reference_points.append(paddle.stack((ref_x, ref_y), axis=-1))
+        reference_points = paddle.concat(reference_points, 1).unsqueeze(2)
+        # reference_points = reference_points * valid_ratios
+        return reference_points
