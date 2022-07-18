@@ -15,7 +15,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from random import sample
 
 import paddle
 import paddle.nn as nn
@@ -44,9 +43,11 @@ class DETR(BaseArch):
         self.post_process = post_process
 
         self.use_focal_loss = True
-        self._offsets = paddle.to_tensor(
+
+        self.offsets = paddle.to_tensor(
             [(0, 0), (0, 1), (1, 0), (1, 1)], dtype='int32')
-        self.use_gaussian = True
+
+        self.use_gaussian = False
         self.draw_gaussian_mask = BoxCenterGaussianMask(0.8)
 
         # self._offsets = paddle.to_tensor(
@@ -185,7 +186,7 @@ class DETR(BaseArch):
                         #     _points.append(paddle.cast(_pts, 'int'))
                         # _points = paddle.concat(_points, axis=0)
 
-                        _offsets = self._offsets
+                        _offsets = self.offsets
                         _cents = _cents * paddle.to_tensor([w, h])
 
                         _cents = paddle.cast(_cents, 'int32')
@@ -328,7 +329,6 @@ def box_convert(boxes, in_fmt='xyxy', out_fmt='cxcywh'):
 
 # https://github.com/lyuwenyu/PaddleDetection/blob/fe3f97961b2f5d04ba8eae77924f616084823fdb/configs/vitdet/detr_deformable_qs_vit_base_cae_60e_coco.yml
 
-import math
 import numpy as np
 
 
@@ -404,40 +404,41 @@ class BoxCenterGaussianMask:
 
     def __call__(self, sample, shape):
 
-        gt_bbox = sample['gt_bbox']
+        gt_bbox_list = sample['gt_bbox']
+
+        # print(len(gt_bbox_list))
+        # print(gt_bbox_list[0].shape, shape)
+        # print(shape)
 
         # image = sample['image']
         # h, w, _ = image.shape
 
         h, w = shape
+        heatmap = np.zeros((len(gt_bbox_list), h, w)).astype(np.float32)
+        # print(heatmap.shape)
 
-        heatmap = np.zeros((h, w)).astype(np.float32)
+        for j in range(len(gt_bbox_list)):
+            gt_bbox = gt_bbox_list[j]
+            gt_bbox = gt_bbox.numpy() * np.array([w, h, w, h])
 
-        if len(gt_bbox) > 0:
+            if len(gt_bbox) > 0:
+                # gt area
+                r = gaussian_radius(gt_bbox[:, -2:],
+                                    self.min_overlap).astype(np.int32)
 
-            # gt area
-            r = gaussian_radius(gt_bbox[:, -2:],
-                                self.min_overlap).astype(np.int32)
+                cx = gt_bbox[:, 0].astype(np.int32)
+                cy = gt_bbox[:, 1].astype(np.int32)
 
-            cx = gt_bbox[:, 0].astype(np.int32)
-            cy = gt_bbox[:, 1].astype(np.int32)
+                # left, right = np.minimum(cx, r), np.minimum(w - cx, r + 1)
+                # top, bottom = np.minimum(cy, r), np.minimum(h - cy, r + 1)
 
-            # left, right = np.minimum(cx, r), np.minimum(w - cx, r + 1)
-            # top, bottom = np.minimum(cy, r), np.minimum(h - cy, r + 1)
+                for i in range(len(gt_bbox)):
+                    draw_umich_gaussian(heatmap[j, :, :], (cx[i], cy[i]), r[i])
 
-            for i in range(len(gt_bbox)):
-                draw_umich_gaussian(heatmap, (cx[i], cy[i]), r[i])
+            # self.show_gaussian(heatmap[j], name=str(j))
+            # print(j, (heatmap > 0.).nonzero()[0].shape  )
 
-        # sample['heatmap'] = heatmap
+            # sample['heatmap'] = heatmap
         heatmap = paddle.to_tensor(heatmap)
 
         return heatmap
-
-    def show_gaussian(self, heatmap, name=''):
-        '''n x h x w
-        '''
-        from PIL import Image
-        _im = np.max(heatmap, axis=-1)
-        _im = np.floor(_im * 255)
-        _im = Image.fromarray(_im).convert('L')
-        _im.save(f'./tmp/{name}_heatmap.jpg')
