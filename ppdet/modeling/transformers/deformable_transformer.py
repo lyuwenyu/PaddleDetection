@@ -24,6 +24,7 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 from paddle import ParamAttr
+import numpy as np
 
 from ppdet.core.workspace import register
 from ..layers import MultiHeadAttention
@@ -406,7 +407,7 @@ class DeformableTransformer(nn.Layer):
             if self.use_project_featurs:
                 self.query_selection_convs = nn.LayerList([
                     nn.Sequential(
-                        nn.GELU(),
+                        # nn.GELU(),
                         nn.Conv2D(hidden_dim, 1, 1, 1), )
                     for _ in range(num_feature_levels)
                 ])
@@ -528,6 +529,7 @@ class DeformableTransformer(nn.Layer):
         mask_flatten = paddle.concat(mask_flatten, 1)
         lvl_pos_embed_flatten = paddle.concat(lvl_pos_embed_flatten, 1)
         # [l, 2]
+        _spatial_shapes = spatial_shapes
         spatial_shapes = paddle.to_tensor(spatial_shapes, dtype='int64')
         # [b, l, 2]
         valid_ratios = paddle.stack(valid_ratios, 1)
@@ -536,6 +538,15 @@ class DeformableTransformer(nn.Layer):
         if not self.without_encoder:
             memory = self.encoder(src_flatten, spatial_shapes, mask_flatten,
                                   lvl_pos_embed_flatten, valid_ratios)
+
+            _b, _, _c = memory.shape
+            chunks = paddle.split(
+                memory, [_s[0] * _s[1] for _s in _spatial_shapes], axis=1)
+            srcs = [
+                x.reshape([_b, *_spatial_shapes[_i], _c]).transpose(
+                    [0, 3, 1, 2]) for _i, x in enumerate(chunks)
+            ]
+
         else:
             memory = src_flatten
 
