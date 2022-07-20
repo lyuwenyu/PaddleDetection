@@ -76,7 +76,7 @@ DeformableTransformer:
   # query_selection_level_numbers: [100, 100, 100]
   use_project_featurs: True
   reference_with_valid: True # False
-  num_project_convs: 3
+  num_project_convs: 0
 
 DeformableDETRHead:
   num_mlp_layers: 3
