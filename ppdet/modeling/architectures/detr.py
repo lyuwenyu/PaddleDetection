@@ -44,14 +44,14 @@ class DETR(BaseArch):
 
         self.use_focal_loss = True
 
-        self.offsets = paddle.to_tensor(
-            [(0, 0), (0, 1), (1, 0), (1, 1)], dtype='int32')
+        # self.offsets = paddle.to_tensor(
+        #     [(0, 0), (0, 1), (1, 0), (1, 1)], dtype='int32')
 
         self.use_gaussian = False
         self.draw_gaussian_mask = BoxCenterGaussianMask(0.8)
 
-        # self._offsets = paddle.to_tensor(
-        #     [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)], dtype='int32')
+        self.offsets = paddle.to_tensor(
+            [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)], dtype='float32')
 
         # self._offsets = paddle.to_tensor([(0, 0), (0, 1), (1, 0), (1, 1),
         #                                   (-1, -1), (-1, 0), (-1, 1), (0, -1), (1, -1)], dtype='int32')                
@@ -175,8 +175,9 @@ class DETR(BaseArch):
                 _gt_masks_per = []
                 for _, (h, w) in enumerate(shapes):
                     _mask = paddle.zeros([h, w], dtype='float32')
-                    # TODO
+                    # n_pos += len(_cents)
 
+                    # TODO
                     if len(_cents) > 0:
 
                         # _points = []
@@ -189,11 +190,11 @@ class DETR(BaseArch):
                         _offsets = self.offsets
                         _cents = _cents * paddle.to_tensor([w, h])
 
-                        _cents = paddle.cast(_cents, 'int32')
-                        _points = (_cents[:, None] + _offsets).reshape([-1, 2])
-
+                        # _cents = paddle.cast(_cents, 'int32')
                         # _points = (_cents[:, None] + _offsets).reshape([-1, 2])
-                        # _points = paddle.cast(_points, 'int32')
+
+                        _points = (_cents[:, None] + _offsets).reshape([-1, 2])
+                        _points = paddle.cast(_points, 'int32')
 
                         _points[:, 0] = _points[:, 0].clip(0, w - 1)
                         _points[:, 1] = _points[:, 1].clip(0, h - 1)
@@ -224,6 +225,8 @@ class DETR(BaseArch):
 
             gt_masks = paddle.concat(gt_masks, axis=0)
 
+            # n_pos = (gt_masks == 1).sum()
+
         query_masks = paddle.concat(
             [x.squeeze(1).flatten(1) for x in query_masks], axis=-1)
 
@@ -233,16 +236,16 @@ class DETR(BaseArch):
 
         else:
 
-            # loss = F.binary_cross_entropy_with_logits(
-            #     query_masks,
-            #     gt_masks,
-            #     reduction='mean', ) * n_pos
-
             loss = F.binary_cross_entropy_with_logits(
                 query_masks,
                 gt_masks,
-                reduction='none', ) * (
-                    (gt_masks == 0) * 1. + gt_masks * 10.).mean()
+                reduction='mean', )
+
+            # loss = F.binary_cross_entropy_with_logits(
+            #     query_masks,
+            #     gt_masks,
+            #     reduction='none', ) * (
+            #         (gt_masks == 0) * 1. + gt_masks * 10.).mean()
 
             # loss = loss.mean() # * (gt_masks == 1).sum()
 

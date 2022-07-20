@@ -69,13 +69,14 @@ DeformableTransformer:
   num_encoder_points: 4
   num_decoder_points: 4
 
-  num_feature_levels: 3
-  backbone_num_channels: [768, 768, 768]
+  num_feature_levels: 4
+  backbone_num_channels: [768, 768, 768,]
   without_encoder: True
   query_selection: True
   # query_selection_level_numbers: [100, 100, 100]
-  use_project_featurs: False
-
+  use_project_featurs: True
+  reference_with_valid: True # False
+  num_project_convs: 3
 
 DeformableDETRHead:
   num_mlp_layers: 3
@@ -108,7 +109,7 @@ VisionTransformer:
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
 
-  # out_indices: [3, 5, 7, 11]
+  # out_indices: [5, 7, 11]
   out_indices: [11, ]
   out_with_norm: True
 

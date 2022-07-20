@@ -372,7 +372,9 @@ class DeformableTransformer(nn.Layer):
                  without_encoder=False,
                  query_selection=False,
                  use_project_featurs=False,
-                 query_selection_level_numbers=None):
+                 query_selection_level_numbers=None,
+                 reference_with_valid=True,
+                 num_project_convs=0):
         super(DeformableTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -386,6 +388,8 @@ class DeformableTransformer(nn.Layer):
         self.num_queries = num_queries
         self.use_project_featurs = use_project_featurs
         self.query_selection_level_numbers = query_selection_level_numbers
+        self.reference_with_valid = reference_with_valid
+        self.num_project_convs = num_project_convs
 
         if not without_encoder:
             encoder_layer = DeformableTransformerEncoderLayer(
@@ -403,11 +407,16 @@ class DeformableTransformer(nn.Layer):
         self.level_embed = nn.Embedding(num_feature_levels, hidden_dim)
         self.query_pos_embed = nn.Embedding(num_queries, hidden_dim)
 
+        convs = nn.Sequential(
+            nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+            nn.GroupNorm(32, self.hidden_dim), nn.GELU())
+
         if self.query_selection:
             if self.use_project_featurs:
                 self.query_selection_convs = nn.LayerList([
                     nn.Sequential(
                         # nn.GELU(),
+                        *[convs for _ in range(self.num_project_convs)],
                         nn.Conv2D(hidden_dim, 1, 1, 1), )
                     for _ in range(num_feature_levels)
                 ])
@@ -586,10 +595,9 @@ class DeformableTransformer(nn.Layer):
                     _offset += _mask.shape[1]
 
                 _index = paddle.concat(_index, axis=1)
-                _index = F.one_hot(_index, _offset)
 
                 assert _index.shape[1] == self.num_queries, ''
-                assert _index.shape[-1] == _offset == L, ''
+                # assert _index.shape[-1] == _offset == L, ''
 
             else:
                 # N L_src
@@ -601,40 +609,69 @@ class DeformableTransformer(nn.Layer):
                     axis=1).squeeze(-1)
 
                 _, index = paddle.topk(queries, k=self.num_queries, axis=-1)
-                _index = F.one_hot(index, queries.shape[1])
 
                 assert queries.shape[1] == src_flatten.shape[1] == L, ''
 
             # print(index.shape, queries.shape[1], src_flatten.shape)
 
-            query_embeded = (_index.unsqueeze(-1) *
-                             src_flatten[:, None]).sum(axis=-2)
+            # _index = F.one_hot(_index, _offset)
+
+            if queries.shape[0] == 1:
+                query_embeded = src_flatten.reshape(
+                    [-1, self.hidden_dim])[index.reshape([-1, ])].reshape(
+                        [1, -1, self.hidden_dim])
+                query_embeded = src_flatten.reshape(
+                    [-1, self.hidden_dim])[index.reshape([-1, ])].reshape(
+                        [1, -1, self.hidden_dim])
+
+            else:
+                _index = F.one_hot(index, queries.shape[1])
+
+                query_embeded = (_index.unsqueeze(-1) *
+                                 src_flatten[:, None]).sum(axis=-2)
 
             query_pos_embeded = self.query_pos_embed.weight.unsqueeze(0).tile(
                 [bs, 1, 1])
 
             # print('query_embeded: ', query_embeded.shape, query_pos_embeded.shape)
 
+            valid_ratios = None if not self.reference_with_valid else valid_ratios
+
             if valid_ratios is None:
                 valid_ratios = paddle.ones(
                     [src.shape[0], spatial_shapes.shape[0], 2])
 
+            # [1, 15300, 1, 2]
+            # [1, 15300, 4, 2]
             reference_points, reference_points_valid = self.get_reference_points(
                 spatial_shapes, valid_ratios)
 
-            # reference_points = reference_points_valid = self.get_reference_points_v1(spatial_shapes)
+            if queries.shape[0] == 1:
+                reference_points = reference_points.reshape(
+                    [-1, 1, 2])[index.reshape([-1, ])].reshape([1, -1, 2])
+                reference_points_input = reference_points_valid.reshape(
+                    [-1, 4, 2])[index.reshape([-1, ])].reshape([1, -1, 4, 2])
+
+            else:
+                reference_points_input = (
+                    _index.unsqueeze(-1).unsqueeze(-1) *
+                    reference_points_valid[:, None]).sum(axis=2)
+
+                reference_points = (
+                    _index.unsqueeze(-1).unsqueeze(-1) *
+                    reference_points[:, None]).sum(axis=2).squeeze(-2)
 
             # print('reference_points: ', reference_points.shape)
             # 1 300 7080 -> 1 300 7080 1 1
             # reference_points:  [1, 7080, 3, 2] -> 1 1 7080 3 2
 
-            reference_points_input = (
-                _index.unsqueeze(-1).unsqueeze(-1) *
-                reference_points_valid[:, None]).sum(axis=2)
+            # reference_points_input = (
+            #     _index.unsqueeze(-1).unsqueeze(-1) *
+            #     reference_points_valid[:, None]).sum(axis=2)
 
-            reference_points = (
-                _index.unsqueeze(-1).unsqueeze(-1) *
-                reference_points[:, None]).sum(axis=2).squeeze(-2)
+            # reference_points = (
+            #     _index.unsqueeze(-1).unsqueeze(-1) *
+            #     reference_points[:, None]).sum(axis=2).squeeze(-2)
 
             # reference_points_input = None 
             # reference_points:  [1, 300, 1, 2] [1, 300, 3, 2]
