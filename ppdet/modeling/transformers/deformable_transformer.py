@@ -650,7 +650,8 @@ class DeformableTransformer(nn.Layer):
                 reference_points = reference_points.reshape(
                     [-1, 1, 2])[index.reshape([-1, ])].reshape([1, -1, 2])
                 reference_points_input = reference_points_valid.reshape(
-                    [-1, 4, 2])[index.reshape([-1, ])].reshape([1, -1, 4, 2])
+                    [-1, self.num_feature_levels, 2])[index.reshape(
+                        [-1, ])].reshape([1, -1, self.num_feature_levels, 2])
 
             else:
                 reference_points_input = (
