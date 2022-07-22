@@ -417,8 +417,11 @@ class RandomErasingImage(BaseOperator):
 
 @register_op
 class NormalizeImage(BaseOperator):
-    def __init__(self, mean=[0.485, 0.456, 0.406], std=[1, 1, 1],
-                 is_scale=True):
+    def __init__(self,
+                 mean=[0.485, 0.456, 0.406],
+                 std=[1, 1, 1],
+                 is_scale=True,
+                 only_scale=False):
         """
         Args:
             mean (list): the pixel mean
@@ -428,6 +431,8 @@ class NormalizeImage(BaseOperator):
         self.mean = mean
         self.std = std
         self.is_scale = is_scale
+        self.only_scale = only_scale
+
         if not (isinstance(self.mean, list) and isinstance(self.std, list) and
                 isinstance(self.is_scale, bool)):
             raise TypeError("{}: input type is invalid.".format(self))
@@ -449,8 +454,9 @@ class NormalizeImage(BaseOperator):
         if self.is_scale:
             im = im / 255.0
 
-        im -= mean
-        im /= std
+        if not self.only_scale:
+            im -= mean
+            im /= std
 
         sample['image'] = im
         return sample
