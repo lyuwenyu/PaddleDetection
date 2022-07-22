@@ -169,8 +169,11 @@ class DETR(BaseArch):
 
             for i in range(len(inputs['gt_bbox'])):
 
-                _cents = inputs['gt_bbox'][i][:, :2]
-                n_pos += len(_cents)
+                # _cents = inputs['gt_bbox'][i][:, :2]
+                # _sizes = inputs['gt_bbox'][i][:, 2:]
+                _boxes = inputs['gt_bbox'][i]
+
+                n_pos += len(_boxes)
 
                 _gt_masks_per = []
                 for _, (h, w) in enumerate(shapes):
@@ -178,7 +181,7 @@ class DETR(BaseArch):
                     # n_pos += len(_cents)
 
                     # TODO
-                    if len(_cents) > 0:
+                    if len(_boxes) > 0:
 
                         # _points = []
                         # for _pt in [(0, 0), (0, 0.5), (0.5, 0), (0.5, 0.5)]:
@@ -188,7 +191,12 @@ class DETR(BaseArch):
                         # _points = paddle.concat(_points, axis=0)
 
                         _offsets = self.offsets
-                        _cents = _cents * paddle.to_tensor([w, h])
+                        # _cents = _cents * paddle.to_tensor([w, h])
+                        # _sizes = _sizes * paddle.to_tensor([w, h])
+
+                        _boxes = _boxes * paddle.to_tensor([w, h, w, h])
+                        _cents = _boxes[:, :2]
+                        _sizes = _boxes[:, 2:]
 
                         # _cents = paddle.cast(_cents, 'int32')
                         # _points = (_cents[:, None] + _offsets).reshape([-1, 2])
@@ -199,6 +207,16 @@ class DETR(BaseArch):
                         _points[:, 0] = _points[:, 0].clip(0, w - 1)
                         _points[:, 1] = _points[:, 1].clip(0, h - 1)
                         _mask[_points[:, 1], _points[:, 0]] = 1.
+
+                        # left_top = _cents - _sizes / 2
+                        # right_bottom =  _cents + _sizes / 2
+                        # right_top = _cents + _sizes / 2 * paddle.to_tensor([1, -1])
+                        # left_bottom = _cents + _sizes / 2 * paddle.to_tensor([-1, 1])
+                        # _corners = paddle.concat([left_top, right_bottom, right_top, left_bottom], axis=0)
+                        # _corners = paddle.cast(_corners, 'int32')
+                        # _corners[:, 0] = _corners[:, 0].clip(0, w - 1)
+                        # _corners[:, 1] = _corners[:, 1].clip(0, h - 1)
+                        # _mask[_corners[:, 1], _corners[:, 0]] = 1.
 
                     # _mask[paddle.cast(_cents[:, 1] * h, 'int'), paddle.cast(
                     #     _cents[:, 0] * w, 'int')] = 1
