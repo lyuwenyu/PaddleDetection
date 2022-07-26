@@ -1110,6 +1110,7 @@ class YOLOCSPPAN(nn.Layer):
 # from ppdet.modeling.backbones.transformer_utils import Identity
 
 import math
+from ..initializer import conv_init_, xavier_uniform_
 
 
 class PositionEmbedding(nn.Layer):
@@ -1209,7 +1210,10 @@ class TEncoder(nn.Layer):
                  in_channels,
                  hidden_dim=256,
                  num_layers=6,
+                 nhead=8,
                  position_embed_type='sine',
+                 dim_feedforward=1024,
+                 dropout=0.1,
                  act='relu'):
         super().__init__()
 
@@ -1218,10 +1222,9 @@ class TEncoder(nn.Layer):
         # num_layers = 6
         # position_embed_type = 'sine'
         # activation = 'relu'
-
-        nhead = 8
-        dim_feedforward = 1024
-        dropout = 0.1
+        # dim_feedforward = 1024
+        # nhead = 8
+        # dropout = 0.1
 
         assert len(in_channels) == 1, ''
         in_channels = in_channels[0]
@@ -1247,7 +1250,13 @@ class TEncoder(nn.Layer):
 
         self._out_channels = [hidden_dim, hidden_dim, hidden_dim]
 
-        # conv_init_(self.input_project)
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                xavier_uniform_(p)
+        conv_init_(self.input_project)
 
     def forward(self, feats, for_mot=False):
 
