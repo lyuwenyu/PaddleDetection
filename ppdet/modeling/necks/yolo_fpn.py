@@ -1223,6 +1223,9 @@ class TEncoder(nn.Layer):
         dim_feedforward = 1024
         dropout = 0.1
 
+        assert len(in_channels) == 1, ''
+        in_channels = in_channels[0]
+
         self.input_project = nn.Conv2D(in_channels, hidden_dim, kernel_size=1)
         self.position_embedding = PositionEmbedding(
             hidden_dim // 2,
@@ -1234,9 +1237,6 @@ class TEncoder(nn.Layer):
         self.encoder = nn.TransformerEncoder(
             encoder_layer,
             num_layers, )
-
-        assert len(in_channels) == 1, ''
-        in_channels = in_channels[0]
 
         self.fpns = nn.LayerList([
             nn.Sequential(
