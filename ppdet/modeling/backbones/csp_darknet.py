@@ -231,7 +231,7 @@ class CSPLayer(nn.Layer):
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
         self.conv2 = BaseConv(
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        self.bottlenecks = nn.Sequential(* [
+        self.bottlenecks = nn.Sequential(*[
             BottleNeck(
                 hidden_channels,
                 hidden_channels,
@@ -325,6 +325,11 @@ class CSPDarkNet(nn.Layer):
         _out_channels = [base_channels]
         layers_num = 1
         self.csp_dark_blocks = []
+
+        if max(return_idx) == 3:
+            arch_setting = arch_setting[:-1]
+        if max(return_idx) == 2:
+            arch_setting = arch_setting[:-2]
 
         for i, (in_channels, out_channels, num_blocks, shortcut,
                 use_spp) in enumerate(arch_setting):
