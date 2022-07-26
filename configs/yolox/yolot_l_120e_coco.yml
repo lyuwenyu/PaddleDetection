@@ -62,17 +62,17 @@ YOLOXHead:
 worker_num: 4
 TrainReader:
   batch_size: 4
-  mosaic_epoch: 285
+  mosaic_epoch: 110
 
 
-epoch: &epoch 300
+epoch: &epoch 120
 LearningRate:
   base_lr: 0.0005
   schedulers:
   - !CosineDecay
     max_epochs: *epoch
     min_lr_ratio: 0.05
-    last_plateau_epochs: 15
+    last_plateau_epochs: 10
   - !ExpWarmup
     epochs: 5
 
