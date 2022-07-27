@@ -443,6 +443,13 @@ class ViTEncoder(nn.Layer):
         #   use_rel_pos_bias: False
         #   use_sincos_pos_emb: True
 
+        if act == 'relu':
+            act_layer = nn.ReLU
+        elif act == 'gelu':
+            act_layer = nn.GELU
+        else:
+            raise RuntimeError('')
+
         dpr = np.linspace(0, drop_path_rate, num_layers)
         self.blocks = nn.LayerList([
             Block(
@@ -456,6 +463,7 @@ class ViTEncoder(nn.Layer):
                 drop_path=dpr[i],
                 norm_layer=norm_layer,
                 init_values=init_values,
+                act_layer=act_layer,
                 window_size=None,
                 epsilon=epsilon) for i in range(num_layers)
         ])
