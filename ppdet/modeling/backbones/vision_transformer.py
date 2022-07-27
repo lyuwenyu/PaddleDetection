@@ -21,8 +21,7 @@ from paddle.nn.initializer import Constant
 
 from ppdet.modeling.shape_spec import ShapeSpec
 from ppdet.core.workspace import register, serializable
-
-from .transformer_utils import zeros_, DropPath, Identity
+from ppdet.modeling.backbones.transformer_utils import zeros_, DropPath, Identity
 
 
 class Mlp(nn.Layer):

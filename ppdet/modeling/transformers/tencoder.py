@@ -395,3 +395,110 @@ class TEncoderWithPos(nn.Layer):
 
         # memory = self.encoder(
         #     src_flatten, src_mask=src_mask, pos_embed=pos_embed)
+
+
+import numpy as np
+from ppdet.modeling.backbones.vision_transformer import Block
+
+
+@register
+@serializable
+class ViTEncoder(nn.Layer):
+    __shared__ = ['act', ]
+
+    def __init__(self,
+                 in_channels,
+                 hidden_dim=256,
+                 num_layers=6,
+                 nhead=8,
+                 position_embed_type='sine',
+                 dim_feedforward=1024,
+                 dropout=0.1,
+                 act='relu',
+                 use_checkpoint=False):
+        super().__init__()
+
+        self.use_checkpoint = use_checkpoint
+
+        assert len(in_channels) == 1, ''
+        in_channels = in_channels[0]
+
+        epsilon = 1e-5
+        drop_path_rate = 0.
+        drop_rate = 0.
+        attn_drop_rate = 0.
+        mlp_ratio = dim_feedforward // hidden_dim
+        norm_layer = 'nn.LayerNorm'
+        init_values = 0.1
+        qkv_bias = True
+        qk_scale = None
+        epsilon = 1e-6
+
+        #   mlp_ratio: 4
+        #   qkv_bias: True
+        #   drop_rate: 0.0
+        #   drop_path_rate: 0.2
+        #   init_values: 0.1
+        #   final_norm: False
+        #   use_rel_pos_bias: False
+        #   use_sincos_pos_emb: True
+
+        dpr = np.linspace(0, drop_path_rate, num_layers)
+        self.blocks = nn.LayerList([
+            Block(
+                dim=hidden_dim,
+                num_heads=nhead,
+                mlp_ratio=mlp_ratio,
+                qkv_bias=qkv_bias,
+                qk_scale=qk_scale,
+                drop=drop_rate,
+                attn_drop=attn_drop_rate,
+                drop_path=dpr[i],
+                norm_layer=norm_layer,
+                init_values=init_values,
+                window_size=None,
+                epsilon=epsilon) for i in range(num_layers)
+        ])
+
+        self.input_project = nn.Conv2D(in_channels, hidden_dim, kernel_size=1)
+        self.fpns = nn.LayerList([
+            nn.Sequential(
+                nn.Conv2DTranspose(
+                    hidden_dim, hidden_dim, 2, stride=2)), Identity(),
+            nn.Sequential(nn.MaxPool2D(2, 2))
+        ])
+
+        self._out_channels = [hidden_dim, hidden_dim, hidden_dim]
+
+    @classmethod
+    def from_config(cls, cfg, input_shape):
+        return {'in_channels': [i.channels for i in input_shape], }
+
+    @property
+    def out_shape(self):
+        return [ShapeSpec(channels=c) for c in self._out_channels]
+
+    def forward(self, feats, for_mot=False):
+
+        src_proj = self.input_project(feats[-1])
+        N, D, H, W = src_proj.shape
+
+        src_flatten = src_proj.flatten(2).transpose([0, 2, 1])
+        x = src_flatten
+
+        feats = []
+        rel_pos_bias = None
+        for _, blk in enumerate(self.blocks):
+            if self.use_checkpoint and not self.training:
+                x = paddle.distributed.fleet.utils.recompute(
+                    blk, x, rel_pos_bias, **{"preserve_rng_state": True})
+            else:
+                x = blk(x, rel_pos_bias)
+
+            xp = x.transpose([0, 2, 1]).reshape([N, D, H, W])
+
+            feats.append(xp)
+
+        outputs = [m(feats[-1]) for m in self.fpns]
+
+        return outputs
