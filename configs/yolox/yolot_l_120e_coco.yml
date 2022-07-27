@@ -7,7 +7,7 @@ _BASE_: [
 ]
 
 log_iter: 100
-snapshot_epoch: 10
+snapshot_epoch: 5
 weights: output/yolox_l_300e_coco/model_final
 
 
@@ -74,7 +74,7 @@ LearningRate:
     min_lr_ratio: 0.05
     last_plateau_epochs: 10
   - !ExpWarmup
-    epochs: 5
+    epochs: 2 # 5
 
 OptimizerBuilder:
   clip_grad_by_norm: 1.0

@@ -1,0 +1,14 @@
+_BASE_: [
+  './yolot_l_300e_coco.yml'
+]
+
+
+
+YOLOX:
+  neck: TEncoderWithPos
+
+
+TEncoderWithPos:
+  hidden_dim: 256
+  num_layers: 6
+  dim_feedforward: 1024
