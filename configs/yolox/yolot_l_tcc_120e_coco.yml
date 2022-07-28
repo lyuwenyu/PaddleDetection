@@ -8,7 +8,7 @@ _BASE_: [
 
 log_iter: 100
 snapshot_epoch: 5
-weights: output/yolox_l_300e_coco/model_final
+weights: output/yolot_l_tcc_120e_coco/model_final
 
 
 architecture: YOLOX
