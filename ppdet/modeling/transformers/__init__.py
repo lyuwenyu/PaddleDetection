@@ -26,3 +26,4 @@ from .position_encoding import *
 from .deformable_transformer import *
 
 from .tencoder import *
+from .tcc import *
