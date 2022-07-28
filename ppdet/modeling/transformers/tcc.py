@@ -49,7 +49,11 @@ class TCC(nn.Layer):
                 Interpolate(2.0)),
         ])
         self.local_context = nn.Conv2D(
-            in_channels[1], 128, kernel_size=3, dilation=2, padding=2)
+            in_channels[1],
+            in_channels[1],
+            kernel_size=3,
+            dilation=2,
+            padding=2)
 
         self.K = 3
         self.global_mask = nn.Sequential(
@@ -57,7 +61,7 @@ class TCC(nn.Layer):
             nn.AdaptiveMaxPool2D(
                 1, return_mask=True))
 
-        self.cross_attn = nn.MultiHeadAttention(
+        self.decoder = nn.MultiHeadAttention(
             in_channels[1],
             8,
             0.1, )
@@ -86,7 +90,7 @@ class TCC(nn.Layer):
         key = value = paddle.concat([query, global_feats], axis=1)
 
         attn_mask = None
-        feat = self.cross_attn(query, key, value, attn_mask)
+        feat = self.decoder(query, key, value, attn_mask)
 
         feat = feat.transpose([0, 2, 1]).reshape([N, C, H, W])
 

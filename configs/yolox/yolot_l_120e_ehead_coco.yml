@@ -1,0 +1,93 @@
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  # './_base_/optimizer_300e.yml',
+  # './_base_/yolox_cspdarknet.yml',
+  './_base_/yolox_reader.yml'
+]
+
+log_iter: 100
+snapshot_epoch: 5
+weights: output/yolox_l_300e_coco/model_final
+
+
+architecture: YOLOX
+norm_type: sync_bn
+use_ema: True
+ema_decay: 0.9999
+ema_decay_type: "exponential"
+act: silu
+find_unused_parameters: True
+use_gpu: true
+
+
+depth_mult: 1.0
+width_mult: 1.0
+
+
+YOLOX:
+  backbone: CSPDarkNet
+  neck: YOLOCSPPAN
+  head: PPYOLOEHead
+  size_stride: 32
+  size_range: [15, 25] # multi-scale range [480*480 ~ 800*800]
+
+CSPDarkNet:
+  arch: "X"
+  return_idx: [3, ] # [2, 3, 4]
+  depthwise: False
+
+
+YOLOCSPPAN:
+  depthwise: False
+
+
+PPYOLOEHead:
+  fpn_strides: [32, 16, 8]
+  grid_cell_scale: 5.0
+  grid_cell_offset: 0.5
+  static_assigner_epoch: 40
+  use_varifocal_loss: True
+  loss_weight: {class: 1.0, iou: 2.5, dfl: 0.5}
+  static_assigner:
+    name: ATSSAssigner
+    topk: 9
+  assigner:
+    name: TaskAlignedAssigner
+    topk: 13
+    alpha: 1.0
+    beta: 6.0
+  nms:
+    name: MultiClassNMS
+    nms_top_k: 1000
+    keep_top_k: 300
+    score_threshold: 0.01
+    nms_threshold: 0.7
+
+
+
+worker_num: 4
+TrainReader:
+  batch_size: 8
+  mosaic_epoch: 110
+
+
+epoch: &epoch 120
+LearningRate:
+  base_lr: 0.01
+  schedulers:
+  - !CosineDecay
+    max_epochs: *epoch
+    min_lr_ratio: 0.05
+    last_plateau_epochs: 10
+  - !ExpWarmup
+    epochs: 2
+
+OptimizerBuilder:
+  optimizer:
+    type: Momentum
+    momentum: 0.9
+    use_nesterov: True
+  regularizer:
+    factor: 0.0005
+    type: L2

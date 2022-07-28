@@ -43,7 +43,7 @@ TEncoder:
   dim_feedforward: 1024
 
 YOLOXHead:
-  l1_epoch: 285
+  l1_epoch: 110
   depthwise: False
   loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
   assigner:
@@ -56,7 +56,9 @@ YOLOXHead:
     keep_top_k: 1000
     score_threshold: 0.001
     nms_threshold: 0.65
-
+    # nms_top_k: 1000
+    # keep_top_k: 300
+    # nms_threshold: 0.7
 
 
 worker_num: 4
@@ -74,7 +76,7 @@ LearningRate:
     min_lr_ratio: 0.05
     last_plateau_epochs: 10
   - !ExpWarmup
-    epochs: 2 # 5
+    epochs: 5
 
 OptimizerBuilder:
   clip_grad_by_norm: 1.0
