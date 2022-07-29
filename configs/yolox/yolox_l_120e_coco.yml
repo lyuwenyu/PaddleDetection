@@ -7,7 +7,7 @@ _BASE_: [
 ]
 
 log_iter: 100
-snapshot_epoch: 5
+snapshot_epoch: 10
 weights: output/yolox_l_120e_coco/model_final
 
 
