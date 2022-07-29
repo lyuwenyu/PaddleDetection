@@ -19,11 +19,33 @@ from paddle import ParamAttr
 from paddle.regularizer import L2Decay
 from ppdet.core.workspace import register, serializable
 from ppdet.modeling.initializer import conv_init_
-from ..shape_spec import ShapeSpec
+from ppdet.modeling.shape_spec import ShapeSpec
 
 __all__ = [
     'CSPDarkNet', 'BaseConv', 'DWConv', 'BottleNeck', 'SPPLayer', 'SPPFLayer'
 ]
+
+
+def get_activation(act):
+    '''
+    '''
+    if act == 'relu':
+        return nn.ReLU()
+
+    elif act == 'silu':
+        return nn.Silu()
+
+    elif act == 'gelu':
+        return nn.GELU()
+
+    elif act == 'relu6':
+        return nn.ReLU6()
+
+    elif act == 'leaky_relu':
+        return nn.LeakyReLU()
+
+    else:
+        raise RuntimeError('')
 
 
 class BaseConv(nn.Layer):
@@ -49,6 +71,8 @@ class BaseConv(nn.Layer):
             weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
             bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
 
+        self.act = get_activation(act)
+
         self._init_weights()
 
     def _init_weights(self):
@@ -56,9 +80,13 @@ class BaseConv(nn.Layer):
 
     def forward(self, x):
         # use 'x * F.sigmoid(x)' replace 'silu'
-        x = self.bn(self.conv(x))
-        y = x * F.sigmoid(x)
-        return y
+
+        if not self.training and isinstance(self.act, nn.Silu):
+            x = self.bn(self.conv(x))
+            y = x * F.sigmoid(x)
+            return y
+
+        return self.act(self.bn(self.conv(x)))
 
 
 class DWConv(nn.Layer):
