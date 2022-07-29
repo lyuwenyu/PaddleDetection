@@ -26,26 +26,26 @@ __all__ = [
 ]
 
 
-def get_activation(act):
+def get_activation(name):
     '''
     '''
-    if act == 'relu':
+    if name == 'relu':
         return nn.ReLU()
 
-    elif act == 'silu':
+    elif name == 'silu':
         return nn.Silu()
 
-    elif act == 'gelu':
+    elif name == 'gelu':
         return nn.GELU()
 
-    elif act == 'relu6':
+    elif name == 'relu6':
         return nn.ReLU6()
 
-    elif act == 'leaky_relu':
+    elif name == 'leaky_relu':
         return nn.LeakyReLU()
 
     else:
-        raise RuntimeError('')
+        raise RuntimeError(f'{name}')
 
 
 class BaseConv(nn.Layer):
