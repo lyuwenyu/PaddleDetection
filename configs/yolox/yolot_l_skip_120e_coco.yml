@@ -7,7 +7,7 @@ _BASE_: [
 ]
 
 log_iter: 100
-snapshot_epoch: 5
+snapshot_epoch: 1
 weights: output/yolot_l_120e_coco/model_final
 
 
@@ -16,7 +16,7 @@ norm_type: sync_bn
 use_ema: True
 ema_decay: 0.9999
 ema_decay_type: "exponential"
-act: relu # silu
+# act: relu # silu
 find_unused_parameters: True
 use_gpu: true
 
