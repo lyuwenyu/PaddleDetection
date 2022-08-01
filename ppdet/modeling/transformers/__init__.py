@@ -27,3 +27,4 @@ from .deformable_transformer import *
 
 from .tencoder import *
 from .tcc import *
+from .tfpn import *
