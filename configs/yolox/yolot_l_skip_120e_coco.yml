@@ -42,6 +42,7 @@ TEncoder:
   num_layers: 6
   dim_feedforward: 1024
   skip_connection: True
+  fused_multi_stages: True
 
 YOLOXHead:
   l1_epoch: 110

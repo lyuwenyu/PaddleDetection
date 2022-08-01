@@ -27,6 +27,7 @@ class TEncoder(nn.Layer):
                  dropout=0.1,
                  add_position_perlayer=False,
                  skip_connection=False,
+                 fused_multi_stages=False,
                  act='relu'):
         super().__init__()
 
@@ -40,6 +41,8 @@ class TEncoder(nn.Layer):
         # dropout = 0.1
 
         self.skip_connection = skip_connection
+        self.fused_multi_stages = skip_connection and fused_multi_stages
+
         if not skip_connection:
             assert len(in_channels) == 1, ''
             self.input_projects = nn.Sequential(
@@ -87,13 +90,22 @@ class TEncoder(nn.Layer):
             src_proj = self.input_projects(feats[-1])
         else:
             feats = [m(x) for m, x in zip(self.input_projects, feats)]
-            src_proj = feats[1]
+
+            if self.fused_multi_stages:
+                _, _, h, w = feats[1].shape
+                src_proj = feats[1] + F.interpolate(
+                    feats[0], scale_factor=0.5) + F.interpolate(
+                        feats[-1], scale_factor=2.0)
+                # src_proj = feats[1] + F.interpolate(feats[0], (h, w)) + F.interpolate(feats[-1], (h, w))
+            else:
+                src_proj = feats[1]
 
         N, D, H, W = src_proj.shape
+
         src_mask = paddle.ones([N, H, W], dtype='bool')
         pos_embed = self.position_embedding(src_mask)
-
         src_proj = src_proj + pos_embed
+
         src_flatten = src_proj.flatten(2).transpose([0, 2, 1])
 
         src_mask = None
