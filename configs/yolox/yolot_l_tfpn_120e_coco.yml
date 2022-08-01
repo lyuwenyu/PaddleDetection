@@ -39,7 +39,7 @@ CSPDarkNet:
 
 TFPN:
   hidden_dim: 256
-  num_layers: 6
+  num_layers: 1
   dim_feedforward: 1024
 
 YOLOXHead:
