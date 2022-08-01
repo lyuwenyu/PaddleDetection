@@ -1,0 +1,111 @@
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  # './_base_/optimizer_300e.yml',
+  # './_base_/yolox_cspdarknet.yml',
+  './_base_/yolox_reader.yml'
+]
+
+log_iter: 100
+snapshot_epoch: 5
+weights: output/yolot_l_120e_coco/model_final
+
+
+architecture: YOLOX
+norm_type: sync_bn
+use_ema: True
+ema_decay: 0.9999
+ema_decay_type: "exponential"
+act: relu # silu
+find_unused_parameters: True
+use_gpu: true
+
+
+depth_mult: 1.0
+width_mult: 1.0
+
+
+YOLOX:
+  backbone: CSPDarkNet
+  neck: TEncoder
+  head: YOLOXHead
+  size_stride: 32
+  size_range: [15, 25] # multi-scale range [480*480 ~ 800*800]
+
+CSPDarkNet:
+  arch: "X"
+  return_idx: [2, 3, 4] # [2, 3, 4]
+  depthwise: False
+
+TEncoder:
+  hidden_dim: 256
+  num_layers: 6
+  dim_feedforward: 1024
+  skip_connection: True
+
+YOLOXHead:
+  l1_epoch: 110
+  depthwise: False
+  loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
+  assigner:
+    name: SimOTAAssigner
+    candidate_topk: 10
+    use_vfl: False
+  nms:
+    name: MultiClassNMS
+    nms_top_k: 10000
+    keep_top_k: 1000
+    score_threshold: 0.001
+    nms_threshold: 0.65
+    # nms_top_k: 1000
+    # keep_top_k: 300
+    # nms_threshold: 0.7
+
+
+worker_num: 4
+TrainReader:
+  batch_size: 4
+  mosaic_epoch: 110
+
+
+epoch: &epoch 120
+LearningRate:
+  base_lr: 0.0005
+  schedulers:
+  - !CosineDecay
+    max_epochs: *epoch
+    min_lr_ratio: 0.05
+    last_plateau_epochs: 10
+  - !ExpWarmup
+    epochs: 5
+
+OptimizerBuilder:
+  clip_grad_by_norm: 1.0
+  optimizer:
+    type: AdamW
+    weight_decay: 0.05
+    param_groups:
+        -
+          params: ['embed', 'bias', 'norm']
+          weight_decay: 0.
+
+
+# epoch: 300
+# LearningRate:
+#   base_lr: 0.01
+#   schedulers:
+#   - !CosineDecay
+#     max_epochs: 300
+#     min_lr_ratio: 0.05
+#     last_plateau_epochs: 15
+#   - !ExpWarmup
+#     epochs: 5
+
+# OptimizerBuilder:
+#   optimizer:
+#     type: Momentum
+#     momentum: 0.9
+#     use_nesterov: True
+#   regularizer:
+#     factor: 0.0005
+#     type: L2

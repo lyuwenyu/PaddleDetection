@@ -26,6 +26,7 @@ class TEncoder(nn.Layer):
                  dim_feedforward=1024,
                  dropout=0.1,
                  add_position_perlayer=False,
+                 skip_connection=False,
                  act='relu'):
         super().__init__()
 
@@ -38,10 +39,19 @@ class TEncoder(nn.Layer):
         # nhead = 8
         # dropout = 0.1
 
-        assert len(in_channels) == 1, ''
-        in_channels = in_channels[0]
+        self.skip_connection = skip_connection
+        if not skip_connection:
+            assert len(in_channels) == 1, ''
+            self.input_projects = nn.Sequential(
+                nn.Conv2D(
+                    in_channels[-1], hidden_dim, kernel_size=1))
 
-        self.input_project = nn.Conv2D(in_channels, hidden_dim, kernel_size=1)
+        else:
+            assert len(in_channels) == 3, ''
+            self.input_projects = nn.LayerList(
+                [nn.Conv2D(
+                    c, hidden_dim, kernel_size=1) for c in in_channels])
+
         self.position_embedding = PositionEmbedding(
             hidden_dim // 2,
             normalize=True if position_embed_type == 'sine' else False,
@@ -61,20 +71,25 @@ class TEncoder(nn.Layer):
         ])
 
         self._out_channels = [hidden_dim, hidden_dim, hidden_dim]
-
         self._reset_parameters()
 
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
                 xavier_uniform_(p)
-        conv_init_(self.input_project)
+
+        for m in self.input_projects:
+            conv_init_(m)
 
     def forward(self, feats, for_mot=False):
 
-        src_proj = self.input_project(feats[-1])
-        N, D, H, W = src_proj.shape
+        if not self.skip_connection:
+            src_proj = self.input_projects(feats[-1])
+        else:
+            feats = [m(x) for m, x in zip(self.input_projects, feats)]
+            src_proj = feats[1]
 
+        N, D, H, W = src_proj.shape
         src_mask = paddle.ones([N, H, W], dtype='bool')
         pos_embed = self.position_embedding(src_mask)
 
@@ -86,6 +101,9 @@ class TEncoder(nn.Layer):
         memory = memory.transpose([0, 2, 1]).reshape([N, D, H, W])
 
         outputs = [m(memory) for m in self.fpns]
+
+        if self.skip_connection:
+            outputs = [x + y for x, y in zip(feats, outputs)]
 
         return outputs
 
