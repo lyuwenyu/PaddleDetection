@@ -2,6 +2,7 @@ worker_num: 4
 TrainReader:
   sample_transforms:
     - Decode: {}
+    # - DecodeCache: {cache_root: './dataset/coco/buffer/'}
     - Mosaic:
         prob: 1.0
         input_dim: [640, 640]

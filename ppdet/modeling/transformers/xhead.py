@@ -157,6 +157,8 @@ class XHead(nn.Layer):
                     outputs.update(
                         {_k + f'_{k}': _v
                          for _k, _v in losses.items()})
+
+                # outputs['loss'] = loss / len(feats)
                 outputs['loss'] = loss
         else:
             outputs = self._forward(feats, targets)

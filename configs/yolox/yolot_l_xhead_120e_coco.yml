@@ -50,7 +50,7 @@ XHead:
   depthwise: False
   loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
 
-  with_stem_conv: False
+  with_stem_conv: True
   num_decoder_conv: 2
 
   assigner:
