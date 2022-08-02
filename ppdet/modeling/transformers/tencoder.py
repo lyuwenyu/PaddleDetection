@@ -11,6 +11,8 @@ import math
 # TransformerDecoder
 # TransformerEncoderLayer
 
+from .tencoder_utils import TransformerEncoder as PPTransformerEncoder
+
 
 @register
 @serializable
@@ -28,6 +30,7 @@ class TEncoder(nn.Layer):
                  add_position_perlayer=False,
                  skip_connection=False,
                  fused_multi_stages=False,
+                 return_intermediate=False,
                  act='relu'):
         super().__init__()
 
@@ -42,6 +45,7 @@ class TEncoder(nn.Layer):
 
         self.skip_connection = skip_connection
         self.fused_multi_stages = skip_connection and fused_multi_stages
+        self.return_intermediate = return_intermediate
 
         if not skip_connection:
             assert len(in_channels) == 1, ''
@@ -62,9 +66,8 @@ class TEncoder(nn.Layer):
 
         encoder_layer = nn.TransformerEncoderLayer(
             hidden_dim, nhead, dim_feedforward, dropout, activation=act)
-        self.encoder = nn.TransformerEncoder(
-            encoder_layer,
-            num_layers, )
+        self.encoder = PPTransformerEncoder(
+            encoder_layer, num_layers, return_intermediate=return_intermediate)
 
         self.fpns = nn.LayerList([
             nn.Sequential(
@@ -110,12 +113,22 @@ class TEncoder(nn.Layer):
 
         src_mask = None
         memory = self.encoder(src_flatten, src_mask)  # N (HW) D
-        memory = memory.transpose([0, 2, 1]).reshape([N, D, H, W])
 
-        outputs = [m(memory) for m in self.fpns]
+        if not self.return_intermediate:
+            memory = memory.transpose([0, 2, 1]).reshape([N, D, H, W])
+            outputs = [m(memory) for m in self.fpns]
+            if self.skip_connection:
+                outputs = [x + y for x, y in zip(feats, outputs)]
 
-        if self.skip_connection:
-            outputs = [x + y for x, y in zip(feats, outputs)]
+        else:
+            outputs = {}
+            for i, mem in enumerate(memory):
+                mem = mem.transpose([0, 2, 1]).reshape([N, D, H, W])
+                _outputs = [m(mem) for m in self.fpns]
+                if self.skip_connection:
+                    _outputs = [x + y for x, y in zip(feats, _outputs)]
+                name = str(i) if i < len(memory) - 1 else 'last'
+                outputs[name] = _outputs
 
         return outputs
 
