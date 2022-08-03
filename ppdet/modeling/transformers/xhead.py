@@ -43,6 +43,7 @@ class XHead(nn.Layer):
                  with_stem_conv=True,
                  num_decoder_conv=2,
                  stage_weights=None,
+                 predict_level_id=-1,
                  trt=False,
                  exclude_nms=False):
         super().__init__()
@@ -64,6 +65,7 @@ class XHead(nn.Layer):
         self.stage_weights = stage_weights if stage_weights is not None else [
             1. for _ in range(6)
         ]
+        self.predict_level_id = predict_level_id
 
         ConvBlock = DWConv if depthwise else BaseConv
 
@@ -152,7 +154,11 @@ class XHead(nn.Layer):
     def forward(self, feats, targets=None):
         if isinstance(feats, dict):
             if not self.training:
-                outputs = self._forward(feats['last'], targets)
+                # TODO by lyuwenyu
+                # outputs = self._forward(feats['last'], targets)
+                _key = list(feats)[self.predict_level_id]
+                outputs = self._forward(feats[_key], targets)
+
             else:
                 loss = 0
                 outputs = {}
