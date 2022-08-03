@@ -8,7 +8,7 @@ _BASE_: [
 
 log_iter: 100
 snapshot_epoch: 5
-weights: output/yolot_l_xhead_attn_120e_coco/model_final
+weights: output/yolot_l_xhead_attn_last_120e_coco/model_final
 
 
 architecture: YOLOX
@@ -46,6 +46,8 @@ TEncoder:
   fused_multi_stages: True
   return_intermediate: True
   output_method: 'attention' # fpn
+  global_stage: 1
+  output_with_pos_embedding: False
 
 XHead:
   l1_epoch: 110
