@@ -188,7 +188,25 @@ class Trainer(object):
             p.numel() for n, p in self.model.named_parameters()
             if all([x not in n for x in ['_mean', '_variance']])
         ])  # exclude BatchNorm running status
-        print('params: ', params.item())
+        print('params: {} M'.format(params.item() / 1000**2))
+
+        # flops_loader = create('TestReader')(self.dataset, 1)
+        # self._flops(flops_loader)
+        def _flops():
+            import paddleslim
+            from paddleslim.analysis import dygraph_flops as flops
+            self.model.eval()
+            shape = [1, 3, 640, 640]
+            input_spec = [{
+                "image": paddle.rand(shape),
+                "im_shape": paddle.to_tensor([640, 640]).reshape([1, 2]),
+                "scale_factor": paddle.to_tensor([1., 1.]).reshape([1, 2])
+            }]
+            flops = flops(self.model, input_spec) / (1000**3)
+            # logger.info(" Model FLOPs : {:.6f}G. (image shape is {})".format(flops, shape))
+            print(f'flops: {flops} G')
+
+        _flops()
 
     def _init_callbacks(self):
         if self.mode == 'train':

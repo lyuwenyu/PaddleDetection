@@ -8,7 +8,7 @@ _BASE_: [
 
 log_iter: 100
 snapshot_epoch: 5
-weights: output/yolot_l_120e_coco/model_final
+weights: output/yolot_l_xhead_attn_120e_coco/model_final
 
 
 architecture: YOLOX
@@ -28,13 +28,13 @@ width_mult: 1.0
 YOLOX:
   backbone: CSPDarkNet
   neck: TEncoder
-  head: YOLOXHead
+  head: XHead
   size_stride: 32
   size_range: [15, 25] # multi-scale range [480*480 ~ 800*800]
 
 CSPDarkNet:
   arch: "X"
-  return_idx: [3, ] # [2, 3, 4]
+  return_idx: [2, 3, 4] # [2, 3, 4]
   depthwise: False
 
 TEncoder:
@@ -42,10 +42,22 @@ TEncoder:
   num_layers: 6
   dim_feedforward: 1024
 
-YOLOXHead:
+  skip_connection: True
+  fused_multi_stages: True
+  return_intermediate: True
+  output_method: 'attention' # fpn
+  global_stage: 2
+
+
+XHead:
   l1_epoch: 110
   depthwise: False
   loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
+
+  with_stem_conv: True
+  num_decoder_conv: 2
+  stage_weights: [1., 1., 1., 1., 1., 1.]
+
   assigner:
     name: SimOTAAssigner
     candidate_topk: 10

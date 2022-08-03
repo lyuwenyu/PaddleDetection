@@ -42,6 +42,7 @@ class XHead(nn.Layer):
                  },
                  with_stem_conv=True,
                  num_decoder_conv=2,
+                 stage_weights=None,
                  trt=False,
                  exclude_nms=False):
         super().__init__()
@@ -59,6 +60,10 @@ class XHead(nn.Layer):
         self.exclude_nms = exclude_nms
         self.loss_weight = loss_weight
         self.iou_loss = IouLoss(loss_weight=1.0)  # default loss_weight 2.5
+
+        self.stage_weights = stage_weights if stage_weights is not None else [
+            1. for _ in range(6)
+        ]
 
         ConvBlock = DWConv if depthwise else BaseConv
 
@@ -151,9 +156,9 @@ class XHead(nn.Layer):
             else:
                 loss = 0
                 outputs = {}
-                for k, _feats in feats.items():
+                for i, (k, _feats) in enumerate(feats.items()):
                     losses = self._forward(_feats, targets)
-                    loss += losses['loss']
+                    loss += losses['loss'] * self.stage_weights[i]
                     outputs.update(
                         {_k + f'_{k}': _v
                          for _k, _v in losses.items()})

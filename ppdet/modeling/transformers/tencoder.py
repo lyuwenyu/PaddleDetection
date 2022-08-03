@@ -12,6 +12,7 @@ import math
 # TransformerEncoderLayer
 
 from .tencoder_utils import TransformerEncoder as PPTransformerEncoder
+from .tencoder_utils import Identity
 
 
 @register
@@ -31,6 +32,8 @@ class TEncoder(nn.Layer):
                  skip_connection=False,
                  fused_multi_stages=False,
                  return_intermediate=False,
+                 output_method='fpn',
+                 global_stage=1,
                  act='relu'):
         super().__init__()
 
@@ -46,6 +49,7 @@ class TEncoder(nn.Layer):
         self.skip_connection = skip_connection
         self.fused_multi_stages = skip_connection and fused_multi_stages
         self.return_intermediate = return_intermediate
+        self.output_method = output_method
 
         if not skip_connection:
             assert len(in_channels) == 1, ''
@@ -59,6 +63,12 @@ class TEncoder(nn.Layer):
                 [nn.Conv2D(
                     c, hidden_dim, kernel_size=1) for c in in_channels])
 
+            assert global_stage > 0, ''
+            extra_ids = list(set(range(len(in_channels))) - set([global_stage]))
+            assert global_stage not in extra_ids and len(extra_ids) == 2, ''
+            self.extra_ids = extra_ids
+            self.global_stage = global_stage
+
         self.position_embedding = PositionEmbedding(
             hidden_dim // 2,
             normalize=True if position_embed_type == 'sine' else False,
@@ -69,12 +79,24 @@ class TEncoder(nn.Layer):
         self.encoder = PPTransformerEncoder(
             encoder_layer, num_layers, return_intermediate=return_intermediate)
 
-        self.fpns = nn.LayerList([
-            nn.Sequential(
-                nn.Conv2DTranspose(
-                    hidden_dim, hidden_dim, 2, stride=2)), Identity(),
-            nn.Sequential(nn.MaxPool2D(2, 2))
-        ])
+        if output_method == 'fpn':
+            self.fpns = nn.LayerList([
+                nn.Sequential(
+                    nn.Conv2DTranspose(
+                        hidden_dim, hidden_dim, 2, stride=2)), Identity(),
+                nn.Sequential(nn.MaxPool2D(2, 2))
+            ])
+
+        elif output_method == 'attention':
+            assert len(in_channels) == 3, ''
+            self.attns = nn.LayerList([
+                AttentionProject(hidden_dim, nhead, dropout,
+                                 self.position_embedding)
+                for _ in range(len(in_channels))
+            ])
+
+        else:
+            raise RuntimeError('')
 
         self._out_channels = [hidden_dim, hidden_dim, hidden_dim]
         self._reset_parameters()
@@ -91,20 +113,26 @@ class TEncoder(nn.Layer):
 
         if not self.skip_connection:
             src_proj = self.input_projects(feats[-1])
+
         else:
             feats = [m(x) for m, x in zip(self.input_projects, feats)]
 
             if self.fused_multi_stages:
-                _, _, h, w = feats[1].shape
-                src_proj = feats[1] + F.interpolate(
-                    feats[0], scale_factor=0.5) + F.interpolate(
-                        feats[-1], scale_factor=2.0)
-                # src_proj = feats[1] + F.interpolate(feats[0], (h, w)) + F.interpolate(feats[-1], (h, w))
+                _, _, h, w = feats[self.global_stage].shape
+                # src_proj = feats[1] + F.interpolate(
+                #     feats[0], scale_factor=0.5) + F.interpolate(
+                #         feats[-1], scale_factor=2.0)
+                # extra_ids = list(set(range(len(feats))) - set([self.global_stage]))
+                # assert self.global_stage not in extra_ids and len(extra_ids) == 2, ''
+                src_proj = feats[self.global_stage] + F.interpolate(
+                    feats[self.extra_ids[0]],
+                    (h, w)) + F.interpolate(feats[self.extra_ids[1]], (h, w))
             else:
-                src_proj = feats[1]
+                src_proj = feats[self.global_stage]
 
         N, D, H, W = src_proj.shape
 
+        # TODO
         src_mask = paddle.ones([N, H, W], dtype='bool')
         pos_embed = self.position_embedding(src_mask)
         src_proj = src_proj + pos_embed
@@ -115,18 +143,38 @@ class TEncoder(nn.Layer):
         memory = self.encoder(src_flatten, src_mask)  # N (HW) D
 
         if not self.return_intermediate:
-            memory = memory.transpose([0, 2, 1]).reshape([N, D, H, W])
-            outputs = [m(memory) for m in self.fpns]
+
+            if self.output_method == 'fpn':
+                memory = memory.transpose([0, 2, 1]).reshape([N, D, H, W])
+                outputs = [m(memory) for m in self.fpns]
+
+            elif self.output_method == 'attention':
+                outputs = [
+                    m(x, memory, memory) for m, x in zip(self.attns, feats)
+                ]
+
             if self.skip_connection:
                 outputs = [x + y for x, y in zip(feats, outputs)]
 
         else:
             outputs = {}
             for i, mem in enumerate(memory):
-                mem = mem.transpose([0, 2, 1]).reshape([N, D, H, W])
-                _outputs = [m(mem) for m in self.fpns]
+
+                if self.output_method == 'fpn':
+                    mem = mem.transpose([0, 2, 1]).reshape([N, D, H, W])
+                    _outputs = [m(mem) for m in self.fpns]
+
+                elif self.output_method == 'attention':
+                    _outputs = [
+                        m(x, mem, mem) for m, x in zip(self.attns, feats)
+                    ]
+
+                # mem = mem.transpose([0, 2, 1]).reshape([N, D, H, W])
+                # _outputs = [m(mem) for m in self.fpns]
+
                 if self.skip_connection:
                     _outputs = [x + y for x, y in zip(feats, _outputs)]
+
                 name = str(i) if i < len(memory) - 1 else 'last'
                 outputs[name] = _outputs
 
@@ -222,15 +270,44 @@ class PositionEmbedding(nn.Layer):
             raise ValueError(f"not supported {self.embed_type}")
 
 
-class Identity(nn.Layer):
-    def __init__(self):
-        super(Identity, self).__init__()
+# class Identity(nn.Layer):
+#     def __init__(self):
+#         super(Identity, self).__init__()
 
-    def forward(self, input):
-        return input
+#     def forward(self, input):
+#         return input
 
 
-## 
+class AttentionProject(nn.Layer):
+    def __init__(self, hidden_dim, num_heads, dropout, pos_embedding_func=None):
+        super().__init__()
+
+        self.attn = nn.MultiHeadAttention(hidden_dim, num_heads, dropout)
+        self.pos_embedding_func = pos_embedding_func
+        # self.position_embedding = PositionEmbedding(
+        #     hidden_dim // 2,
+        #     normalize=True if position_embed_type == 'sine' else False,
+        #     embed_type=position_embed_type)
+
+    def forward(self, q, k, v):
+        '''
+            q, [n, d, h, w]
+            k, [n, lk, d]
+            v, [n, lk, d]
+        '''
+        N, D, H, W = q.shape
+
+        if self.pos_embedding_func is not None:
+            # TODO
+            src_mask = paddle.ones([N, H, W], dtype='bool')
+            q = q + self.pos_embedding_func(src_mask)
+
+        q = q.flatten(2).transpose([0, 2, 1])
+
+        return self.attn(q, k, v).transpose([0, 2, 1]).reshape([N, D, H, W])
+
+
+## ----------------------
 
 import paddle
 import paddle.nn as nn

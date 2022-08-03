@@ -41,6 +41,7 @@ TEncoder:
   hidden_dim: 256
   num_layers: 6
   dim_feedforward: 1024
+
   skip_connection: True
   fused_multi_stages: True
   return_intermediate: True
@@ -52,6 +53,7 @@ XHead:
 
   with_stem_conv: True
   num_decoder_conv: 2
+  stage_weights: [1., 1., 1., 1., 1., 1.]
 
   assigner:
     name: SimOTAAssigner
