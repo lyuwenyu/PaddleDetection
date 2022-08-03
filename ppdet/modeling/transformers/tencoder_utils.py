@@ -214,7 +214,7 @@ class PositionEmbedding(nn.Layer):
                  scale=None,
                  embed_type='sine',
                  num_embeddings=50,
-                 use_buffer=False,
+                 buffer_size=None,
                  offset=0.):
         super().__init__()
         assert embed_type in ['sine', 'learned']
@@ -237,9 +237,10 @@ class PositionEmbedding(nn.Layer):
         else:
             raise ValueError(f"not supported {self.embed_type}")
 
-        self.use_buffer = use_buffer
-        if use_buffer:
-            self.shapes = list(range(320, 960 + 1, 32))
+        self.use_buffer = buffer_size is not None
+        if self.use_buffer:
+            # self.shapes = list(range(320, 960 + 1, 32))
+            self.shapes = self.buffer_size
             tensors = [paddle.rand([1, 1, s, s]) for s in self.shapes]
             tensors = [self._forward(x) for x in tensors]
             _ = [
