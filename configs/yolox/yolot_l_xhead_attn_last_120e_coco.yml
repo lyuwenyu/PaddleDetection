@@ -48,6 +48,7 @@ TEncoder:
   output_method: 'attention' # fpn
   global_stage: 2
   output_with_pos_embedding: False
+  use_checkpoint: True
 
 XHead:
   l1_epoch: 110
