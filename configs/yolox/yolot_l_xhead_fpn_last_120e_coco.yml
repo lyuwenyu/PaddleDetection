@@ -47,6 +47,7 @@ TEncoder:
   return_intermediate: True
   output_method: 'fpn'
   global_stage: 2
+  use_checkpoint: True
 
 XHead:
   l1_epoch: 110

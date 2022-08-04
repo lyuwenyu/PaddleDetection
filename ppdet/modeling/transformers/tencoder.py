@@ -39,6 +39,7 @@ class TEncoder(nn.Layer):
                  global_stage=1,
                  pos_embedding_buffer_size=None,
                  output_with_pos_embedding=False,
+                 use_checkpoint=False,
                  act='relu'):
         super().__init__()
 
@@ -57,6 +58,7 @@ class TEncoder(nn.Layer):
         self.output_method = output_method
         self.pos_embedding_buffer_size = pos_embedding_buffer_size
         self.output_with_pos_embedding = output_with_pos_embedding and output_method == 'attention'
+        self.use_checkpoint = use_checkpoint
 
         if not skip_connection:
             assert len(in_channels) == 1, ''
@@ -171,7 +173,9 @@ class TEncoder(nn.Layer):
         src_flatten = src_proj.flatten(2).transpose([0, 2, 1])
 
         src_mask = None
-        memory = self.encoder(src_flatten, src_mask)  # N (HW) D
+        memory = self.encoder(
+            src_flatten, src_mask,
+            use_checkpoint=self.use_checkpoint)  # N (HW) D
 
         if not self.return_intermediate:
 

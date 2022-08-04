@@ -79,6 +79,9 @@ def _convert_attention_mask(attn_mask, dtype):
     return attn_mask
 
 
+from paddle.distributed.fleet.utils import recompute
+
+
 class TransformerEncoder(nn.Layer):
     """
     TransformerEncoder is a stack of N encoder layers. 
@@ -121,7 +124,7 @@ class TransformerEncoder(nn.Layer):
         self.norm = norm
         self.return_intermediate = return_intermediate
 
-    def forward(self, src, src_mask=None, cache=None):
+    def forward(self, src, src_mask=None, cache=None, use_checkpoint=False):
         r"""
         Applies a stack of N Transformer encoder layers on inputs. If `norm` is
         provided, also applies layer normalization on the output of last encoder
@@ -156,18 +159,31 @@ class TransformerEncoder(nn.Layer):
                 for more details.
         """
         src_mask = _convert_attention_mask(src_mask, src.dtype)
+        # if self.use_checkpoint:
+        #     x = paddle.distributed.fleet.utils.recompute(
+        #         blk, x, rel_pos_bias, **{"preserve_rng_state": True})
 
         output = src
         new_caches = []
         outputs = []
         for i, mod in enumerate(self.layers):
-            if cache is None:
-                output = mod(output, src_mask=src_mask)
+            if not use_checkpoint:
+                if cache is None:
+                    output = mod(output, src_mask=src_mask)
+                else:
+                    output, new_cache = mod(output,
+                                            src_mask=src_mask,
+                                            cache=cache[i])
+                    new_caches.append(new_cache)
             else:
-                output, new_cache = mod(output,
-                                        src_mask=src_mask,
-                                        cache=cache[i])
-                new_caches.append(new_cache)
+                if cache is None:
+                    output = recompute(mod, output, src_mask,
+                                       **{"preserve_rng_state": True})
+                else:
+                    output, new_cache = recompute(
+                        mod, output, src_mask, cache[i],
+                        **{"preserve_rng_state": True})
+                    new_caches.append(new_cache)
 
             outputs.append(output)
 
