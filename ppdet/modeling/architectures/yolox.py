@@ -44,20 +44,21 @@ class YOLOX(BaseArch):
     """
     __category__ = 'architecture'
 
-    def __init__(self,
-                 backbone='CSPDarkNet',
-                 neck='YOLOCSPPAN',
-                 head='YOLOXHead',
-                 for_mot=False,
-                 input_size=[640, 640],
-                 size_stride=32,
-                 size_range=[15, 25],
-                 random_interval=10):
+    def __init__(
+            self,
+            backbone='CSPDarkNet',
+            neck='YOLOCSPPAN',
+            head='YOLOXHead',
+            # for_mot=False,
+            input_size=[640, 640],
+            size_stride=32,
+            size_range=[15, 25],
+            random_interval=10):
         super(YOLOX, self).__init__()
         self.backbone = backbone
         self.neck = neck
         self.head = head
-        self.for_mot = for_mot
+        # self.for_mot = for_mot
 
         self.input_size = input_size
         self._input_size = paddle.to_tensor(input_size)
@@ -89,7 +90,9 @@ class YOLOX(BaseArch):
         if self.training:
             self._preprocess()
         body_feats = self.backbone(self.inputs)
-        neck_feats = self.neck(body_feats, self.for_mot)
+
+        neck_feats = self.neck(body_feats, self.inputs
+                               if self.training else None)
 
         if self.training:
             yolox_losses = self.head(neck_feats, self.inputs)

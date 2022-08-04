@@ -183,6 +183,10 @@ class Trainer(object):
         self._init_metrics()
         self._reset_metrics()
 
+        if self.cfg[
+                'use_fused_allreduce_gradients'] if 'use_fused_allreduce_gradients' in self.cfg else False:
+            paddle.seed(0)
+
         print(self.model)
         params = sum([
             p.numel() for n, p in self.model.named_parameters()

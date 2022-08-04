@@ -167,7 +167,7 @@ class TransformerEncoder(nn.Layer):
         new_caches = []
         outputs = []
         for i, mod in enumerate(self.layers):
-            if not use_checkpoint:
+            if not (use_checkpoint and self.training):
                 if cache is None:
                     output = mod(output, src_mask=src_mask)
                 else:
@@ -191,8 +191,13 @@ class TransformerEncoder(nn.Layer):
         if self.norm is not None:
             output = self.norm(output)
 
+        # if not self.return_intermediate:
+        #     return output if cache is None else (output, new_caches)
+        # else:
+        #     return outputs
+
         if not self.return_intermediate:
-            return output if cache is None else (output, new_caches)
+            return outputs[-1:]
         else:
             return outputs
 

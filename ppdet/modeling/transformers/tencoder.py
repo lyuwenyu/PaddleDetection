@@ -35,6 +35,7 @@ class TEncoder(nn.Layer):
                  skip_connection=False,
                  fused_multi_stages=False,
                  return_intermediate=False,
+                 auxiliary_epoch=-1,
                  output_method='fpn',
                  global_stage=1,
                  pos_embedding_buffer_size=None,
@@ -59,6 +60,8 @@ class TEncoder(nn.Layer):
         self.pos_embedding_buffer_size = pos_embedding_buffer_size
         self.output_with_pos_embedding = output_with_pos_embedding and output_method == 'attention'
         self.use_checkpoint = use_checkpoint
+        self.auxiliary_epoch = auxiliary_epoch
+        self.num_layers = num_layers
 
         if not skip_connection:
             assert len(in_channels) == 1, ''
@@ -140,7 +143,7 @@ class TEncoder(nn.Layer):
         for m in self.input_projects:
             conv_init_(m)
 
-    def forward(self, feats, for_mot=False):
+    def forward(self, feats, targets=False):
 
         if not self.skip_connection:
             src_proj = self.input_projects(feats[-1])
@@ -177,45 +180,57 @@ class TEncoder(nn.Layer):
             src_flatten, src_mask,
             use_checkpoint=self.use_checkpoint)  # N (HW) D
 
-        if not self.return_intermediate:
+        # if not self.return_intermediate:
+
+        #     if self.output_method == 'fpn':
+        #         memory = memory.transpose([0, 2, 1]).reshape([N, D, H, W])
+        #         outputs = [m(memory) for m in self.fpns]
+
+        #     elif self.output_method == 'attention':
+        #         outputs = [
+        #             m(x, memory, memory) for m, x in zip(self.attns, feats)
+        #         ]
+
+        #     if self.skip_connection:
+        #         outputs = [x + y for x, y in zip(feats, outputs)]
+
+        # else:
+
+        outputs = OrderedDict()
+        names = [str(i) for i in range(self.num_layers)]
+
+        if targets is not None and targets[
+                'epoch_id'] > self.auxiliary_epoch and self.return_intermediate:
+            memory = memory[-1:]
+            names = names[-1:]
+
+        # TODO
+        if not self.training and self.return_intermediate:
+            memory = memory[-1:]
+            names = names[-1:]
+
+        # targets['epoch_id']
+        for i, mem in enumerate(memory):
 
             if self.output_method == 'fpn':
-                memory = memory.transpose([0, 2, 1]).reshape([N, D, H, W])
-                outputs = [m(memory) for m in self.fpns]
+                mem = mem.transpose([0, 2, 1]).reshape([N, D, H, W])
+                _outputs = [m(mem) for m in self.fpns]
 
             elif self.output_method == 'attention':
-                outputs = [
-                    m(x, memory, memory) for m, x in zip(self.attns, feats)
-                ]
+                _outputs = [m(x, mem, mem) for m, x in zip(self.attns, feats)]
+
+            # mem = mem.transpose([0, 2, 1]).reshape([N, D, H, W])
+            # _outputs = [m(mem) for m in self.fpns]
 
             if self.skip_connection:
-                outputs = [x + y for x, y in zip(feats, outputs)]
+                _outputs = [x + y for x, y in zip(feats, _outputs)]
 
-        else:
+            # TODO by lyuwenyu 
+            # name = str(i) if i < len(memory) - 1 else 'last'
+            # name = str(i)
+            name = names[i]
 
-            outputs = OrderedDict()
-            for i, mem in enumerate(memory):
-
-                if self.output_method == 'fpn':
-                    mem = mem.transpose([0, 2, 1]).reshape([N, D, H, W])
-                    _outputs = [m(mem) for m in self.fpns]
-
-                elif self.output_method == 'attention':
-                    _outputs = [
-                        m(x, mem, mem) for m, x in zip(self.attns, feats)
-                    ]
-
-                # mem = mem.transpose([0, 2, 1]).reshape([N, D, H, W])
-                # _outputs = [m(mem) for m in self.fpns]
-
-                if self.skip_connection:
-                    _outputs = [x + y for x, y in zip(feats, _outputs)]
-
-                # TODO by lyuwenyu 
-                # name = str(i) if i < len(memory) - 1 else 'last'
-                name = str(i)
-
-                outputs[name] = _outputs
+            outputs[name] = _outputs
 
         return outputs
 
