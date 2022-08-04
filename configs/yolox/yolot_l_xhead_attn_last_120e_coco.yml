@@ -41,6 +41,7 @@ TEncoder:
   hidden_dim: 256
   num_layers: 6
   dim_feedforward: 1024
+  dropout: 0.
 
   skip_connection: True
   fused_multi_stages: True
