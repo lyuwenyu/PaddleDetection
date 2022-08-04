@@ -18,7 +18,7 @@ ema_decay_type: "exponential"
 # act: relu # silu
 find_unused_parameters: True
 use_gpu: True
-use_fused_allreduce_gradients: True
+use_fused_allreduce_gradients: &use_checkpoint True
 
 
 depth_mult: 1.0
@@ -48,7 +48,7 @@ TEncoder:
   output_method: 'attention' # fpn
   global_stage: 2
   output_with_pos_embedding: False
-  use_checkpoint: True
+  use_checkpoint: *use_checkpoint
 
 XHead:
   l1_epoch: 110
