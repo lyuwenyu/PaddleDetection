@@ -35,7 +35,7 @@ class TEncoder(nn.Layer):
                  skip_connection=False,
                  fused_multi_stages=False,
                  return_intermediate=False,
-                 auxiliary_epoch=-1,
+                 auxiliary_epoch=10000,
                  output_method='fpn',
                  global_stage=1,
                  pos_embedding_buffer_size=None,
