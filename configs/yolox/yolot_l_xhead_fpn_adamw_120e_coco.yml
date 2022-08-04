@@ -3,12 +3,14 @@ _BASE_: [
   '../runtime.yml',
   # './_base_/optimizer_300e.yml',
   # './_base_/yolox_cspdarknet.yml',
-  './_base_/yolox_reader.yml'
+  './_base_/yolox_reader.yml',
+  './_base_/optimizer_adamw_120.yml'
 ]
 
 log_iter: 100
 snapshot_epoch: 5
-weights: output/yolot_l_xhead_attn_last_120e_coco/model_final
+weights: output/yolot_l_xhead_120e_coco/model_final
+
 
 architecture: YOLOX
 norm_type: sync_bn
@@ -17,8 +19,7 @@ ema_decay: 0.9999
 ema_decay_type: "exponential"
 # act: relu # silu
 find_unused_parameters: True
-use_gpu: True
-use_fused_allreduce_gradients: &use_checkpoint True
+use_gpu: true
 
 
 depth_mult: 1.0
@@ -41,16 +42,13 @@ TEncoder:
   hidden_dim: 256
   num_layers: 6
   dim_feedforward: 1024
-  dropout: 0.1
 
   skip_connection: True
   fused_multi_stages: True
   return_intermediate: True
-  output_method: 'attention' # fpn
-  global_stage: 2
-  output_with_pos_embedding: False
-  use_checkpoint: *use_checkpoint
-  auxiliary_epoch: 1000
+
+  output_method: 'fpn'
+  global_stage: 1
 
 
 XHead:
@@ -61,7 +59,6 @@ XHead:
   with_stem_conv: True
   num_decoder_conv: 2
   stage_weights: [1., 1., 1., 1., 1., 1.]
-  predict_level_id: [-1]
 
   assigner:
     name: SimOTAAssigner
@@ -84,28 +81,26 @@ TrainReader:
   mosaic_epoch: 110
 
 
-epoch: &epoch 120
-LearningRate:
-  base_lr: 0.0005
-  schedulers:
-  - !CosineDecay
-    max_epochs: *epoch
-    min_lr_ratio: 0.05
-    last_plateau_epochs: 10
-  - !ExpWarmup
-    epochs: 5
+# epoch: &epoch 120
+# LearningRate:
+#   base_lr: 0.0005
+#   schedulers:
+#   - !CosineDecay
+#     max_epochs: *epoch
+#     min_lr_ratio: 0.05
+#     last_plateau_epochs: 10
+#   - !ExpWarmup
+#     epochs: 5
 
-OptimizerBuilder:
-  clip_grad_by_norm: 1.0
-  optimizer:
-    type: AdamW
-    weight_decay: 0.05
-    param_groups:
-        -
-          params: ['embed', 'bias', 'norm']
-          weight_decay: 0.
-
-
+# OptimizerBuilder:
+#   clip_grad_by_norm: 1.0
+#   optimizer:
+#     type: AdamW
+#     weight_decay: 0.05
+#     param_groups:
+#         -
+#           params: ['embed', 'bias', 'norm']
+#           weight_decay: 0.
 
 
 # epoch: 300

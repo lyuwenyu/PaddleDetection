@@ -3,7 +3,8 @@ _BASE_: [
   '../runtime.yml',
   # './_base_/optimizer_300e.yml',
   # './_base_/yolox_cspdarknet.yml',
-  './_base_/yolox_reader.yml'
+  './_base_/yolox_reader.yml',
+  './_base_/optimizer_adamw_120.yml'
 ]
 
 log_iter: 100
@@ -84,26 +85,26 @@ TrainReader:
   mosaic_epoch: 110
 
 
-epoch: &epoch 120
-LearningRate:
-  base_lr: 0.0005
-  schedulers:
-  - !CosineDecay
-    max_epochs: *epoch
-    min_lr_ratio: 0.05
-    last_plateau_epochs: 10
-  - !ExpWarmup
-    epochs: 5
+# epoch: &epoch 120
+# LearningRate:
+#   base_lr: 0.0005
+#   schedulers:
+#   - !CosineDecay
+#     max_epochs: *epoch
+#     min_lr_ratio: 0.05
+#     last_plateau_epochs: 10
+#   - !ExpWarmup
+#     epochs: 5
 
-OptimizerBuilder:
-  clip_grad_by_norm: 1.0
-  optimizer:
-    type: AdamW
-    weight_decay: 0.05
-    param_groups:
-        -
-          params: ['embed', 'bias', 'norm']
-          weight_decay: 0.
+# OptimizerBuilder:
+#   clip_grad_by_norm: 1.0
+#   optimizer:
+#     type: AdamW
+#     weight_decay: 0.05
+#     param_groups:
+#         -
+#           params: ['embed', 'bias', 'norm']
+#           weight_decay: 0.
 
 
 

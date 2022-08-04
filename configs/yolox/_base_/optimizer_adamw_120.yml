@@ -1,0 +1,41 @@
+epoch: &epoch 120
+LearningRate:
+  base_lr: 0.0005
+  schedulers:
+  - !CosineDecay
+    max_epochs: *epoch
+    min_lr_ratio: 0.05
+    last_plateau_epochs: 10
+  - !ExpWarmup
+    epochs: 5
+
+OptimizerBuilder:
+  # clip_grad_by_norm: 1.0
+  optimizer:
+    type: AdamW
+    weight_decay: 0.05
+    param_groups:
+        -
+          params: ['embed', 'bias', 'norm', 'bn']
+          weight_decay: 0.
+
+
+# epoch: 300
+# LearningRate:
+#   base_lr: 0.01
+#   schedulers:
+#   - !CosineDecay
+#     max_epochs: 300
+#     min_lr_ratio: 0.05
+#     last_plateau_epochs: 15
+#   - !ExpWarmup
+#     epochs: 5
+
+# OptimizerBuilder:
+#   optimizer:
+#     type: Momentum
+#     momentum: 0.9
+#     use_nesterov: True
+#   regularizer:
+#     factor: 0.0005
+#     type: L2

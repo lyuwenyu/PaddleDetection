@@ -156,8 +156,16 @@ class XHead(nn.Layer):
             if not self.training:
                 # TODO by lyuwenyu
                 # outputs = self._forward(feats['last'], targets)
-                _key = list(feats)[self.predict_level_id]
-                outputs = self._forward(feats[_key], targets)
+                if isinstance(self.predict_level_id, int):
+                    _key = list(feats)[self.predict_level_id]
+                    outputs = self._forward(feats[_key], targets)
+
+                elif isinstance(self.predict_level_id, list):
+                    _keys = [list(feats)[_id] for _id in self.predict_level_id]
+                    outputs = [
+                        self._forward(feats[_key], targets) for _key in _keys
+                    ]
+                    outputs = self.ensemble_outputs(outputs)
 
             else:
                 loss = 0
@@ -332,3 +340,33 @@ class XHead(nn.Layer):
         else:
             bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
             return bbox_pred, bbox_num
+
+    def ensemble_outputs(self, outputs):
+        pred_scores = paddle.concat([output[0] for output in outputs], axis=1)
+        pred_bboxes = paddle.concat([output[1] for output in outputs], axis=1)
+        stride_tensor = paddle.concat([output[2] for output in outputs], axis=0)
+
+        # print([output[2].shape for output in outputs])
+        # i = 0
+        # print(f'{i} pred_scores ', pred_scores.shape)
+        # print(f'{i} pred_bboxes ', pred_bboxes.shape)
+        # print(f'{i} stride_tensor ', stride_tensor.shape)
+
+        return pred_scores, pred_bboxes, stride_tensor
+
+        # for i, output in enumerate(outputs):
+
+        #     pred_scores, pred_bboxes, stride_tensor = output
+
+        #     print(f'{i} pred_scores ', pred_scores.shape)
+        #     print(f'{i} pred_bboxes ', pred_bboxes.shape)
+        #     print(f'{i} stride_tensor ', stride_tensor.shape)
+
+        # xxx += 1
+
+        # 0 pred_scores  [1, 8400, 80]
+        # 0 pred_bboxes  [1, 8400, 4]
+        # 0 stride_tensor  [8400, 1]
+        # 1 pred_scores  [1, 8400, 80]
+        # 1 pred_bboxes  [1, 8400, 4]
+        # 1 stride_tensor  [8400, 1]

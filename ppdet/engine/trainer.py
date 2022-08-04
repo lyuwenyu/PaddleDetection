@@ -213,6 +213,13 @@ class Trainer(object):
             paddle.seed(0)
             print('setting paddle.seed')
 
+        # for n, p in self.model.named_parameters():
+        #     if len(p.shape) == 1:
+        #         print(n, p.shape)
+
+        # lr = create('LearningRate')(1000)
+        # optimizer = create('OptimizerBuilder')(lr, self.model)
+
     def _init_callbacks(self):
         if self.mode == 'train':
             self._callbacks = [LogPrinter(self), Checkpointer(self)]

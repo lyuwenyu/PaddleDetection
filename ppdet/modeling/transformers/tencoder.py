@@ -199,13 +199,12 @@ class TEncoder(nn.Layer):
         outputs = OrderedDict()
         names = [str(i) for i in range(self.num_layers)]
 
-        # TODO
+        # TODO for testing speed
+        # if not self.training and self.return_intermediate:
+        #     memory = memory[-1:]
+        #     names = names[-1:]
 
-        if not self.training and self.return_intermediate:
-            memory = memory[-1:]
-            names = names[-1:]
-
-        elif targets is not None and targets[
+        if targets is not None and targets[
                 'epoch_id'] > self.auxiliary_epoch and self.return_intermediate:
             memory = memory[-1:]
             names = names[-1:]

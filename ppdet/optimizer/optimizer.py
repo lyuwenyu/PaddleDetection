@@ -350,6 +350,9 @@ class OptimizerBuilder():
                 params.append(_group)
                 visited.extend(list(_params.keys()))
 
+                # for _k, _p in _params.items():
+                #     print(_k, _p.shape)
+
             ext_params = [
                 p for n, p in model.named_parameters()
                 if n not in visited and p.trainable is True
