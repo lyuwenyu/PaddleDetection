@@ -248,6 +248,8 @@ class AttentionProject(nn.Layer):
         self.attn = nn.MultiHeadAttention(hidden_dim, num_heads, dropout)
         self.pos_embedding_func = pos_embedding_func
 
+        # decoder_layer = nn.TransformerDecoderLayer()
+
     def forward(self, q, k, v):
         '''
             q, [n, d, h, w]

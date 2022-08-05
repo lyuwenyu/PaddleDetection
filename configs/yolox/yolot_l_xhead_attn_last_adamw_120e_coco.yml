@@ -51,7 +51,7 @@ TEncoder:
   global_stage: 2
   output_with_pos_embedding: False
   use_checkpoint: *use_checkpoint
-  auxiliary_epoch: 1
+  auxiliary_epoch: 20
 
 
 XHead:
