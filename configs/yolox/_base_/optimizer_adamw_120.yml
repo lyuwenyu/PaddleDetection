@@ -13,7 +13,7 @@ OptimizerBuilder:
   # clip_grad_by_norm: 1.0
   optimizer:
     type: AdamW
-    weight_decay: 0.05
+    weight_decay: 0.05 # 0.02
     param_groups:
         -
           params: ['embed', 'bias', 'norm', 'bn']

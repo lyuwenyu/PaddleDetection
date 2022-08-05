@@ -42,7 +42,7 @@ TEncoder:
   hidden_dim: 256
   num_layers: 6
   dim_feedforward: 1024
-  dropout: 0.1
+  dropout: 0.
 
   skip_connection: True
   fused_multi_stages: True
@@ -51,7 +51,7 @@ TEncoder:
   global_stage: 2
   output_with_pos_embedding: False
   use_checkpoint: *use_checkpoint
-  auxiliary_epoch: 1000
+  auxiliary_epoch: 1
 
 
 XHead:
@@ -62,7 +62,7 @@ XHead:
   with_stem_conv: True
   num_decoder_conv: 2
   stage_weights: [1., 1., 1., 1., 1., 1.]
-  predict_level_id: [-1]
+  predict_level_id: -1
 
   assigner:
     name: SimOTAAssigner
