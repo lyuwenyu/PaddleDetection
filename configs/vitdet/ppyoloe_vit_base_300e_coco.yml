@@ -2,12 +2,13 @@
 _BASE_: [
   '../datasets/coco_detection.yml',
   '../runtime.yml',
-  '../ppyoloe/_base_/ppyoloe_reader.yml',
+  './_base_/ppyoloe_reader.yml',
 ]
 
 
 # optimizer
 epoch: &epoch 300
+use_fused_allreduce_gradients: &use_checkpoint False
 
 LearningRate:
   base_lr: 0.0001
@@ -23,7 +24,7 @@ OptimizerBuilder:
     type: AdamWDL
     betas: [0.9, 0.999]
     layer_decay: 0.75
-    weight_decay: 0.02
+    weight_decay: 0.05 # 0.02
     num_layers: 12
     filter_bias_and_bn: True
     skip_decay_names: ['pos_embed', 'cls_token']
@@ -64,6 +65,7 @@ VisionTransformer:
   epsilon: 0.000001 # 1e-6
   out_indices: [5, 7, 11]
   with_fpn: True
+  use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
 
 
