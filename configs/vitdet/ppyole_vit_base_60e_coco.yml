@@ -37,10 +37,6 @@ OptimizerBuilder:
     weight_decay: 0.0001
 
 
-# reader
-TrainReader:
-  batch_size: 2
-
 
 # model
 architecture: YOLOv3
@@ -125,7 +121,7 @@ TrainReader:
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
     - PadGT: {}
-  batch_size: 1
+  batch_size: 2
   shuffle: true
   drop_last: true
   use_shared_memory: true
@@ -137,7 +133,7 @@ EvalReader:
     - Resize: {target_size: [640, 640], keep_ratio: False, interp: 2}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
-  batch_size: 2
+  batch_size: 8
 
 TestReader:
   inputs_def:
