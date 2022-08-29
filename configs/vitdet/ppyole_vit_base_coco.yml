@@ -74,16 +74,9 @@ YOLOCSPPAN:
   act: 'silu'
 
 
-# CustomCSPPAN:
-#   out_channels: [768, 384, 192]
-#   stage_num: 1
-#   block_num: 3
-#   act: 'swish'
-#   spp: true
-
-
 PPYOLOEHead:
-  fpn_strides: [8, 16, 32]
+  reverse: True
+  fpn_strides: [32, 16, 8]
   in_channels: [768, 768, 768]
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
