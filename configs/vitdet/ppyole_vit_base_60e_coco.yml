@@ -121,7 +121,7 @@ TrainReader:
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
     - PadGT: {}
-  batch_size: 2
+  batch_size: 4
   shuffle: true
   drop_last: true
   use_shared_memory: true
