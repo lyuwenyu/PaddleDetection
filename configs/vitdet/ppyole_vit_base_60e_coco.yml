@@ -7,7 +7,7 @@ _BASE_: [
 
 
 # optimizer
-epoch: &epoch 300
+epoch: &epoch 60
 
 LearningRate:
   base_lr: 0.0001
@@ -16,23 +16,30 @@ LearningRate:
       max_epochs: *epoch
     - !LinearWarmup
       start_factor: 0.
-      epochs: 5
+      epochs: 1
+
+# OptimizerBuilder:
+#   optimizer:
+#     type: AdamWDL
+#     betas: [0.9, 0.999]
+#     layer_decay: 0.75
+#     weight_decay: 0.05
+#     num_layers: 12
+#     filter_bias_and_bn: True
+#     skip_decay_names: ['pos_embed', 'cls_token']
+#     set_param_lr_func: 'layerwise_lr_decay'
 
 OptimizerBuilder:
+  clip_grad_by_norm: 0.1
+  regularizer: false
   optimizer:
-    type: AdamWDL
-    betas: [0.9, 0.999]
-    layer_decay: 0.75
-    weight_decay: 0.02
-    num_layers: 12
-    filter_bias_and_bn: True
-    skip_decay_names: ['pos_embed', 'cls_token']
-    set_param_lr_func: 'layerwise_lr_decay'
+    type: AdamW
+    weight_decay: 0.0001
 
 
 # reader
 TrainReader:
-  batch_size: 8
+  batch_size: 2
 
 
 # model
@@ -81,7 +88,7 @@ PPYOLOEHead:
   in_channels: [768, 768, 768]
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
-  static_assigner_epoch: 100
+  static_assigner_epoch: 20
   use_varifocal_loss: True
   loss_weight: {class: 1.0, iou: 2.5, dfl: 0.5}
   static_assigner:
@@ -102,9 +109,9 @@ PPYOLOEHead:
 
 
 worker_num: 4
-# eval_height: &eval_height 640
-# eval_width: &eval_width 640
-# eval_size: &eval_size [*eval_height, *eval_width]
+eval_height: &eval_height 640
+eval_width: &eval_width 640
+eval_size: &eval_size [*eval_height, *eval_width]
 
 TrainReader:
   sample_transforms:
