@@ -610,7 +610,7 @@ class VisionTransformer(nn.Layer):
                 feats.append(xp)
 
         if self.with_fpn:
-            fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4]
+            fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4][4 - len(feats):]
             for i in range(len(feats)):
                 feats[i] = fpns[i](feats[i])
 
