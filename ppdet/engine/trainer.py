@@ -155,7 +155,6 @@ class Trainer(object):
                     "Samples in dataset are less than batch_size, please set smaller batch_size in TrainReader."
                 )
             self.lr = create('LearningRate')(steps_per_epoch)
-            print('self.lr', self.lr)
 
             self.optimizer = create('OptimizerBuilder')(self.lr, self.model)
 
