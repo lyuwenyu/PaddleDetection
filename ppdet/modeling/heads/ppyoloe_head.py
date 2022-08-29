@@ -72,7 +72,9 @@ class PPYOLOEHead(nn.Layer):
                  },
                  trt=False,
                  exclude_nms=False,
-                 exclude_post_process=False):
+                 exclude_post_process=False,
+                 reverse=False):
+
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
         self.in_channels = in_channels
@@ -85,6 +87,7 @@ class PPYOLOEHead(nn.Layer):
         self.loss_weight = loss_weight
         self.use_varifocal_loss = use_varifocal_loss
         self.eval_size = eval_size
+        self.reverse = reverse
 
         self.static_assigner_epoch = static_assigner_epoch
         self.static_assigner = static_assigner
@@ -213,6 +216,9 @@ class PPYOLOEHead(nn.Layer):
         return cls_score_list, reg_dist_list, anchor_points, stride_tensor
 
     def forward(self, feats, targets=None):
+        if self.reverse:
+            feats = feats[::-1]
+
         assert len(feats) == len(self.fpn_strides), \
             "The size of feats is not equal to size of fpn_strides"
 
