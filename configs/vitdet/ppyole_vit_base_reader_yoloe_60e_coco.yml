@@ -31,12 +31,22 @@ LearningRate:
 #     skip_decay_names: ['pos_embed', 'cls_token']
 #     set_param_lr_func: 'layerwise_lr_decay'
 
+# OptimizerBuilder:
+#   clip_grad_by_norm: 0.1
+#   regularizer: false
+#   optimizer:
+#     type: AdamW
+#     weight_decay: 0.0001
+
 OptimizerBuilder:
-  clip_grad_by_norm: 0.1
-  regularizer: false
+  clip_grad_by_norm: 1.0
   optimizer:
     type: AdamW
-    weight_decay: 0.0001
+    weight_decay: 0.05
+    param_groups:
+        -
+          params: ['norm', 'cls_token', 'pos_embed', 'bias']
+          weight_decay: 0.
 
 
 
