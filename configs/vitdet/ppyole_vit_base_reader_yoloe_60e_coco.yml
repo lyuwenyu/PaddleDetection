@@ -21,25 +21,25 @@ LearningRate:
       epochs: 1
 
 
-# DETR OPTIMIZER
-OptimizerBuilder:
-  clip_grad_by_norm: 0.1
-  regularizer: false
-  optimizer:
-    type: AdamW
-    weight_decay: 0.0001
+# # DETR OPTIMIZER
+# OptimizerBuilder:
+#   clip_grad_by_norm: 0.1
+#   regularizer: false
+#   optimizer:
+#     type: AdamW
+#     weight_decay: 0.0001
 
 
 # SWIN OPTIMIZER
-# OptimizerBuilder:
-#   clip_grad_by_norm: 1.0
-#   optimizer:
-#     type: AdamW
-#     weight_decay: 0.05
-#     param_groups:
-#         -
-#           params: ['norm', 'cls_token', 'pos_embed', 'bias']
-#           weight_decay: 0.
+OptimizerBuilder:
+  clip_grad_by_norm: 1.0
+  optimizer:
+    type: AdamW
+    weight_decay: 0.05
+    param_groups:
+        -
+          params: ['norm', 'cls_token', 'pos_embed', '.bias', 'bn.weight']
+          weight_decay: 0.
 
 
 # VIT OPTIMIZER

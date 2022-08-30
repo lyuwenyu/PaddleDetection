@@ -10,9 +10,12 @@ model = create(cfg.architecture)
 lr = create('LearningRate')(10)
 optimizer = create('OptimizerBuilder')(lr, model)
 
-for i in range(60):
-    for j in range(10):
-        curr_lr = optimizer.get_lr()
-        lr.step()
+# for n, p in model.named_parameters():
+#     if len(p.shape) == 1:
+#         print(n, )
 
-        print(i, j, curr_lr)
+# for i in range(60):
+#     for j in range(10):
+#         curr_lr = optimizer.get_lr()
+#         lr.step()
+#         print(i, j, curr_lr)
