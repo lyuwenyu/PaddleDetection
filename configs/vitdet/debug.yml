@@ -1,0 +1,31 @@
+# DETR OPTIMIZER
+# OptimizerBuilder:
+#   clip_grad_by_norm: 0.1
+#   regularizer: false
+#   optimizer:
+#     type: AdamW
+#     weight_decay: 0.0001
+
+
+# SWIN OPTIMIZER
+OptimizerBuilder:
+  clip_grad_by_norm: 1.0
+  optimizer:
+    type: AdamW
+    weight_decay: 0.05
+    param_groups:
+        -
+          params: ['norm', 'cls_token', 'pos_embed', 'bias']
+          weight_decay: 0.
+
+
+epoch: &epoch 60
+
+LearningRate:
+  base_lr: 0.0001
+  schedulers:
+    - !CosineDecay
+      max_epochs: *epoch
+    - !LinearWarmup
+      start_factor: 0.
+      epochs: 1
