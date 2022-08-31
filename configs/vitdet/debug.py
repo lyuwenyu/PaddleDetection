@@ -14,8 +14,8 @@ optimizer = create('OptimizerBuilder')(lr, model)
 #     if len(p.shape) == 1:
 #         print(n, )
 
-# for i in range(60):
-#     for j in range(10):
-#         curr_lr = optimizer.get_lr()
-#         lr.step()
-#         print(i, j, curr_lr)
+for i in range(60):
+    for j in range(10):
+        curr_lr = optimizer.get_lr()
+        lr.step()
+        print(i, j, curr_lr)
