@@ -21,7 +21,7 @@ from ppdet.core.workspace import register, serializable
 from ppdet.modeling.layers import ConvNormLayer
 from ..shape_spec import ShapeSpec
 
-__all__ = ['IdentityFPN']
+__all__ = ['IdentityFPN', 'ViTDetFPN']
 
 
 @register
@@ -42,3 +42,50 @@ class IdentityFPN(nn.Layer):
     @property
     def out_shape(self):
         return [ShapeSpec(channels=c) for c in self.out_channels]
+
+
+class Identity(nn.Layer):
+    def __init__(self):
+        super(Identity, self).__init__()
+
+    def forward(self, input):
+        return input
+
+
+@register
+@serializable
+class ViTDetFPN(nn.Layer):
+    def __init__(self, in_channels, num_stages=3, use_last_feat=True):
+        super().__init__()
+        self.in_channels = in_channels
+        self.use_last_feat = use_last_feat
+
+        if num_stages == 3:
+            self.fpns = nn.Sequential(
+                nn.Sequential(
+                    nn.Conv2DTranspose(
+                        in_channels[-1],
+                        in_channels[-1],
+                        kernel_size=2,
+                        stride=2), ),
+                Identity(),
+                nn.MaxPool2D(
+                    kernel_size=2, stride=2))
+        else:
+            raise RuntimeError('')
+
+    def forward(self, body_feats, xx=None):
+
+        if self.use_last_feat:
+            return [m(body_feats[-1]) for m in self.fpns]
+        else:
+            assert len(body_feats) == len(self.fpns), ''
+            return [m(x) for m, x in zip(self.fpns, body_feats)]
+
+    # @classmethod
+    # def from_config(cls, cfg, input_shape):
+    #     return {'in_channels': [i.channels for i in input_shape], }
+
+    # @property
+    # def out_shape(self):
+    #     return [ShapeSpec(channels=c) for c in self.out_channels]

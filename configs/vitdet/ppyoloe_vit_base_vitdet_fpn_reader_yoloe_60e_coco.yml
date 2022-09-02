@@ -55,7 +55,6 @@ OptimizerBuilder:
           weight_decay: 0.
 
 
-
 LearningRateCNN:
   base_lr: 0.01
   schedulers:
@@ -106,7 +105,7 @@ use_fused_allreduce_gradients: &use_checkpoint False
 
 YOLOv3:
   backbone: VisionTransformer
-  neck: YOLOCSPPAN
+  neck: ViTDetFPN
   yolo_head: PPYOLOEHead
   post_process: ~
 
@@ -125,17 +124,22 @@ VisionTransformer:
   use_rel_pos_bias: False
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
-  out_indices: [5, 7, 11]
-  with_fpn: True
+  out_indices: [11, ]
+  with_fpn: False
   use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
 
 
 
-YOLOCSPPAN:
-  depthwise: False
-  in_channels: [768, 768, 768]
-  act: 'silu'
+# YOLOCSPPAN:
+#   depthwise: False
+#   in_channels: [768, 768, 768]
+#   act: 'silu'
+
+ViTDetFPN:
+  in_channels: [768]
+  num_stages: 3
+  use_last_feat: True
 
 
 PPYOLOEHead:
