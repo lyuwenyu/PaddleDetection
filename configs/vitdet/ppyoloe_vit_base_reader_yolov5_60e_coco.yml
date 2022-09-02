@@ -45,7 +45,8 @@ architecture: YOLOv3
 norm_type: sync_bn
 use_ema: true
 ema_decay: 0.9998
-custom_black_list: ['reduce_mean']
+# custom_black_list: ['reduce_mean']
+find_unused_parameters: True
 
 YOLOv3:
   backbone: VisionTransformer
