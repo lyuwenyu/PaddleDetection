@@ -119,17 +119,12 @@ TrainReader:
     - MosaicPerspective: {target_size: *input_size, mosaic_prob: 1.0, mixup_prob: 0.15, paste_in_prob: 0.15, translate: 0.2, scale: 0.9}
     - RandomHSV: {hgain: 0.015, sgain: 0.7, vgain: 0.4}
     - RandomFlip: {}
-    # - BboxXYXY2XYWH: {}
-    # - NormalizeBox: {}
-    # - NormalizeImageQuick: {mean: [0, 0, 0], std: [1, 1, 1], is_scale: True}
-    # - Permute: {}
   batch_transforms:
     - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: True}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
     - PadGT: {}
-
-  batch_size: 4
+  batch_size: 2
   shuffle: True
   drop_last: False
   use_shared_memory: False

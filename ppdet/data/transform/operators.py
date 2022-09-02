@@ -3396,3 +3396,323 @@ class PadResize(BaseOperator):
         sample['gt_bbox'] = bboxes
         sample['gt_class'] = labels
         return sample
+
+
+@register_op
+class RandomHSV(BaseOperator):
+    """
+    HSV color-space augmentation
+    """
+
+    def __init__(self, hgain=0.015, sgain=0.7, vgain=0.4):
+        super(RandomHSV, self).__init__()
+        self.gains = [hgain, sgain, vgain]
+
+    def __call__(self, sample, context=None):
+        im = sample['image']
+        r = np.random.uniform(-1, 1, 3) * self.gains + 1
+        hue, sat, val = cv2.split(cv2.cvtColor(im, cv2.COLOR_BGR2HSV))
+
+        x = np.arange(0, 256, dtype=r.dtype)
+        lut_hue = ((x * r[0]) % 180).astype(np.uint8)
+        lut_sat = np.clip(x * r[1], 0, 255).astype(np.uint8)
+        lut_val = np.clip(x * r[2], 0, 255).astype(np.uint8)
+
+        im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat),
+                            cv2.LUT(val, lut_val)))
+        im_hsv_ = cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR)
+        sample['image'] = im_hsv_.astype(np.float32, copy=False)
+        return sample
+
+
+@register_op
+class MosaicPerspective(BaseOperator):
+    """
+    Mosaic Data Augmentation and Perspective
+    The code is based on https://github.com/WongKinYiu/yolov7
+    1. get mosaic coords, _mosaic_preprocess, get mosaic_labels
+    2. random_perspective augment
+    3. copy_paste,mixup,paste_in
+    """
+
+    def __init__(self,
+                 target_size=[640, 640],
+                 mosaic_prob=1.0,
+                 mixup_prob=0.0,
+                 copy_paste_prob=0.0,
+                 paste_in_prob=0.0,
+                 fill_value=114,
+                 degrees=0.0,
+                 translate=0.1,
+                 scale=0.5,
+                 shear=0.0,
+                 perspective=0.0):
+        super(MosaicPerspective, self).__init__()
+        self.mosaic_prob = mosaic_prob
+        self.mixup_prob = mixup_prob
+        self.copy_paste_prob = copy_paste_prob  # no use
+        self.paste_in_prob = paste_in_prob
+
+        if isinstance(target_size, Integral):
+            target_size = [target_size, target_size]
+        self.target_size = target_size
+        self.mosaic_border = (-target_size[0] // 2, -target_size[1] // 2)
+        self.fill_value = fill_value
+        self.degrees = degrees
+        self.translate = translate
+        self.scale = scale
+        self.shear = shear
+        self.perspective = perspective
+
+    def _mosaic4_preprocess(self, sample):
+        s = self.target_size[0]
+        # select mosaic center (x, y)
+        yc, xc = (int(random.uniform(-x, 2 * s + x))
+                  for x in self.mosaic_border)
+        gt_bboxes = [x['gt_bbox'] for x in sample]
+        for i in range(len(sample)):
+            ori_im = sample[i]['image']
+            h0, w0 = ori_im.shape[:2]
+            # get resized img
+            scale = min(1. * s / h0, 1. * s / w0)
+            if scale != 1:  # if sizes are not equal
+                im = cv2.resize(
+                    ori_im, (int(w0 * scale), int(h0 * scale)),
+                    interpolation=cv2.INTER_LINEAR
+                    if scale > 1 else cv2.INTER_AREA).astype(np.uint8)
+            else:
+                im = ori_im
+
+            h, w, c = im.shape
+            # x1a, y1a, x2a, y2a: large image
+            # x1b, y1b, x2b, y2b: small image
+            if i == 0:
+                # top left. background
+                image = np.full(
+                    (s * 2, s * 2, c), self.fill_value, dtype=np.uint8)
+                x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc
+                x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h
+            elif i == 1:
+                # top right
+                x1a, y1a, x2a, y2a = xc, max(yc - h, 0), min(xc + w, s * 2), yc
+                x1b, y1b, x2b, y2b = 0, h - (y2a - y1a), min(w, x2a - x1a), h
+            elif i == 2:
+                # bottom left
+                x1a, y1a, x2a, y2a = max(xc - w, 0), yc, xc, min(s * 2, yc + h)
+                x1b, y1b, x2b, y2b = w - (x2a - x1a), 0, w, min(y2a - y1a, h)
+            elif i == 3:
+                # bottom right
+                x1a, y1a, x2a, y2a = xc, yc, min(xc + w, s * 2), min(s * 2,
+                                                                     yc + h)
+                x1b, y1b, x2b, y2b = 0, 0, min(w, x2a - x1a), min(y2a - y1a, h)
+
+            image[y1a:y2a, x1a:x2a] = im[y1b:y2b, x1b:x2b]
+            padw = x1a - x1b
+            padh = y1a - y1b
+            gt_bboxes[i][:, 0] = scale * gt_bboxes[i][:, 0] + padw
+            gt_bboxes[i][:, 1] = scale * gt_bboxes[i][:, 1] + padh
+            gt_bboxes[i][:, 2] = scale * gt_bboxes[i][:, 2] + padw
+            gt_bboxes[i][:, 3] = scale * gt_bboxes[i][:, 3] + padh
+
+        gt_bboxes = np.concatenate(gt_bboxes, axis=0)
+        gt_bboxes = np.clip(gt_bboxes, 0, s * 2)
+        gt_classes = [x['gt_class'] for x in sample]
+        gt_classes = np.concatenate(gt_classes, axis=0)
+        return image, gt_classes, gt_bboxes
+
+    def letterbox_resize(self,
+                         img,
+                         gt_bboxes,
+                         new_shape=(640, 640),
+                         color=(114, 114, 114)):
+        shape = img.shape[:2]  # [height, width]
+        r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+        # r = min(r, 1.0)
+        ratio = r, r
+        new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+        dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]
+        dw /= 2
+        dh /= 2
+        if shape[::-1] != new_unpad:
+            img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+        top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+        left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+        img = cv2.copyMakeBorder(
+            img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
+
+        gt_bboxes[:, 0] = ratio[0] * gt_bboxes[:, 0] + dw
+        gt_bboxes[:, 1] = ratio[1] * gt_bboxes[:, 1] + dh
+        gt_bboxes[:, 2] = ratio[0] * gt_bboxes[:, 2] + dw
+        gt_bboxes[:, 3] = ratio[1] * gt_bboxes[:, 3] + dh
+        return img, gt_bboxes
+
+    def random_perspective(self,
+                           im,
+                           gt_classes,
+                           gt_box,
+                           degrees=10,
+                           translate=.1,
+                           scale=.1,
+                           shear=10,
+                           perspective=0.0,
+                           border=(0, 0)):
+        targets = np.concatenate((gt_classes, gt_box), 1)
+        height = im.shape[0] + border[0] * 2  # shape(h,w,c)
+        width = im.shape[1] + border[1] * 2
+
+        # Center
+        C = np.eye(3)
+        C[0, 2] = -im.shape[1] / 2  # x translation (pixels)
+        C[1, 2] = -im.shape[0] / 2  # y translation (pixels)
+
+        # Perspective
+        P = np.eye(3)
+        P[2, 0] = random.uniform(-perspective,
+                                 perspective)  # x perspective (about y)
+        P[2, 1] = random.uniform(-perspective,
+                                 perspective)  # y perspective (about x)
+
+        # Rotation and Scale
+        R = np.eye(3)
+        a = random.uniform(-degrees, degrees)
+        # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
+        s = random.uniform(1 - scale, 1 + scale)
+        # s = 2 ** random.uniform(-scale, scale)
+        R[:2] = cv2.getRotationMatrix2D(angle=a, center=(0, 0), scale=s)
+
+        # Shear
+        S = np.eye(3)
+        S[0, 1] = math.tan(random.uniform(-shear, shear) * math.pi /
+                           180)  # x shear (deg)
+        S[1, 0] = math.tan(random.uniform(-shear, shear) * math.pi /
+                           180)  # y shear (deg)
+
+        # Translation
+        T = np.eye(3)
+        T[0, 2] = random.uniform(
+            0.5 - translate, 0.5 + translate) * width  # x translation (pixels)
+        T[1, 2] = random.uniform(
+            0.5 - translate, 0.5 + translate) * height  # y translation (pixels)
+
+        # Combined rotation matrix
+        M = T @S @R @P @C  # order of operations (right to left) is IMPORTANT
+        if (border[0] != 0) or (border[1] != 0) or (
+                M != np.eye(3)).any():  # image changed
+            if perspective:
+                im = cv2.warpPerspective(
+                    im, M, dsize=(width, height), borderValue=(114, 114, 114))
+            else:  # affine
+                im = cv2.warpAffine(
+                    im,
+                    M[:2],
+                    dsize=(width, height),
+                    borderValue=(114, 114, 114))
+
+        # Transform label coordinates
+        n = len(targets)
+        if n:
+            use_segments = False
+            if 1:  # warp boxes
+                xy = np.ones((n * 4, 3))
+                xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(
+                    n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
+                xy = xy @M.T  # transform
+                xy = (xy[:, :2] / xy[:, 2:3] if perspective else
+                      xy[:, :2]).reshape(n, 8)  # perspective rescale or affine
+
+                # create new boxes
+                x = xy[:, [0, 2, 4, 6]]
+                y = xy[:, [1, 3, 5, 7]]
+                new = np.concatenate(
+                    (x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
+
+                # clip
+                new[:, [0, 2]] = new[:, [0, 2]].clip(0, width)
+                new[:, [1, 3]] = new[:, [1, 3]].clip(0, height)
+
+            # filter candidates
+            i = self.box_candidates(
+                box1=targets[:, 1:5].T * s,
+                box2=new.T,
+                area_thr=0.01 if use_segments else 0.10)
+            targets = targets[i]
+            targets[:, 1:5] = new[i]
+
+        return im, targets[:, 0:1], targets[:, 1:5]
+
+    def box_candidates(self,
+                       box1,
+                       box2,
+                       wh_thr=2,
+                       ar_thr=100,
+                       area_thr=0.1,
+                       eps=1e-16):  # box1(4,n), box2(4,n)
+        # Compute candidate boxes: box1 before augment, box2 after augment, wh_thr (pixels), aspect_ratio_thr, area_ratio
+        w1, h1 = box1[2] - box1[0], box1[3] - box1[1]
+        w2, h2 = box2[2] - box2[0], box2[3] - box2[1]
+        ar = np.maximum(w2 / (h2 + eps), h2 / (w2 + eps))  # aspect ratio
+        return (w2 > wh_thr) & (h2 > wh_thr) & (
+            w2 * h2 / (w1 * h1 + eps) > area_thr) & (ar < ar_thr)  # candidates
+
+    def clip_coords(self, boxes, shape):
+        # Clip bounding xyxy bounding boxes to image shape (height, width
+        boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, shape[1])  # x1, x2
+        boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, shape[0])  # y1, y2
+        return boxes
+
+    def __call__(self, sample, context=None):
+        # current sample and other 3 samples to a new sample
+        if not isinstance(sample, Sequence):
+            return sample
+        # assert len(sample) == 5 or len(
+        #     sample) == 10, 'YOLOv5 Mosaic need 4 or 9 samples and 1 for mixup'
+
+        # 0.no mosaic
+        if random.random() >= self.mosaic_prob:
+            sample0 = sample[0]
+            sample0['image'], sample0['gt_bbox'] = self.letterbox_resize(
+                sample0['image'], sample0['gt_bbox'], self.target_size)
+            return sample0
+
+        # 1._mosaic_preprocess
+        mosaic_img, mosaic_gt_classes, mosaic_gt_bboxes = self._mosaic4_preprocess(
+            sample[:4])
+
+        # 2.random_perspective
+        mosaic_img, mosaic_gt_classes, mosaic_gt_bboxes = self.random_perspective(
+            mosaic_img, mosaic_gt_classes, mosaic_gt_bboxes, self.degrees,
+            self.translate, self.scale, self.shear, self.perspective,
+            self.mosaic_border)
+
+        # 3.copy_paste
+        # 4.mixup
+        if len(mosaic_gt_bboxes) and random.random() < self.mixup_prob:
+            sample4 = sample[4]
+            img4, gt_bboxes = self.letterbox_resize(
+                sample4['image'], sample4['gt_bbox'], self.target_size)
+
+            r = np.random.beta(8.0, 8.0)
+            mosaic_img = (mosaic_img * r + img4 * (1 - r))  #.astype(np.uint8)
+            mosaic_gt_classes = np.concatenate(
+                (mosaic_gt_classes, sample4['gt_class']), 0)
+            mosaic_gt_bboxes = np.concatenate((mosaic_gt_bboxes, gt_bboxes), 0)
+
+        # 5.paste_in
+        # 6.clip
+        nl = len(mosaic_gt_bboxes)
+        eps = 1E-3
+        if nl:
+            mosaic_gt_bboxes[:, 0:4] = self.clip_coords(
+                mosaic_gt_bboxes[:, 0:4],
+                (mosaic_img.shape[0] - eps, mosaic_img.shape[1] - eps))
+
+        sample = sample[0]  # list to one sample
+        sample['image'] = mosaic_img.astype(np.uint8)
+        sample['gt_bbox'] = mosaic_gt_bboxes
+        sample['gt_class'] = mosaic_gt_classes
+
+        if 'difficult' in sample:
+            sample.pop('difficult')
+        if 'is_crowd' in sample:
+            sample.pop('is_crowd')
+        return sample
