@@ -55,18 +55,14 @@ OptimizerBuilder:
           weight_decay: 0.
 
 
-LearningRateCNN:
+OptimizerCNN:
   base_lr: 0.01
   schedulers:
     - !CosineDecay
       max_epochs: *epoch
-      # min_lr_ratio: 0.05
-      # last_plateau_epochs: 10
     - !LinearWarmup
       start_factor: 0.
       epochs: 1
-
-OptimizerBuilderCNN:
   optimizer:
     type: Momentum
     momentum: 0.9
@@ -74,6 +70,26 @@ OptimizerBuilderCNN:
   regularizer:
     factor: 0.0005
     type: L2
+
+# LearningRateCNN:
+#   base_lr: 0.01
+#   schedulers:
+#     - !CosineDecay
+#       max_epochs: *epoch
+#       # min_lr_ratio: 0.05
+#       # last_plateau_epochs: 10
+#     - !LinearWarmup
+#       start_factor: 0.
+#       epochs: 1
+
+# OptimizerBuilderCNN:
+#   optimizer:
+#     type: Momentum
+#     momentum: 0.9
+#     use_nesterov: True
+#   regularizer:
+#     factor: 0.0005
+#     type: L2
 
 
 # VIT OPTIMIZER

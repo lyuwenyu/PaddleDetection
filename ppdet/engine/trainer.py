@@ -26,6 +26,8 @@ import numpy as np
 import typing
 from PIL import Image, ImageOps, ImageFile
 
+from PaddleDetection.ppdet.optimizer import optimizer
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import paddle
@@ -34,7 +36,7 @@ import paddle.distributed as dist
 from paddle.distributed import fleet
 from paddle.static import InputSpec
 from ppdet.optimizer import ModelEMA
-
+import ppdet
 from ppdet.core.workspace import create
 from ppdet.utils.checkpoint import load_weight, load_pretrain_weight
 from ppdet.utils.visualizer import visualize_results, save_result
@@ -154,9 +156,19 @@ class Trainer(object):
                 logger.warning(
                     "Samples in dataset are less than batch_size, please set smaller batch_size in TrainReader."
                 )
-            self.lr = create('LearningRate')(steps_per_epoch)
 
+            self.lr = create('LearningRate')(steps_per_epoch)
             self.optimizer = create('OptimizerBuilder')(self.lr, self.model)
+
+            # TODO
+            if 'OptimizerCNN' in self.cfg:
+                cfg_cnn = self.cfg['OptimizerCNN']
+                lr_cnn = ppdet.optimizer.LearningRate(
+                    cfg_cnn['base_lr'], cfg_cnn['schedulers'])(steps_per_epoch)
+                optimizer_cnn = ppdet.optimizer.OptimizerBuilder(
+                    regularizer=cfg_cnn['regularizer'],
+                    optimizer=cfg_cnn['optimizer'])(lr_cnn, self.model)
+                print(optimizer_cnn)
 
             # Unstructured pruner is only enabled in the train mode.
             if self.cfg.get('unstructured_prune'):
@@ -167,6 +179,7 @@ class Trainer(object):
                 models=self.model,
                 optimizers=self.optimizer,
                 level=self.amp_level)
+
         self.use_ema = ('use_ema' in cfg and cfg['use_ema'])
         if self.use_ema:
             ema_decay = self.cfg.get('ema_decay', 0.9998)
