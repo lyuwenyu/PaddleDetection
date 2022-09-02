@@ -50,7 +50,7 @@ find_unused_parameters: True
 
 YOLOv3:
   backbone: VisionTransformer
-  neck: YOLOCSPPAN # CustomCSPPAN
+  neck: YOLOCSPPAN
   yolo_head: PPYOLOEHead
   post_process: ~
 

@@ -181,7 +181,7 @@ class Trainer(object):
                 ema_decay_type=ema_decay_type,
                 cycle_epoch=cycle_epoch,
                 skip_names=ema_skip_names,
-                ema_warmup_steps=ema_warmup_steps)
+                warmup_steps=ema_warmup_steps)
 
         self._nranks = dist.get_world_size()
         self._local_rank = dist.get_rank()

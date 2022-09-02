@@ -84,7 +84,7 @@ use_fused_allreduce_gradients: &use_checkpoint False
 
 YOLOv3:
   backbone: VisionTransformer
-  neck: YOLOCSPPAN # CustomCSPPAN
+  neck: YOLOCSPPAN
   yolo_head: PPYOLOEHead
   post_process: ~
 
@@ -214,7 +214,7 @@ TestReader:
 #   shuffle: True
 #   drop_last: False
 #   use_shared_memory: False
-#   collate_batch: False
+#   collate_batch: true
 #   mosaic_epoch: *mosaic_epoch
 
 # EvalReader:

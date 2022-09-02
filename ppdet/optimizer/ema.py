@@ -133,13 +133,13 @@ class ModelEMA(object):
                  ema_decay_type='threshold',
                  cycle_epoch=-1,
                  skip_names=None,
-                 ema_warmup_steps=2000):
+                 warmup_steps=2000):
         self.step = 0
         self.epoch = 0
         self.decay = decay
         self.state_dict = dict()
 
-        self.decay_func = lambda x: decay * (1 - math.exp(-x / ema_warmup_steps))
+        self.decay_func = lambda x: decay * (1 - math.exp(-x / warmup_steps))
 
         for k, v in model.state_dict().items():
             if not any([n in k for n in skip_names]):
@@ -204,7 +204,12 @@ class ModelEMA(object):
         # if self.step == 0:
         #     return self.state_dict
 
-        model_dict = {k: p() for k, p in self._model_state.items()}
+        model_dict = {
+            k: paddle.clone(p())
+            for k, p in self._model_state.items()
+        }
+        for k, v in model_dict.items():
+            v.stop_gradient = True
 
         for k, v in self.state_dict.items():
             v.stop_gradient = True
@@ -215,3 +220,6 @@ class ModelEMA(object):
             self.reset()
 
         return model_dict
+
+
+import copy
