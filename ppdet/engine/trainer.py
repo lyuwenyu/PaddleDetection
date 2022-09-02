@@ -26,8 +26,6 @@ import numpy as np
 import typing
 from PIL import Image, ImageOps, ImageFile
 
-from PaddleDetection.ppdet.optimizer import optimizer
-
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import paddle
