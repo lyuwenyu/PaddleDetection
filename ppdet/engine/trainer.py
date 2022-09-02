@@ -164,9 +164,21 @@ class Trainer(object):
                 lr_cnn = ppdet.optimizer.LearningRate(
                     cfg_cnn['base_lr'], cfg_cnn['schedulers'])(steps_per_epoch)
                 optimizer_cnn = ppdet.optimizer.OptimizerBuilder(
-                    regularizer=cfg_cnn['regularizer'],
+                    clip_grad_by_norm=cfg_cnn.get('clip_grad_by_norm', None),
+                    regularizer=cfg_cnn.get('regularizer', None),
                     optimizer=cfg_cnn['optimizer'])(lr_cnn, self.model)
                 print(optimizer_cnn)
+
+            if 'OptimizerViT' in self.cfg:
+                cfg_vit = self.cfg['OptimizerViT']
+                lr_vit = ppdet.optimizer.LearningRate(
+                    cfg_vit['base_lr'], cfg_vit['schedulers'])(steps_per_epoch)
+                optimizer_vit = ppdet.optimizer.OptimizerBuilder(
+                    clip_grad_by_norm=cfg_vit.get('clip_grad_by_norm', None),
+                    regularizer=cfg_vit.get('regularizer', None),
+                    optimizer=cfg_vit['optimizer'])(lr_vit, self.model)
+
+                print(optimizer_vit)
 
             # Unstructured pruner is only enabled in the train mode.
             if self.cfg.get('unstructured_prune'):

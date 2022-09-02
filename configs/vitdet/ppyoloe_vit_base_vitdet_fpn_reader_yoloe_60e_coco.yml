@@ -55,6 +55,27 @@ OptimizerBuilder:
           weight_decay: 0.
 
 
+OptimizerViT:
+  base_lr: 0.0001
+  schedulers:
+    - !CosineDecay
+      max_epochs: *epoch
+      # min_lr_ratio: 0.1
+      # last_plateau_epochs: 10
+    - !LinearWarmup
+      start_factor: 0.
+      epochs: 1
+
+  clip_grad_by_norm: 1.0
+  optimizer:
+    type: AdamW
+    weight_decay: 0.05
+    param_groups:
+        -
+          params: ['norm', 'cls_token', 'pos_embed', '.bias', 'bn.weight']
+          weight_decay: 0.
+
+
 OptimizerCNN:
   base_lr: 0.01
   schedulers:
