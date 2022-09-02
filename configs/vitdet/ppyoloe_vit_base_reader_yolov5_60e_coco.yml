@@ -45,6 +45,7 @@ architecture: YOLOv3
 norm_type: sync_bn
 use_ema: true
 ema_decay: 0.9998
+custom_black_list: ['reduce_mean']
 
 YOLOv3:
   backbone: VisionTransformer
@@ -116,7 +117,8 @@ worker_num: 4
 TrainReader:
   sample_transforms:
     - Decode: {}
-    - MosaicPerspective: {target_size: *input_size, mosaic_prob: 1.0, mixup_prob: 0.15, paste_in_prob: 0.15, translate: 0.2, scale: 0.9}
+    # - MosaicPerspective: {target_size: *input_size, mosaic_prob: 1.0, mixup_prob: 0.15, paste_in_prob: 0.15, translate: 0.2, scale: 0.9}
+    - MosaicPerspective: {target_size: *input_size, mosaic_prob: 1.0}
     - RandomHSV: {hgain: 0.015, sgain: 0.7, vgain: 0.4}
     - RandomFlip: {}
   batch_transforms:
@@ -127,8 +129,8 @@ TrainReader:
   batch_size: 2
   shuffle: True
   drop_last: False
-  use_shared_memory: False
-  collate_batch: False
+  use_shared_memory: True
+  collate_batch: True
   mosaic_epoch: *mosaic_epoch
 
 EvalReader:

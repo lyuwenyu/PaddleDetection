@@ -609,10 +609,21 @@ class VisionTransformer(nn.Layer):
                     shape=[B, D, Hp, Wp])
                 feats.append(xp)
 
+        # if self.with_fpn:
+        #     fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4][4 - len(feats):]
+        #     for i in range(len(feats)):
+        #         feats[i] = fpns[i](feats[i])
+
         if self.with_fpn:
-            fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4][4 - len(feats):]
-            for i in range(len(feats)):
-                feats[i] = fpns[i](feats[i])
+            fpns = [self.fpn2, self.fpn3, self.fpn4]
+
+            if len(feats) == 1:
+                outputs = [m(feats[-1]) for i, m in enumerate(fpns)]
+            else:
+                assert len(feats) == len(fpns), ''
+                outputs = [m(feats[i]) for i, m in enumerate(fpns)]
+
+            return outputs
 
         return feats
 
