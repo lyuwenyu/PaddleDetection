@@ -58,6 +58,8 @@ class ViTDetFPN(nn.Layer):
     def __init__(self, in_channels, num_stages=3, use_last_feat=True):
         super().__init__()
         self.in_channels = in_channels
+        self.out_channels = [in_channels[-1] for _ in range(num_stages)]
+
         self.use_last_feat = use_last_feat
 
         if num_stages == 3:
@@ -86,6 +88,6 @@ class ViTDetFPN(nn.Layer):
     # def from_config(cls, cfg, input_shape):
     #     return {'in_channels': [i.channels for i in input_shape], }
 
-    # @property
-    # def out_shape(self):
-    #     return [ShapeSpec(channels=c) for c in self.out_channels]
+    @property
+    def out_shape(self):
+        return [ShapeSpec(channels=c) for c in self.out_channels]
