@@ -76,6 +76,8 @@ use_ema: true
 ema_decay: 0.9998
 # custom_black_list: ['reduce_mean']
 find_unused_parameters: True
+use_fused_allreduce_gradients: &use_checkpoint False
+
 
 YOLOv3:
   backbone: VisionTransformer
@@ -100,6 +102,7 @@ VisionTransformer:
   epsilon: 0.000001 # 1e-6
   out_indices: [11, ]
   with_fpn: True
+  use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
 
 
