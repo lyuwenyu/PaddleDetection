@@ -32,7 +32,7 @@ class IdentityFPN(nn.Layer):
         self.in_channels = in_channels
         self.out_channels = in_channels
 
-    def forward(self, body_feats):
+    def forward(self, body_feats, xx=None):
         return body_feats
 
     @classmethod
