@@ -173,13 +173,15 @@ class Trainer(object):
             cycle_epoch = self.cfg.get('cycle_epoch', -1)
             ema_decay_type = self.cfg.get('ema_decay_type', 'threshold')
             ema_skip_names = self.cfg.get('ema_skip_names', None)
+            ema_warmup_steps = self.cfg.get('ema_warmup_steps', 2000)
 
             self.ema = ModelEMA(
                 self.model,
                 decay=ema_decay,
                 ema_decay_type=ema_decay_type,
                 cycle_epoch=cycle_epoch,
-                skip_names=ema_skip_names)
+                skip_names=ema_skip_names,
+                ema_warmup_steps=ema_warmup_steps)
 
         self._nranks = dist.get_world_size()
         self._local_rank = dist.get_rank()
@@ -195,6 +197,8 @@ class Trainer(object):
         # initial default metrics
         self._init_metrics()
         self._reset_metrics()
+
+        print(self.model)
 
     def _init_callbacks(self):
         if self.mode == 'train':
