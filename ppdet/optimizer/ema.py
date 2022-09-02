@@ -142,10 +142,12 @@ class ModelEMA(object):
         self.decay_func = lambda x: decay * (1 - math.exp(-x / 2000))
 
         for k, v in model.state_dict().items():
-            if any([n in k for n in skip_names]):
+            if not any([n in k for n in skip_names]):
                 self.state_dict[k] = paddle.clone(v)
+                self.state_dict[k].stop_gradient = True
+
             else:
-                print(k)
+                print('ema skip: ', k)
 
         self.ema_decay_type = ema_decay_type
         self.cycle_epoch = cycle_epoch
@@ -192,7 +194,7 @@ class ModelEMA(object):
             assert all(
                 [v is not None for _, v in model_dict.items()]), 'python gc.'
 
-        for k, v in self.state_dict().items():
+        for k, v in self.state_dict.items():
             v = v * decay + (1 - decay) * model_dict[k]
             v.stop_gradient = True
             self.state_dict[k] = v
