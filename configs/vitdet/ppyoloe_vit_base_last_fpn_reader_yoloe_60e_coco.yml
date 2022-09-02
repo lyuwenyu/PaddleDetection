@@ -33,7 +33,6 @@ LearningRate:
 #     epochs: 1
 
 
-
 # # DETR OPTIMIZER
 # OptimizerBuilder:
 #   clip_grad_by_norm: 0.1
@@ -73,7 +72,9 @@ OptimizerBuilder:
 architecture: YOLOv3
 norm_type: sync_bn
 use_ema: true
-ema_decay: 0.9998
+ema_decay: 0.9999
+ema_skip_names: ['yolo_head.proj_conv', 'backbone.pos_embed']
+
 # custom_black_list: ['reduce_mean']
 find_unused_parameters: True
 use_fused_allreduce_gradients: &use_checkpoint False
@@ -95,7 +96,7 @@ VisionTransformer:
   qkv_bias: True
   drop_rate: 0.0
   drop_path_rate: 0.2
-  init_values: 0.1
+  init_values: 0.1 #
   final_norm: False
   use_rel_pos_bias: False
   use_sincos_pos_emb: True

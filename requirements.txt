@@ -18,3 +18,7 @@ lap
 motmetrics
 sklearn
 filterpy
+
+# benchmark
+pynvml
+GPUtil
