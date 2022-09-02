@@ -74,7 +74,7 @@ architecture: YOLOv3
 norm_type: sync_bn
 use_ema: true
 ema_decay: 0.9999
-ema_warmup_steps: 1600
+ema_warmup_steps: 2000
 ema_skip_names: ['yolo_head.proj_conv', 'backbone.pos_embed']
 
 # custom_black_list: ['reduce_mean']
