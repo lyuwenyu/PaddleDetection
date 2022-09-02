@@ -220,6 +220,3 @@ class ModelEMA(object):
             self.reset()
 
         return model_dict
-
-
-import copy
