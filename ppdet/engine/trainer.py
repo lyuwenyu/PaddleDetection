@@ -171,7 +171,7 @@ class Trainer(object):
                     clip_grad_by_norm=cfg_cnn.get('clip_grad_by_norm', None),
                     regularizer=cfg_cnn.get('regularizer', None),
                     optimizer=cfg_cnn['optimizer'])(lr_cnn, self.model)
-                print(optimizer_cnn)
+                print('CNNOptimizer: '.optimizer_cnn)
 
                 self.lr = [lr_cnn, ]
                 self.optimizer = [optimizer_cnn, ]
@@ -185,10 +185,10 @@ class Trainer(object):
                     regularizer=cfg_vit.get('regularizer', None),
                     optimizer=cfg_vit['optimizer'])(lr_vit, self.model)
 
-                print(optimizer_vit)
+                print('ViTOptimizer: ', optimizer_vit)
 
-                self.lr = self.lr.append(lr_vit)
-                self.optimizer = self.optimizer.append(optimizer_vit)
+                self.lr.append(lr_vit)
+                self.optimizer.append(optimizer_vit)
 
             print('lr, optimizer: ', len(self.lr), len(self.optimizer))
 
