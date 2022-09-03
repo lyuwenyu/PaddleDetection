@@ -156,12 +156,13 @@ class Trainer(object):
                 )
 
             if 'LearningRate' in self.cfg:
-                self.lr = [create('LearningRate')(steps_per_epoch), ]
+                self.lr = create('LearningRate')(steps_per_epoch)
                 self.optimizer = [
                     create('OptimizerBuilder')(self.lr, self.model),
                 ]
+                self.lr = [self.lr]
 
-            # TODO
+# TODO
             if 'CNNOptimizer' in self.cfg:
                 cfg_cnn = self.cfg['CNNOptimizer']
                 lr_cnn = ppdet.optimizer.LearningRate(
