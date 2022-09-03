@@ -89,7 +89,7 @@ class PPYOLOEHead(nn.Layer):
         self.use_varifocal_loss = use_varifocal_loss
         self.eval_size = eval_size
         self.reverse = reverse
-        self.fpn = None
+        self.fpn = fpn
 
         self.static_assigner_epoch = static_assigner_epoch
         self.static_assigner = static_assigner
