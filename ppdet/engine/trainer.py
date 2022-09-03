@@ -564,7 +564,7 @@ class Trainer(object):
                 # self.optimizer.clear_grad()
                 _ = [optim.clear_grad() for optim in self.optimizer]
 
-                self.status['learning_rate'] = curr_lr
+                self.status['learning_rate'] = [f'{_lr}:.7f' for _lr in curr_lr]
 
                 if self._nranks < 2 or self._local_rank == 0:
                     self.status['training_staus'].update(outputs)

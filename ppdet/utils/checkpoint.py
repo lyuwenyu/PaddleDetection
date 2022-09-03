@@ -259,8 +259,10 @@ def save_model(model,
         # Exchange model and ema_model to save
         paddle.save(ema_model, save_path + ".pdparams")
         paddle.save(model, save_path + ".pdema")
+
     # save optimizer
-    state_dict = optimizer.state_dict()
-    state_dict['last_epoch'] = last_epoch
-    paddle.save(state_dict, save_path + ".pdopt")
-    logger.info("Save checkpoint: {}".format(save_dir))
+    if not isinstance(optimizer, list):
+        state_dict = optimizer.state_dict()
+        state_dict['last_epoch'] = last_epoch
+        paddle.save(state_dict, save_path + ".pdopt")
+        logger.info("Save checkpoint: {}".format(save_dir))
