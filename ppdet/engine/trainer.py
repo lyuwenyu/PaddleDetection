@@ -171,7 +171,7 @@ class Trainer(object):
                     clip_grad_by_norm=cfg_cnn.get('clip_grad_by_norm', None),
                     regularizer=cfg_cnn.get('regularizer', None),
                     optimizer=cfg_cnn['optimizer'])(lr_cnn, self.model)
-                print('CNNOptimizer: '.optimizer_cnn)
+                print('CNNOptimizer: ', optimizer_cnn)
 
                 self.lr = [lr_cnn, ]
                 self.optimizer = [optimizer_cnn, ]
