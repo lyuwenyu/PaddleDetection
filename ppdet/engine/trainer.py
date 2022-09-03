@@ -162,7 +162,7 @@ class Trainer(object):
                 ]
                 self.lr = [self.lr]
 
-# TODO
+            # TODO
             if 'CNNOptimizer' in self.cfg:
                 cfg_cnn = self.cfg['CNNOptimizer']
                 lr_cnn = ppdet.optimizer.LearningRate(
