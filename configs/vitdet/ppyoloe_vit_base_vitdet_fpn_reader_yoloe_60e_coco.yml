@@ -55,7 +55,7 @@ OptimizerBuilder:
           weight_decay: 0.
 
 
-OptimizerViT:
+ViTOptimizer:
   base_lr: 0.0001
   schedulers:
     - !CosineDecay
@@ -76,7 +76,7 @@ OptimizerViT:
           weight_decay: 0.
 
 
-OptimizerCNN:
+CNNOptimizer:
   base_lr: 0.01
   schedulers:
     - !CosineDecay

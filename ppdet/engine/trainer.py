@@ -155,12 +155,15 @@ class Trainer(object):
                     "Samples in dataset are less than batch_size, please set smaller batch_size in TrainReader."
                 )
 
-            self.lr = create('LearningRate')(steps_per_epoch)
-            self.optimizer = create('OptimizerBuilder')(self.lr, self.model)
+            if 'LearningRate' in self.cfg:
+                self.lr = [create('LearningRate')(steps_per_epoch), ]
+                self.optimizer = [
+                    create('OptimizerBuilder')(self.lr, self.model),
+                ]
 
             # TODO
-            if 'OptimizerCNN' in self.cfg:
-                cfg_cnn = self.cfg['OptimizerCNN']
+            if 'CNNOptimizer' in self.cfg:
+                cfg_cnn = self.cfg['CNNOptimizer']
                 lr_cnn = ppdet.optimizer.LearningRate(
                     cfg_cnn['base_lr'], cfg_cnn['schedulers'])(steps_per_epoch)
                 optimizer_cnn = ppdet.optimizer.OptimizerBuilder(
@@ -169,8 +172,11 @@ class Trainer(object):
                     optimizer=cfg_cnn['optimizer'])(lr_cnn, self.model)
                 print(optimizer_cnn)
 
-            if 'OptimizerViT' in self.cfg:
-                cfg_vit = self.cfg['OptimizerViT']
+                self.lr = [lr_cnn, ]
+                self.optimizer = [optimizer_cnn, ]
+
+            if 'ViTOptimizer' in self.cfg:
+                cfg_vit = self.cfg['ViTOptimizer']
                 lr_vit = ppdet.optimizer.LearningRate(
                     cfg_vit['base_lr'], cfg_vit['schedulers'])(steps_per_epoch)
                 optimizer_vit = ppdet.optimizer.OptimizerBuilder(
@@ -179,6 +185,11 @@ class Trainer(object):
                     optimizer=cfg_vit['optimizer'])(lr_vit, self.model)
 
                 print(optimizer_vit)
+
+                self.lr = self.lr.append(lr_vit)
+                self.optimizer = self.optimizer.append(optimizer_vit)
+
+            print('lr, optimizer: ', len(self.lr), len(self.optimizer))
 
             # Unstructured pruner is only enabled in the train mode.
             if self.cfg.get('unstructured_prune'):
@@ -536,12 +547,22 @@ class Trainer(object):
                         loss = outputs['loss']
                         # model backward
                         loss.backward()
-                    self.optimizer.step()
-                curr_lr = self.optimizer.get_lr()
-                self.lr.step()
+
+                    # self.optimizer.step()
+                    _ = [optim.step() for optim in self.optimizer]
+
+                # curr_lr = self.optimizer.get_lr()
+                curr_lr = [optim.get_lr() for optim in self.optimizer]
+
+                # self.lr.step()
+                _ = [lr.step() for lr in self.lr]
+
                 if self.cfg.get('unstructured_prune'):
                     self.pruner.step()
-                self.optimizer.clear_grad()
+
+                # self.optimizer.clear_grad()
+                _ = [optim.clear_grad() for optim in self.optimizer]
+
                 self.status['learning_rate'] = curr_lr
 
                 if self._nranks < 2 or self._local_rank == 0:
