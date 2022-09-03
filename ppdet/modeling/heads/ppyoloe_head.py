@@ -49,7 +49,7 @@ class PPYOLOEHead(nn.Layer):
     __shared__ = [
         'num_classes', 'eval_size', 'trt', 'exclude_nms', 'exclude_post_process'
     ]
-    __inject__ = ['static_assigner', 'assigner', 'nms']
+    __inject__ = ['static_assigner', 'assigner', 'nms', 'fpn']
 
     def __init__(self,
                  in_channels=[1024, 512, 256],
@@ -73,7 +73,8 @@ class PPYOLOEHead(nn.Layer):
                  trt=False,
                  exclude_nms=False,
                  exclude_post_process=False,
-                 reverse=False):
+                 reverse=False,
+                 fpn=None):
 
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
@@ -88,6 +89,7 @@ class PPYOLOEHead(nn.Layer):
         self.use_varifocal_loss = use_varifocal_loss
         self.eval_size = eval_size
         self.reverse = reverse
+        self.fpn = None
 
         self.static_assigner_epoch = static_assigner_epoch
         self.static_assigner = static_assigner
@@ -218,6 +220,9 @@ class PPYOLOEHead(nn.Layer):
     def forward(self, feats, targets=None):
         if self.reverse:
             feats = feats[::-1]
+
+        if self.fpn is not None:
+            feats = self.fpn(feats)
 
         assert len(feats) == len(self.fpn_strides), \
             "The size of feats is not equal to size of fpn_strides"

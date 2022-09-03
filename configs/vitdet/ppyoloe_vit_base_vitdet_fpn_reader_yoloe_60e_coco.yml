@@ -142,7 +142,7 @@ use_fused_allreduce_gradients: &use_checkpoint False
 
 YOLOv3:
   backbone: VisionTransformer
-  neck: ViTDetFPN
+  neck: IdentityFPN
   yolo_head: PPYOLOEHead
   post_process: ~
 
@@ -173,14 +173,10 @@ VisionTransformer:
 #   in_channels: [768, 768, 768]
 #   act: 'silu'
 
-ViTDetFPN:
-  in_channels: [768]
-  num_stages: 3
-  use_last_feat: True
-
 
 PPYOLOEHead:
   # reverse: True
+  fpn: ViTDetFPN
   fpn_strides: [8, 16, 32]
   in_channels: [768, 768, 768]
 
@@ -204,6 +200,11 @@ PPYOLOEHead:
     score_threshold: 0.01
     nms_threshold: 0.7
 
+
+ViTDetFPN:
+  in_channels: [768]
+  num_stages: 3
+  use_last_feat: True
 
 
 # PP-YOLOE READER
