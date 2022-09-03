@@ -170,7 +170,8 @@ class Trainer(object):
                 optimizer_cnn = ppdet.optimizer.OptimizerBuilder(
                     clip_grad_by_norm=cfg_cnn.get('clip_grad_by_norm', None),
                     regularizer=cfg_cnn.get('regularizer', None),
-                    optimizer=cfg_cnn['optimizer'])(lr_cnn, self.model)
+                    optimizer=cfg_cnn['optimizer'])(lr_cnn,
+                                                    self.model.yolo_head)
                 print('CNNOptimizer: ', optimizer_cnn)
 
                 self.lr = [lr_cnn, ]
@@ -183,7 +184,7 @@ class Trainer(object):
                 optimizer_vit = ppdet.optimizer.OptimizerBuilder(
                     clip_grad_by_norm=cfg_vit.get('clip_grad_by_norm', None),
                     regularizer=cfg_vit.get('regularizer', None),
-                    optimizer=cfg_vit['optimizer'])(lr_vit, self.model)
+                    optimizer=cfg_vit['optimizer'])(lr_vit, self.model.backbone)
 
                 print('ViTOptimizer: ', optimizer_vit)
 
