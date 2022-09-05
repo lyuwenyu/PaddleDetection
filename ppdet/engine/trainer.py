@@ -155,12 +155,12 @@ class Trainer(object):
                     "Samples in dataset are less than batch_size, please set smaller batch_size in TrainReader."
                 )
 
-            if 'LearningRate' in self.cfg:
+            if 'OptimizerBuilder' in self.cfg:
                 self.lr = create('LearningRate')(steps_per_epoch)
                 self.optimizer = [
                     create('OptimizerBuilder')(self.lr, self.model),
                 ]
-                self.lr = [self.lr]
+                self.lr = self.lr
 
             # TODO
             if 'CNNOptimizer' in self.cfg:
@@ -191,7 +191,8 @@ class Trainer(object):
                 self.lr.append(lr_vit)
                 self.optimizer.append(optimizer_vit)
 
-            print('lr, optimizer: ', len(self.lr), len(self.optimizer))
+            print('lr, optimizer: ', type(self.lr), type(self.optimizer))
+            print('lr, optimizer: ', self.lr, self.optimizer)
 
             # Unstructured pruner is only enabled in the train mode.
             if self.cfg.get('unstructured_prune'):
@@ -208,7 +209,7 @@ class Trainer(object):
             ema_decay = self.cfg.get('ema_decay', 0.9998)
             cycle_epoch = self.cfg.get('cycle_epoch', -1)
             ema_decay_type = self.cfg.get('ema_decay_type', 'threshold')
-            ema_skip_names = self.cfg.get('ema_skip_names', None)
+            ema_skip_names = self.cfg.get('ema_skip_names', [])
             ema_warmup_steps = self.cfg.get('ema_warmup_steps', 2000)
 
             self.ema = ModelEMA(
@@ -550,22 +551,31 @@ class Trainer(object):
                         # model backward
                         loss.backward()
 
-                    # self.optimizer.step()
-                    _ = [optim.step() for optim in self.optimizer]
+                    if isinstance(self.optimizer, list):
+                        _ = [optim.step() for optim in self.optimizer]
+                    else:
+                        self.optimizer.step()
 
                 # curr_lr = self.optimizer.get_lr()
-                curr_lr = [optim.get_lr() for optim in self.optimizer]
 
-                # self.lr.step()
-                _ = [lr.step() for lr in self.lr]
+                if isinstance(self.optimizer, list):
+                    curr_lr = [optim.get_lr() for optim in self.optimizer]
+                    _ = [lr.step() for lr in self.lr]
+                    _ = [optim.clear_grad() for optim in self.optimizer]
+                    self.status[
+                        'learning_rate'] = [f'{_lr:.7f}' for _lr in curr_lr]
 
-                if self.cfg.get('unstructured_prune'):
-                    self.pruner.step()
+                else:
+                    curr_lr = self.optimizer.get_lr()
+                    self.lr.step()
+                    self.optimizer.clear_grad()
+                    self.status['learning_rate'] = curr_lr
+
+                # if self.cfg.get('unstructured_prune'):
+                #     self.pruner.step()
 
                 # self.optimizer.clear_grad()
-                _ = [optim.clear_grad() for optim in self.optimizer]
-
-                self.status['learning_rate'] = [f'{_lr:.7f}' for _lr in curr_lr]
+                # _ = [optim.clear_grad() for optim in self.optimizer]
 
                 if self._nranks < 2 or self._local_rank == 0:
                     self.status['training_staus'].update(outputs)

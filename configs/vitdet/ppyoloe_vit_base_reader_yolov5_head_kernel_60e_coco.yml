@@ -105,6 +105,8 @@ PPYOLOEHead:
   fpn_strides: [8, 16, 32]
   in_channels: [768, 768, 768]
 
+  preds_kernel: 1
+
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
   static_assigner_epoch: 20

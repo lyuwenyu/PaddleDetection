@@ -51,30 +51,32 @@ class PPYOLOEHead(nn.Layer):
     ]
     __inject__ = ['static_assigner', 'assigner', 'nms', 'fpn']
 
-    def __init__(self,
-                 in_channels=[1024, 512, 256],
-                 num_classes=80,
-                 act='swish',
-                 fpn_strides=(32, 16, 8),
-                 grid_cell_scale=5.0,
-                 grid_cell_offset=0.5,
-                 reg_max=16,
-                 static_assigner_epoch=4,
-                 use_varifocal_loss=True,
-                 static_assigner='ATSSAssigner',
-                 assigner='TaskAlignedAssigner',
-                 nms='MultiClassNMS',
-                 eval_size=None,
-                 loss_weight={
-                     'class': 1.0,
-                     'iou': 2.5,
-                     'dfl': 0.5,
-                 },
-                 trt=False,
-                 exclude_nms=False,
-                 exclude_post_process=False,
-                 reverse=False,
-                 fpn=None):
+    def __init__(
+            self,
+            in_channels=[1024, 512, 256],
+            num_classes=80,
+            act='swish',
+            fpn_strides=(32, 16, 8),
+            grid_cell_scale=5.0,
+            grid_cell_offset=0.5,
+            reg_max=16,
+            static_assigner_epoch=4,
+            use_varifocal_loss=True,
+            static_assigner='ATSSAssigner',
+            assigner='TaskAlignedAssigner',
+            nms='MultiClassNMS',
+            eval_size=None,
+            loss_weight={
+                'class': 1.0,
+                'iou': 2.5,
+                'dfl': 0.5,
+            },
+            trt=False,
+            exclude_nms=False,
+            exclude_post_process=False,
+            reverse=False,
+            fpn=None,
+            preds_kernel=3, ):
 
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
@@ -90,6 +92,7 @@ class PPYOLOEHead(nn.Layer):
         self.eval_size = eval_size
         self.reverse = reverse
         self.fpn = fpn
+        self.preds_kernel = preds_kernel
 
         self.static_assigner_epoch = static_assigner_epoch
         self.static_assigner = static_assigner
@@ -114,10 +117,10 @@ class PPYOLOEHead(nn.Layer):
         for in_c in self.in_channels:
             self.pred_cls.append(
                 nn.Conv2D(
-                    in_c, self.num_classes, 3, padding=1))
+                    in_c, self.num_classes, preds_kernel, padding=1))
             self.pred_reg.append(
                 nn.Conv2D(
-                    in_c, 4 * (self.reg_max + 1), 3, padding=1))
+                    in_c, 4 * (self.reg_max + 1), preds_kernel, padding=1))
         # projection conv
         self.proj_conv = nn.Conv2D(self.reg_max + 1, 1, 1, bias_attr=False)
         self.proj_conv.skip_quant = True

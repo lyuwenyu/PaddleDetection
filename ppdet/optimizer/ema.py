@@ -132,7 +132,7 @@ class ModelEMA(object):
                  decay=0.9999,
                  ema_decay_type='threshold',
                  cycle_epoch=-1,
-                 skip_names=None,
+                 skip_names=[],
                  warmup_steps=2000):
         self.step = 0
         self.epoch = 0
