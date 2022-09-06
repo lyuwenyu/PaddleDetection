@@ -354,11 +354,13 @@ class PPYOLOEHead(nn.Layer):
             try:
                 one_hot_label = F.one_hot(assigned_labels,
                                           self.num_classes + 1)[..., :-1]
+                loss_cls = self._varifocal_loss(pred_scores, assigned_scores,
+                                                one_hot_label)
+
             except:
                 print('assigned_labels: ', assigned_labels)
+                loss_cls = paddle.zeros([1], )
 
-            loss_cls = self._varifocal_loss(pred_scores, assigned_scores,
-                                            one_hot_label)
         else:
             loss_cls = self._focal_loss(pred_scores, assigned_scores, alpha_l)
 
