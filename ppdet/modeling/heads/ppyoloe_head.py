@@ -351,8 +351,12 @@ class PPYOLOEHead(nn.Layer):
         assigned_bboxes /= stride_tensor
         # cls loss
         if self.use_varifocal_loss:
-            one_hot_label = F.one_hot(assigned_labels,
-                                      self.num_classes + 1)[..., :-1]
+            try:
+                one_hot_label = F.one_hot(assigned_labels,
+                                          self.num_classes + 1)[..., :-1]
+            except:
+                print('assigned_labels: ', assigned_labels)
+
             loss_cls = self._varifocal_loss(pred_scores, assigned_scores,
                                             one_hot_label)
         else:

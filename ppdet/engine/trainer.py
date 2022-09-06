@@ -157,8 +157,7 @@ class Trainer(object):
 
             if 'OptimizerBuilder' in self.cfg:
                 self.lr = create('LearningRate')(steps_per_epoch)
-                self.optimizer = create('OptimizerBuilder')(self.lr,
-                                                            self.model),
+                self.optimizer = create('OptimizerBuilder')(self.lr, self.model)
 
             # TODO
             if 'CNNOptimizer' in self.cfg:
