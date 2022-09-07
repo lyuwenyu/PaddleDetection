@@ -341,6 +341,7 @@ class VisionTransformer(nn.Layer):
                  use_sincos_pos_emb=True,
                  with_fpn=True,
                  use_checkpoint=False,
+                 out_with_norm=False,
                  **args):
         super().__init__()
         self.img_size = img_size
@@ -424,7 +425,8 @@ class VisionTransformer(nn.Layer):
         if self.with_fpn:
             self.init_fpn(
                 embed_dim=embed_dim,
-                patch_size=patch_size, )
+                patch_size=patch_size,
+                out_with_norm=out_with_norm)
 
     def init_weight(self):
         pretrained = self.pretrained
@@ -595,6 +597,8 @@ class VisionTransformer(nn.Layer):
         ) if self.rel_pos_bias is not None else None
 
         feats = []
+        cls_tokens_list = []
+
         for idx, blk in enumerate(self.blocks):
             if self.use_checkpoint and self.training:
                 x = paddle.distributed.fleet.utils.recompute(
@@ -607,7 +611,9 @@ class VisionTransformer(nn.Layer):
                     paddle.transpose(
                         self.norm(x[:, 1:, :]), perm=[0, 2, 1]),
                     shape=[B, D, Hp, Wp])
+
                 feats.append(xp)
+                cls_tokens_list.append(x[:, 0, :])
 
         # if self.with_fpn:
         #     fpns = [self.fpn1, self.fpn2, self.fpn3, self.fpn4][4 - len(feats):]

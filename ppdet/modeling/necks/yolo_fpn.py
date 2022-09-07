@@ -1090,9 +1090,9 @@ class YOLOCSPPAN(nn.Layer):
 
         return outs
 
-    @classmethod
-    def from_config(cls, cfg, input_shape):
-        return {'in_channels': [i.channels for i in input_shape], }
+    # @classmethod
+    # def from_config(cls, cfg, input_shape):
+    #     return {'in_channels': [i.channels for i in input_shape], }
 
     @property
     def out_shape(self):

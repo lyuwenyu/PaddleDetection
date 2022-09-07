@@ -236,6 +236,10 @@ class PPYOLOEHead(nn.Layer):
             return self.forward_eval(feats)
 
     @staticmethod
+    def _num_class_loss():
+        pass
+
+    @staticmethod
     def _focal_loss(score, label, alpha=0.25, gamma=2.0):
         weight = (score - label).pow(gamma)
         if alpha > 0:
@@ -350,16 +354,15 @@ class PPYOLOEHead(nn.Layer):
         # rescale bbox
         assigned_bboxes /= stride_tensor
         # cls loss
-        if self.use_varifocal_loss:
-            try:
-                one_hot_label = F.one_hot(assigned_labels,
-                                          self.num_classes + 1)[..., :-1]
-                loss_cls = self._varifocal_loss(pred_scores, assigned_scores,
-                                                one_hot_label)
 
-            except:
-                print('assigned_labels: ', assigned_labels)
-                loss_cls = paddle.zeros([1], )
+        # TODO
+        assigned_labels = paddle.cast(assigned_labels, 'int64')
+
+        if self.use_varifocal_loss:
+            one_hot_label = F.one_hot(assigned_labels,
+                                      self.num_classes + 1)[..., :-1]
+            loss_cls = self._varifocal_loss(pred_scores, assigned_scores,
+                                            one_hot_label)
 
         else:
             loss_cls = self._focal_loss(pred_scores, assigned_scores, alpha_l)
