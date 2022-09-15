@@ -730,9 +730,30 @@ class PPYOLOEHeadL(nn.Layer):
             else:
                 # pred_bboxes [2, 8400, 4]
                 # pred_scores [2, 80, 8400]
-                # 
-                # pred_scores_idx = paddle.argmax(pred_scores, axis=1)
-                # pred_scores_val = paddle.max(pred_scores, axis=1)
+                # bbox_pred: [M 6]
+                # bbox_num: 2
 
-                bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
-                return bbox_pred, bbox_num
+                pred_scores_idx = paddle.argmax(pred_scores, axis=1)
+                pred_scores_val = paddle.max(pred_scores, axis=1)
+
+                bbox_pred = []
+                bbox_num = []
+                for i in len(pred_bboxes):
+                    keep = pred_scores_val[i] > 0.6
+
+                    if sum(keep * 1.) == 0:
+                        keep[paddle.argmax(pred_scores_val[i])] = 1
+
+                    val = pred_scores_val[i][keep].unsqueeze(-1)
+                    idx = pred_scores_idx[i][keep].unsqueeze(-1)
+                    box = pred_bboxes[i][keep]
+                    pred = paddle.concat([idx, val, box], axis=-1)
+
+                    bbox_num.append(len(val))
+                    bbox_pred.append(pred)
+
+                return paddle.concat(
+                    bbox_pred, axis=0), paddle.to_tensor(bbox_num)
+
+                # bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
+                # return bbox_pred, bbox_num

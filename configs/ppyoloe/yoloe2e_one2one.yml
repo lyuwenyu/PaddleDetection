@@ -7,7 +7,7 @@ _BASE_: [
 ]
 
 log_iter: 100
-snapshot_epoch: 5
+snapshot_epoch: 1
 weights: output/yoloe2e_one2one/model_final
 find_unused_parameters: True
 
@@ -26,12 +26,6 @@ YOLOv3:
   yolo_head: PPYOLOEHeadL
   post_process: ~
 
-
-YOLOv3:
-  backbone: CSPResNet
-  neck: CustomCSPPAN
-  yolo_head: PPYOLOEHead
-  post_process: ~
 
 CSPResNet:
   layers: [3, 6, 6, 3]
