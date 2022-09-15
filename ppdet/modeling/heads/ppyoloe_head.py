@@ -728,6 +728,11 @@ class PPYOLOEHeadL(nn.Layer):
                 # `exclude_nms=True` just use in benchmark
                 return pred_bboxes, pred_scores
             else:
+                # pred_bboxes [2, 8400, 4]
+                # pred_scores [2, 80, 8400]
+                # 
+                # pred_scores_idx = paddle.argmax(pred_scores, axis=1)
+                # pred_scores_val = paddle.max(pred_scores, axis=1)
 
                 bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
                 return bbox_pred, bbox_num
