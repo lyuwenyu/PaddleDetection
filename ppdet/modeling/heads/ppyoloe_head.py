@@ -416,7 +416,8 @@ class PPYOLOEHeadL(nn.Layer):
                  },
                  trt=False,
                  exclude_nms=False,
-                 exclude_post_process=False):
+                 exclude_post_process=False,
+                 threshold=0.5):
         super(PPYOLOEHeadL, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
         self.in_channels = in_channels
@@ -429,6 +430,7 @@ class PPYOLOEHeadL(nn.Layer):
         self.loss_weight = loss_weight
         self.use_varifocal_loss = use_varifocal_loss
         self.eval_size = eval_size
+        self.threshold = threshold
 
         self.static_assigner_epoch = static_assigner_epoch
         self.static_assigner = static_assigner
@@ -739,7 +741,7 @@ class PPYOLOEHeadL(nn.Layer):
                 bbox_pred = []
                 bbox_num = []
                 for i in len(pred_bboxes):
-                    keep = pred_scores_val[i] > 0.6
+                    keep = pred_scores_val[i] > self.threshold
 
                     if sum(keep * 1.) == 0:
                         keep[paddle.argmax(pred_scores_val[i])] = 1
