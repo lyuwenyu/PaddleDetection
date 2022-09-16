@@ -8,7 +8,7 @@ _BASE_: [
 
 log_iter: 100
 snapshot_epoch: 1
-weights: output/yoloe2e_one2one/model_final
+weights: output/yoloe2e_detr/model_final
 find_unused_parameters: True
 
 pretrain_weights: https://bj.bcebos.com/v1/paddledet/models/pretrained/ppyoloe_crn_l_obj365_pretrained.pdparams
@@ -26,8 +26,8 @@ EvalReader:
 YOLOv3:
   backbone: CSPResNet
   neck: CustomCSPPAN
-  yolo_head: PPYOLOEHeadL
-  post_process: ~
+  yolo_head: PHead
+  post_process: DETRBBoxPostProcess
 
 
 CSPResNet:
@@ -44,27 +44,21 @@ CustomCSPPAN:
   act: 'swish'
   spp: true
 
-PPYOLOEHeadL:
-  fpn_strides: [32, 16, 8]
-  grid_cell_scale: 5.0
-  grid_cell_offset: 0.5
-  static_assigner_epoch: 10
-  use_varifocal_loss: True
-  loss_weight: {class: 1.0, iou: 2.5, dfl: 0.5}
+PHead:
+  in_channels_list: [768, 384, 192]
+  strides_list: [32, 16, 8]
+  hidden_dim: 256
+  num_classes: 80
+  use_head_stem: True
+  act: 'silu'
+  data_fmt: 'row_first'
+  num_proposals_list: [50, 100, 50]
 
-  threshold: 0.5
 
-  static_assigner:
-    name: ATSSAssigner
-    topk: 9
-  assigner:
-    name: TaskAlignedAssigner
-    topk: 1 # 13
-    alpha: 1.0
-    beta: 6.0
-  nms:
-    name: MultiClassNMS
-    nms_top_k: 1000
-    keep_top_k: 300
-    score_threshold: 0.01
-    nms_threshold: 0.7
+DETRLoss:
+  loss_coeff: {class: 1, bbox: 5, giou: 2, no_object: 0.1, mask: 1, dice: 1}
+  aux_loss: True
+
+
+HungarianMatcher:
+  matcher_coeff: {class: 1, bbox: 5, giou: 2}

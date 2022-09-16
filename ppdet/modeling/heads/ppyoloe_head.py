@@ -740,14 +740,15 @@ class PPYOLOEHeadL(nn.Layer):
 
                 bbox_pred = []
                 bbox_num = []
-                for i in len(pred_bboxes):
+
+                for i in range(len(pred_bboxes)):
                     keep = pred_scores_val[i] > self.threshold
 
                     if sum(keep * 1.) == 0:
                         keep[paddle.argmax(pred_scores_val[i])] = 1
 
-                    val = pred_scores_val[i][keep].unsqueeze(-1)
-                    idx = pred_scores_idx[i][keep].unsqueeze(-1)
+                    val = pred_scores_val[i][keep].unsqueeze(-1) * 1.
+                    idx = pred_scores_idx[i][keep].unsqueeze(-1) * 1.
                     box = pred_bboxes[i][keep]
                     pred = paddle.concat([idx, val, box], axis=-1)
 
