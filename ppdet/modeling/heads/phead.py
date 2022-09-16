@@ -28,6 +28,7 @@ from ppdet.modeling.layers import MultiClassNMS
 
 import paddle
 import paddle.nn as nn
+import paddle.nn.functional as F
 
 import math
 
@@ -42,6 +43,7 @@ def get_act(name):
         raise RuntimeError('')
 
 
+@register
 class PHead(nn.Layer):
     __inject__ = ['loss']
 
@@ -67,7 +69,7 @@ class PHead(nn.Layer):
         if use_head_stem:
             self.proposal_stems = nn.LayerList([
                 nn.Sequential(
-                    nn.Conv2D(c, hidden_dim, 3, 1, 1),
+                    nn.Conv2D(c, hidden_dim, 1, 1, 0),
                     nn.BatchNorm2D(hidden_dim),
                     get_act(act), ) for c in in_channels_list
             ])
@@ -91,7 +93,7 @@ class PHead(nn.Layer):
         ])
 
         self.cls_pred = nn.Sequential(
-            nn.Linear(hidden_dim, self.num_classes),
+            nn.Linear(hidden_dim, self.num_classes + 1),
             # nn.Sigmoid()
         )
 
@@ -130,16 +132,21 @@ class PHead(nn.Layer):
             s = w if self.data_fmt == 'row_first' else h
             indices = paddle.concat(
                 [indices // s, indices % s], axis=-2).squeeze(-1)
+
             b_indices = paddle.tile(
                 paddle.arange(
                     n, dtype='int32')[:, None],
-                repeat_times=(self.num_proposals_list[i], )).reshape([-1, 1])
+                repeat_times=(1, self.num_proposals_list[i])).reshape([-1, 1])
+
             p_indices = paddle.concat(
                 [b_indices, indices.reshape([-1, 2])], axis=-1)
 
             feat = paddle.gather_nd(feat.transpose([0, 2, 3, 1]),
                                     p_indices).reshape(
                                         [n, self.num_proposals_list[i], -1])
+
+            # unfeat = F.max_unpool2d(values, indices, kernel_size=(h, w), stride=(h, w)) # n 100 h, w
+            # feat = (feat.unsqueeze(1) * (unfeat.unsqueeze(2) != 0)).flatten(3).sum(axis=-1)
 
             flatten_feats.append(feat)
             flatten_coords.append(indices * self.strides_list[i])
@@ -153,8 +160,13 @@ class PHead(nn.Layer):
         if self.training:
             assert inputs is not None
             assert 'gt_bbox' in inputs and 'gt_class' in inputs
-            return self.loss(pred_box[None], pred_cls[None], inputs['gt_bbox'],
-                             inputs['gt_class'])
+            losses = self.loss(pred_box[None], pred_cls[None],
+                               inputs['gt_bbox'], inputs['gt_class'])
+            losses.update({
+                'loss':
+                paddle.add_n([v for k, v in losses.items() if 'log' not in k])
+            })
+            return losses
 
         else:
             return (pred_box, pred_cls, None)
@@ -187,3 +199,105 @@ class PHead(nn.Layer):
 # m = PHead(in_channels_list=[2, ], hidden_dim=3, num_proposals=3)
 # feats = [paddle.rand([2, 2, 4, 4]) for i in range(1)]
 # m(feats)
+
+
+@register
+class PHeadA(nn.Layer):
+    __inject__ = ['loss']
+
+    def __init__(self,
+                 in_channels_list=[256, 512, 1024],
+                 strides_list=[8, 16, 32],
+                 hidden_dim=256,
+                 num_classes=80,
+                 num_proposals_list=[100, 100, 100],
+                 data_fmt='row_first',
+                 use_head_stem=False,
+                 loss='DETRLoss',
+                 act='silu'):
+
+        super().__init__()
+        self.data_fmt = data_fmt
+        self.num_proposals_list = num_proposals_list
+        self.num_classes = num_classes
+        self.strides_list = strides_list
+        self.use_head_stem = use_head_stem
+        self.loss = loss
+
+        if use_head_stem:
+            self.proposal_stems = nn.LayerList([
+                nn.Sequential(
+                    nn.Conv2D(c, hidden_dim, 1, 1, 0),
+                    nn.BatchNorm2D(hidden_dim),
+                    get_act(act), ) for c in in_channels_list
+            ])
+
+        # self.proposal_convs = nn.LayerList([
+        #     nn.Sequential(
+        #         nn.Conv2D(hidden_dim
+        #                   if use_head_stem else c, hidden_dim, 3, 1, 1),
+        #         nn.BatchNorm2D(hidden_dim),
+        #         get_act(act),
+        #         nn.Conv2D(hidden_dim, hidden_dim, 3, 1, 1),
+        #         nn.BatchNorm2D(hidden_dim),
+        #         get_act(act),
+        #         nn.Conv2D(hidden_dim, num_proposals_list[i], 1, 1), 
+        #     )
+        #     for i, c in enumerate(in_channels_list)
+        # ])
+
+        self.proposal_pools = nn.LayerList([
+            nn.AdaptiveMaxPool2D(
+                (10, 10), return_mask=False) for _ in in_channels_list
+        ])
+
+        self.cls_pred = nn.Sequential(
+            nn.Linear(hidden_dim, self.num_classes + 1),
+            # nn.Sigmoid()
+        )
+
+        self.box_pred = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU6(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU6(), nn.Linear(hidden_dim, 4), nn.Sigmoid())
+
+        # self.init_weights()
+
+    def init_weights(self, ):
+        bound = 1 / math.sqrt(self.cls_pred.weight.shape[0])
+        uniform_(self.cls_pred.weight, -bound, bound)
+        uniform_(self.cls_pred.bias, -bound, bound)
+
+    def forward(self, feats, inputs=None):
+
+        flatten_feats = []
+        flatten_coords = []
+
+        for i, feat in enumerate(feats):
+            if self.use_head_stem:
+                feat = self.proposal_stems[i](feat)
+            n, _, h, w = feat.shape
+            x = self.proposal_pools[i](feat)
+
+            x = x.flatten(2).transpose([0, 2, 1])
+            flatten_feats.append(x)
+
+        flatten_feats = paddle.concat(flatten_feats, axis=1)
+
+        pred_cls = self.cls_pred(flatten_feats)
+        pred_box = self.box_pred(flatten_feats)
+
+        if self.training:
+            assert inputs is not None
+            assert 'gt_bbox' in inputs and 'gt_class' in inputs
+            losses = self.loss(pred_box[None], pred_cls[None],
+                               inputs['gt_bbox'], inputs['gt_class'])
+            losses.update({
+                'loss':
+                paddle.add_n([v for k, v in losses.items() if 'log' not in k])
+            })
+            return losses
+
+        else:
+            return (pred_box, pred_cls, None)

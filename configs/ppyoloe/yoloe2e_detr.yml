@@ -6,7 +6,7 @@ _BASE_: [
   './_base_/ppyoloe_plus_reader.yml',
 ]
 
-log_iter: 100
+log_iter: 20
 snapshot_epoch: 1
 weights: output/yoloe2e_detr/model_final
 find_unused_parameters: True
@@ -17,10 +17,27 @@ width_mult: 1.0
 
 
 TrainReader:
+  sample_transforms:
+    - Decode: {}
+    - RandomDistort: {}
+    - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
+    - RandomCrop: {}
+    - RandomFlip: {}
+  batch_transforms:
+    - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - NormalizeBox: {}
+    - BboxXYXY2XYWH: {}
+    - Permute: {}
+    # - PadGT: {}
   batch_size: 8
+  shuffle: true
+  drop_last: true
+  collate_batch: false
+
 
 EvalReader:
-  batch_size: 8
+  batch_size: 1
 
 
 YOLOv3:
@@ -28,7 +45,7 @@ YOLOv3:
   neck: CustomCSPPAN
   yolo_head: PHead
   post_process: DETRBBoxPostProcess
-
+  post_process_type: 'detr'
 
 CSPResNet:
   layers: [3, 6, 6, 3]
@@ -52,13 +69,17 @@ PHead:
   use_head_stem: True
   act: 'silu'
   data_fmt: 'row_first'
-  num_proposals_list: [50, 100, 50]
-
+  num_proposals_list: [100, 100, 100]
+  # use_focal_loss: False
 
 DETRLoss:
   loss_coeff: {class: 1, bbox: 5, giou: 2, no_object: 0.1, mask: 1, dice: 1}
-  aux_loss: True
-
+  aux_loss: False
+  # use_focal_loss: False
 
 HungarianMatcher:
   matcher_coeff: {class: 1, bbox: 5, giou: 2}
+  # use_focal_loss: False
+
+DETRBBoxPostProcess:
+  use_focal_loss: False

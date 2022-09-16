@@ -35,7 +35,8 @@ class YOLOv3(BaseArch):
                  yolo_head='YOLOv3Head',
                  post_process='BBoxPostProcess',
                  data_format='NCHW',
-                 for_mot=False):
+                 for_mot=False,
+                 post_process_type='yolo'):
         """
         YOLOv3 network, see https://arxiv.org/abs/1804.02767
 
@@ -55,6 +56,7 @@ class YOLOv3(BaseArch):
         self.post_process = post_process
         self.for_mot = for_mot
         self.return_idx = isinstance(post_process, JDEBBoxPostProcess)
+        self.post_process_type = post_process_type
 
     @classmethod
     def from_config(cls, cfg, *args, **kwargs):
@@ -109,13 +111,26 @@ class YOLOv3(BaseArch):
                 if self.return_idx:
                     _, bbox, bbox_num, _ = self.post_process(
                         yolo_head_outs, self.yolo_head.mask_anchors)
+
+                # elif self.post_process is not None:
+                #     bbox, bbox_num = self.post_process(
+                #         yolo_head_outs, self.yolo_head.mask_anchors,
+                #         self.inputs['im_shape'], self.inputs['scale_factor'])
                 elif self.post_process is not None:
-                    bbox, bbox_num = self.post_process(
-                        yolo_head_outs, self.yolo_head.mask_anchors,
-                        self.inputs['im_shape'], self.inputs['scale_factor'])
+                    if self.post_process_type == 'yolo':
+                        bbox, bbox_num = self.post_process(
+                            yolo_head_outs, self.yolo_head.mask_anchors,
+                            self.inputs['im_shape'],
+                            self.inputs['scale_factor'])
+                    elif self.post_process_type == 'detr':
+                        bbox, bbox_num = self.post_process(
+                            yolo_head_outs, self.inputs['im_shape'],
+                            self.inputs['scale_factor'])
+
                 else:
                     bbox, bbox_num = self.yolo_head.post_process(
                         yolo_head_outs, self.inputs['scale_factor'])
+
                 output = {'bbox': bbox, 'bbox_num': bbox_num}
 
             return output
