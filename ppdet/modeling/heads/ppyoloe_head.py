@@ -735,28 +735,54 @@ class PPYOLOEHeadL(nn.Layer):
                 # bbox_pred: [M 6]
                 # bbox_num: 2
 
-                pred_scores_idx = paddle.argmax(pred_scores, axis=1)
-                pred_scores_val = paddle.max(pred_scores, axis=1)
+                # pred_scores_idx = paddle.argmax(pred_scores, axis=1)
+                # pred_scores_val = paddle.max(pred_scores, axis=1)
 
-                bbox_pred = []
-                bbox_num = []
+                # bbox_pred = []
+                # bbox_num = []
 
-                for i in range(len(pred_bboxes)):
-                    keep = pred_scores_val[i] > self.threshold
+                # for i in range(len(pred_bboxes)):
+                #     keep = pred_scores_val[i] > self.threshold
 
-                    if sum(keep * 1.) == 0:
-                        keep[paddle.argmax(pred_scores_val[i])] = 1
+                #     if sum(keep * 1.) == 0:
+                #         keep[paddle.argmax(pred_scores_val[i])] = 1
 
-                    val = pred_scores_val[i][keep].unsqueeze(-1) * 1.
-                    idx = pred_scores_idx[i][keep].unsqueeze(-1) * 1.
-                    box = pred_bboxes[i][keep]
-                    pred = paddle.concat([idx, val, box], axis=-1)
+                #     val = pred_scores_val[i][keep].unsqueeze(-1) * 1.
+                #     idx = pred_scores_idx[i][keep].unsqueeze(-1) * 1.
+                #     box = pred_bboxes[i][keep]
+                #     pred = paddle.concat([idx, val, box], axis=-1)
 
-                    bbox_num.append(len(val))
-                    bbox_pred.append(pred)
+                #     bbox_num.append(len(val))
+                #     bbox_pred.append(pred)
 
-                return paddle.concat(
-                    bbox_pred, axis=0), paddle.to_tensor(bbox_num)
+                # return paddle.concat(
+                #     bbox_pred, axis=0), paddle.to_tensor(bbox_num)
 
-                # bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
-                # return bbox_pred, bbox_num
+                if False:
+                    bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
+                    return bbox_pred, bbox_num
+
+                else:
+                    b_index = paddle.tile(
+                        paddle.arange(pred_bboxes.shape[0])[:, None],
+                        repeat_times=(1, pred_bboxes.shape[1]))
+                    pred_scores_idx = paddle.argmax(pred_scores, axis=1)
+                    pred_scores_val = paddle.max(pred_scores, axis=1)
+
+                    keep = pred_scores_val > self.threshold
+                    keep_idx = pred_scores_idx[keep].unsqueeze(-1) * 1.
+                    keep_val = pred_scores_val[keep].unsqueeze(-1) * 1.
+                    keep_box = pred_bboxes[keep]
+
+                    keep_b_index = b_index[keep]
+
+                    # print(keep_idx.shape)
+                    # print(keep_box.shape)
+                    # print(keep_b_index)
+
+                    bbox_pred = paddle.concat(
+                        [keep_idx, keep_val, keep_box], axis=-1)
+                    bbox_num = paddle.bincount(keep_b_index)
+                    # print(bbox_num)
+
+                    return bbox_pred, bbox_num
