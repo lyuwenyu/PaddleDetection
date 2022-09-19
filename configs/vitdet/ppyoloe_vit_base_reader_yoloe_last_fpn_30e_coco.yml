@@ -6,6 +6,7 @@ _BASE_: [
 ]
 
 snapshot_epoch: 1
+log_iter: 100
 
 # optimizer
 epoch: &epoch 30
