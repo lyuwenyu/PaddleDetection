@@ -47,13 +47,15 @@ class SimOTAAssigner(object):
                  iou_weight=3.0,
                  cls_weight=1.0,
                  num_classes=80,
-                 use_vfl=True):
+                 use_vfl=True,
+                 check_center_in_gt=True):
         self.center_radius = center_radius
         self.candidate_topk = candidate_topk
         self.iou_weight = iou_weight
         self.cls_weight = cls_weight
         self.num_classes = num_classes
         self.use_vfl = use_vfl
+        self.check_center_in_gt = check_center_in_gt
 
     def get_in_gt_and_in_center_info(self, flatten_center_and_stride,
                                      gt_bboxes):
@@ -95,14 +97,22 @@ class SimOTAAssigner(object):
         is_in_cts = ct_deltas.min(axis=1) > 0
         is_in_cts_all = is_in_cts.sum(axis=1) > 0
 
-        # in any of gts or gt centers, shape: [n_center]
-        is_in_gts_or_centers_all = paddle.logical_or(is_in_gts_all,
-                                                     is_in_cts_all)
+        if self.check_center_in_gt:
+            # in any of gts or gt centers, shape: [n_center]
+            is_in_gts_or_centers_all = paddle.logical_or(is_in_gts_all,
+                                                         is_in_cts_all)
 
-        is_in_gts_or_centers_all_inds = paddle.nonzero(
-            is_in_gts_or_centers_all).squeeze(1)
+            is_in_gts_or_centers_all_inds = paddle.nonzero(
+                is_in_gts_or_centers_all).squeeze(1)
 
-        # both in gts and gt centers, shape: [num_fg, num_gt]
+        else:
+            # TODO
+            # if len(is_in_gts_or_centers_all_inds) == 0:
+            is_in_gts_or_centers_all = paddle.ones_like(is_in_gts_all)
+            is_in_gts_or_centers_all_inds = paddle.nonzero(
+                is_in_gts_or_centers_all).squeeze(1)
+
+# both in gts and gt centers, shape: [num_fg, num_gt]
         is_in_gts_and_centers = paddle.logical_and(
             paddle.gather(
                 is_in_gts.cast('int'), is_in_gts_or_centers_all_inds,
