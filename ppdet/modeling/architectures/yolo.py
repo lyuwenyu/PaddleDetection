@@ -22,6 +22,8 @@ from ..post_process import JDEBBoxPostProcess
 
 __all__ = ['YOLOv3']
 
+import paddle.nn as nn
+
 
 @register
 class YOLOv3(BaseArch):
@@ -63,10 +65,13 @@ class YOLOv3(BaseArch):
 
         # fpn
         kwargs = {'input_shape': backbone.out_shape}
-        neck = create(cfg['neck'], **kwargs)
+        if cfg['neck'] is None:
+            neck = None
+        else:
+            neck = create(cfg['neck'], **kwargs)
 
         # head
-        kwargs = {'input_shape': neck.out_shape}
+        # kwargs = {'input_shape': neck.out_shape}
         yolo_head = create(cfg['yolo_head'], **kwargs)
 
         return {
@@ -77,7 +82,10 @@ class YOLOv3(BaseArch):
 
     def _forward(self):
         body_feats = self.backbone(self.inputs)
-        neck_feats = self.neck(body_feats, self.for_mot)
+        if self.neck is not None:
+            neck_feats = self.neck(body_feats, self.for_mot)
+        else:
+            neck_feats = body_feats
 
         if isinstance(neck_feats, dict):
             assert self.for_mot == True
