@@ -355,7 +355,7 @@ class PHead(nn.Layer):
             for i, pp_logits in enumerate(pp_logits_list):
                 centers = paddle.cast(gt_centers / self.fpn_strides[i], 'int64')
                 pp_gt = paddle.zeros_like(pp_logits)
-                pp_gt[i, 0, centers[:, -1], centers[:, 0]] = 1.
+                pp_gt[0, 0, centers[:, -1], centers[:, 0]] = 1.
                 loss_pp = F.binary_cross_entropy_with_logits(
                     pp_logits, pp_gt, reduction='mean')
                 loss_pps += loss_pp
