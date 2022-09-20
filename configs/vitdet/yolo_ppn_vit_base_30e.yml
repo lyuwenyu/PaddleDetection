@@ -6,7 +6,7 @@ _BASE_: [
 ]
 
 snapshot_epoch: 1
-log_iter: 100
+log_iter: 20
 
 # optimizer
 epoch: &epoch 30
@@ -127,7 +127,7 @@ VisionTransformer:
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
   out_indices: [11, ]
-  with_fpn: True
+  with_fpn: False
   out_with_norm: False
   use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
@@ -139,31 +139,27 @@ VisionTransformer:
 #   act: 'silu'
 
 
-PPYOLOEHead:
-  # reverse: True
-  fpn_strides: [8, 16, 32]
-  in_channels: [768, 768, 768]
+PHead:
+  # in_channels: [768, 768, 768]
+  # feat_channels: 768
+  # fpn_strides: [8, 16, 32]
+  in_channels: [768, ]
+  feat_channels: 768
+  fpn_strides: [16, ]
 
-  grid_cell_scale: 5.0
-  grid_cell_offset: 0.5
-  static_assigner_epoch: 10 #
-  use_varifocal_loss: True
-  loss_weight: {class: 1.0, iou: 2.5, dfl: 0.5}
-  static_assigner:
-    name: ATSSAssigner
-    topk: 9
+  l1_epoch: 285
+  depthwise: False
+  loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
   assigner:
-    name: TaskAlignedAssigner
-    topk: 13
-    alpha: 1.0
-    beta: 6.0
+    name: SimOTAAssigner
+    candidate_topk: 10
+    use_vfl: False
   nms:
     name: MultiClassNMS
     nms_top_k: 1000
-    keep_top_k: 300
+    keep_top_k: 100
     score_threshold: 0.01
-    nms_threshold: 0.7
-
+    nms_threshold: 0.65
 
 
 # PP-YOLOE READER
@@ -184,11 +180,12 @@ TrainReader:
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
     - PadGT: {}
-  batch_size: 2
+  batch_size: 1
   shuffle: true
   drop_last: true
   use_shared_memory: true
-  collate_batch: true
+  # collate_batch: true
+  collate_batch: false
 
 EvalReader:
   sample_transforms:

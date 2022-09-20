@@ -7,14 +7,52 @@ from ppdet.core.workspace import register
 
 import math
 import numpy as np
-from ..initializer import bias_init_with_prob, constant_, conv_init_
+from ppdet.modeling.initializer import bias_init_with_prob, constant_, conv_init_
 # from ..backbones.csp_darknet import BaseConv, DWConv
-from ..losses import IouLoss
+# from ppdet.modeling.losses import IouLoss
 from ppdet.modeling.assigners.simota_assigner import SimOTAAssigner
 from ppdet.modeling.bbox_utils import bbox_overlaps
 from ppdet.modeling.layers import MultiClassNMS
 
 __all__ = ['PHead']
+
+from ..bbox_utils import bbox_iou
+
+
+class IouLoss(object):
+    """
+    iou loss, see https://arxiv.org/abs/1908.03851
+    loss = 1.0 - iou * iou
+    Args:
+        loss_weight (float): iou loss weight, default is 2.5
+        max_height (int): max height of input to support random shape input
+        max_width (int): max width of input to support random shape input
+        ciou_term (bool): whether to add ciou_term
+        loss_square (bool): whether to square the iou term
+    """
+
+    def __init__(self,
+                 loss_weight=2.5,
+                 giou=False,
+                 diou=False,
+                 ciou=False,
+                 loss_square=True):
+        self.loss_weight = loss_weight
+        self.giou = giou
+        self.diou = diou
+        self.ciou = ciou
+        self.loss_square = loss_square
+
+    def __call__(self, pbox, gbox):
+        iou = bbox_iou(
+            pbox, gbox, giou=self.giou, diou=self.diou, ciou=self.ciou)
+        if self.loss_square:
+            loss_iou = 1 - iou * iou
+        else:
+            loss_iou = 1 - iou
+
+        loss_iou = loss_iou * self.loss_weight
+        return loss_iou
 
 
 class BaseConv(nn.Layer):
@@ -179,17 +217,18 @@ class PHead(nn.Layer):
         assert len(feats) == len(self.fpn_strides), \
             "The size of feats is not equal to size of fpn_strides"
 
-        feat_sizes = [[f.shape[-2], f.shape[-1]] for f in feats]
+        # feat_sizes = [[f.shape[-2], f.shape[-1]] for f in feats]
+
         cls_score_list, reg_pred_list = [], []
         obj_score_list = []
-        pp_logtis_list = []
+        pp_logits_list = []
         index_list = []
         stride_list = []
 
         for i, feat in enumerate(feats):
             n, c, h, w = feat.shape
             pp_feat = self.ppn_convs[i](feat)
-            pp_logtis_list.append(pp_feat)
+            pp_logits_list.append(pp_feat)
 
             index = (F.sigmoid(pp_feat) > self.threshold).squeeze(1).nonzero()
             index_list.append(index)
@@ -198,9 +237,11 @@ class PHead(nn.Layer):
                     [index.shape[0], 1], self.fpn_strides[i],
                     dtype=self._dtype))
 
+            # just for bs=1
             feat = paddle.gather_nd(
                 feat.transpose([0, 2, 3, 1]), index=index).reshape([n, -1, c])
             # TODO add attention
+
             feat = feat.transpose([0, 2, 1]).unsqueeze(-1)  # N C L1 1
 
             feat = self.stem_conv[i](feat)
@@ -221,12 +262,16 @@ class PHead(nn.Layer):
         cls_score_list = paddle.concat(cls_score_list, axis=1)
         reg_pred_list = paddle.concat(reg_pred_list, axis=1)
         obj_score_list = paddle.concat(obj_score_list, axis=1)
-        index_list = paddle.concat(index_list, axis=1)  # N L1 3
+        index_list = paddle.concat(index_list, axis=0)  # L 3
         stride_list = paddle.concat(stride_list, axis=0)
 
         stride_tensor = stride_list
         anchor_points = paddle.concat(
-            [index_list[:, 2:], index_list[:, 1:2]], axis=-1) * stride_tensor
+            [index_list[:, 2:], index_list[:, 1:2]],
+            axis=-1) * stride_tensor * 1.0
+
+        anchor_points.stop_gradient = True
+        stride_tensor.stop_gradient = True
 
         # bbox decode
         # anchor_points, stride_tensor, _ =\
@@ -247,6 +292,21 @@ class PHead(nn.Layer):
                 cls_score_list, bbox_pred_list, obj_score_list, anchor_points,
                 stride_tensor, num_anchors_list
             ], targets)
+
+            # pp_logtis_list
+            gt_bboxes = paddle.to_tensor(targets['gt_bbox'])[0]  # bs==1
+            gt_centers = (gt_bboxes[:, 2:] - gt_bboxes[:, :2]) / 2.
+            loss_pps = 0
+            for i, pp_logits in enumerate(pp_logits_list):
+                centers = paddle.cast(gt_centers / self.fpn_strides[i], 'int64')
+                pp_gt = paddle.zeros_like(pp_logits)
+                pp_gt[i, 0, centers[:, -1], centers[:, 0]] = 1.
+                loss_pp = F.binary_cross_entropy(
+                    pp_logits, pp_gt, reduction='mean')
+                loss_pps += loss_pp
+
+            yolox_losses['loss_pps'] = loss_pp
+            yolox_losses['loss'] += loss_pps
 
             return yolox_losses
         else:
