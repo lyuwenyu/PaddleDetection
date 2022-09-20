@@ -115,8 +115,10 @@ class PHead(nn.Layer):
                  },
                  trt=False,
                  exclude_nms=False,
-                 ppn_threshold=0.5,
-                 ppn_topk=200):
+                 ppn_threshold=0.1,
+                 ppn_topk=0.1,
+                 ppn_select_type='topk'):
+
         super().__init__()
         self._dtype = paddle.framework.get_default_dtype()
         self.num_classes = num_classes
@@ -129,6 +131,7 @@ class PHead(nn.Layer):
         self.nms = nms
         self.ppn_threshold = ppn_threshold
         self.ppn_topk = ppn_topk
+        self.ppn_select_type = ppn_select_type
 
         if isinstance(self.nms, MultiClassNMS) and trt:
             self.nms.trt = trt
@@ -178,6 +181,13 @@ class PHead(nn.Layer):
                         1,
                         bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
                 ]))
+
+        # encoder_layer = nn.TransformerEncoderLayer(
+        #     hidden_dim, nhead, dim_feedforward, dropout, activation=act)
+        # self.encoder = PPTransformerEncoder(
+        #     encoder_layer, num_layers, return_intermediate=return_intermediate)
+
+        # https://github.com/lyuwenyu/PaddleDetection/blob/yolo_ctm_L/ppdet/modeling/transformers/tencoder.py
 
         self._init_weights()
 
@@ -233,13 +243,33 @@ class PHead(nn.Layer):
             pp_feat = self.ppn_convs[i](feat)
             pp_logits_list.append(pp_feat)
 
-            if False:
+            if self.ppn_select_type == 'threshod':
                 index = (F.sigmoid(pp_feat) > self.ppn_threshold
                          ).squeeze(1).nonzero()
 
-            else:
+                if len(index) < 10:
+                    topk = 10
+                    v, index = paddle.topk(
+                        F.sigmoid(pp_feat).squeeze(1).flatten(1),
+                        sorted=False,
+                        k=topk,
+                        axis=-1)
+                    index = paddle.concat(
+                        [
+                            paddle.zeros(
+                                [topk, ], dtype='int64').unsqueeze(-1),
+                            (index[0] // w).unsqueeze(-1),  # h
+                            (index[0] % w).unsqueeze(-1),  # w
+                        ],
+                        axis=-1)
+
+            elif self.ppn_select_type == 'topk':
                 # TODO select topk 
-                topk = int(h * w * 0.1)
+                topk = int(
+                    h * w *
+                    self.ppn_topk) if 0 < self.ppn_topk < 1 else self.ppn_topk
+                topk = max(topk, 10)
+
                 v, index = paddle.topk(
                     F.sigmoid(pp_feat).squeeze(1).flatten(1),
                     sorted=False,

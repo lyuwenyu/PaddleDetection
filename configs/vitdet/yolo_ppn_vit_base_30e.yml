@@ -147,7 +147,9 @@ PHead:
   feat_channels: 768
   fpn_strides: [16, ]
 
-  ppn_threshold: 0.3
+  # ppn_threshold: 0.3
+  ppn_select_type: 'topk'
+  ppn_topk: 0.2
 
   # l1_epoch: 300
   depthwise: False
