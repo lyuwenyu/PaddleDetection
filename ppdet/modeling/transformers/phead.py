@@ -234,8 +234,8 @@ class PHead(nn.Layer):
             pp_logits_list.append(pp_feat)
 
             if False:
-                index = (
-                    F.sigmoid(pp_feat) > self.threshold).squeeze(1).nonzero()
+                index = (F.sigmoid(pp_feat) > self.ppn_threshold
+                         ).squeeze(1).nonzero()
 
             else:
                 # TODO select topk 
@@ -263,6 +263,7 @@ class PHead(nn.Layer):
             # just for bs=1
             feat = paddle.gather_nd(
                 feat.transpose([0, 2, 3, 1]), index=index).reshape([n, -1, c])
+
             # TODO add attention
 
             feat = feat.transpose([0, 2, 1]).unsqueeze(-1)  # N C L1 1
@@ -433,7 +434,7 @@ class PHead(nn.Layer):
         }
         return yolox_losses
 
-    def post_process(self, head_outs, img_shape, scale_factor):
+    def post_process(self, head_outs, scale_factor):
         pred_scores, pred_bboxes, stride_tensor = head_outs
         pred_scores = pred_scores.transpose([0, 2, 1])
         pred_bboxes *= stride_tensor

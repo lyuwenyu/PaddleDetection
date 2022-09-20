@@ -135,8 +135,12 @@ class SimOTAAssigner(object):
         # calculate dynamic k for each gt
         dynamic_ks = paddle.clip(topk_ious.sum(0).cast('int'), min=1)
         for gt_idx in range(num_gt):
+            # _, pos_idx = paddle.topk(
+            #     cost_matrix[:, gt_idx], k=dynamic_ks[gt_idx], largest=False)
+
             _, pos_idx = paddle.topk(
                 cost_matrix[:, gt_idx], k=dynamic_ks[gt_idx], largest=False)
+
             match_matrix[:, gt_idx][pos_idx.numpy()] = 1.0
 
         del topk_ious, dynamic_ks, pos_idx
