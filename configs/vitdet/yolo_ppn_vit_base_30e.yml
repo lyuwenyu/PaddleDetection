@@ -146,8 +146,9 @@ PHead:
   in_channels: [768, ]
   feat_channels: 768
   fpn_strides: [16, ]
+  threshold: 0.1
 
-  l1_epoch: 285
+  # l1_epoch: 300
   depthwise: False
   loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
   assigner:

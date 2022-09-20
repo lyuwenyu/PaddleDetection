@@ -103,7 +103,7 @@ class PHead(nn.Layer):
                  in_channels=[256, 512, 1024],
                  feat_channels=256,
                  fpn_strides=(8, 16, 32),
-                 l1_epoch=285,
+                 l1_epoch=300,
                  act='silu',
                  assigner=SimOTAAssigner(use_vfl=False),
                  nms='MultiClassNMS',
@@ -221,6 +221,7 @@ class PHead(nn.Layer):
 
         cls_score_list, reg_pred_list = [], []
         obj_score_list = []
+
         pp_logits_list = []
         index_list = []
         stride_list = []
@@ -231,6 +232,10 @@ class PHead(nn.Layer):
             pp_logits_list.append(pp_feat)
 
             index = (F.sigmoid(pp_feat) > self.threshold).squeeze(1).nonzero()
+            if len(index) == 0:
+                # TODO select topk 
+                print('xxxxx')
+
             index_list.append(index)
             stride_list.append(
                 paddle.full(
@@ -262,6 +267,7 @@ class PHead(nn.Layer):
         cls_score_list = paddle.concat(cls_score_list, axis=1)
         reg_pred_list = paddle.concat(reg_pred_list, axis=1)
         obj_score_list = paddle.concat(obj_score_list, axis=1)
+
         index_list = paddle.concat(index_list, axis=0)  # L 3
         stride_list = paddle.concat(stride_list, axis=0)
 
@@ -301,7 +307,7 @@ class PHead(nn.Layer):
                 centers = paddle.cast(gt_centers / self.fpn_strides[i], 'int64')
                 pp_gt = paddle.zeros_like(pp_logits)
                 pp_gt[i, 0, centers[:, -1], centers[:, 0]] = 1.
-                loss_pp = F.binary_cross_entropy(
+                loss_pp = F.binary_cross_entropy_with_logits(
                     pp_logits, pp_gt, reduction='mean')
                 loss_pps += loss_pp
 
