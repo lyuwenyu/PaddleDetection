@@ -115,7 +115,8 @@ class PHead(nn.Layer):
                  },
                  trt=False,
                  exclude_nms=False,
-                 threshold=0.5):
+                 ppn_threshold=0.5,
+                 ppn_topk=200):
         super().__init__()
         self._dtype = paddle.framework.get_default_dtype()
         self.num_classes = num_classes
@@ -126,7 +127,8 @@ class PHead(nn.Layer):
         self.l1_epoch = l1_epoch
         self.assigner = assigner
         self.nms = nms
-        self.threshold = threshold
+        self.ppn_threshold = ppn_threshold
+        self.ppn_topk = ppn_topk
 
         if isinstance(self.nms, MultiClassNMS) and trt:
             self.nms.trt = trt
@@ -231,10 +233,26 @@ class PHead(nn.Layer):
             pp_feat = self.ppn_convs[i](feat)
             pp_logits_list.append(pp_feat)
 
-            index = (F.sigmoid(pp_feat) > self.threshold).squeeze(1).nonzero()
-            if len(index) == 0:
+            if False:
+                index = (
+                    F.sigmoid(pp_feat) > self.threshold).squeeze(1).nonzero()
+
+            else:
                 # TODO select topk 
-                print('xxxxx')
+                topk = int(h * w * 0.1)
+                v, index = paddle.topk(
+                    F.sigmoid(pp_feat).squeeze(1).flatten(1),
+                    sorted=False,
+                    k=topk,
+                    axis=-1)
+                index = paddle.concat(
+                    [
+                        paddle.zeros(
+                            [topk, ], dtype='int64').unsqueeze(-1),
+                        (index[0] // w).unsqueeze(-1),  # h
+                        (index[0] % w).unsqueeze(-1),  # w
+                    ],
+                    axis=-1)
 
             index_list.append(index)
             stride_list.append(

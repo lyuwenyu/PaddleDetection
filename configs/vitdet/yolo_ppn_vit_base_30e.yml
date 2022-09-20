@@ -146,7 +146,8 @@ PHead:
   in_channels: [768, ]
   feat_channels: 768
   fpn_strides: [16, ]
-  threshold: 0.3
+
+  ppn_threshold: 0.3
 
   # l1_epoch: 300
   depthwise: False

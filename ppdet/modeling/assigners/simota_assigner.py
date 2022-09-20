@@ -112,7 +112,7 @@ class SimOTAAssigner(object):
             is_in_gts_or_centers_all_inds = paddle.nonzero(
                 is_in_gts_or_centers_all).squeeze(1)
 
-# both in gts and gt centers, shape: [num_fg, num_gt]
+        # both in gts and gt centers, shape: [num_fg, num_gt]
         is_in_gts_and_centers = paddle.logical_and(
             paddle.gather(
                 is_in_gts.cast('int'), is_in_gts_or_centers_all_inds,
@@ -125,7 +125,13 @@ class SimOTAAssigner(object):
     def dynamic_k_matching(self, cost_matrix, pairwise_ious, num_gt):
         match_matrix = np.zeros_like(cost_matrix.numpy())
         # select candidate topk ious for dynamic-k calculation
-        topk_ious, _ = paddle.topk(pairwise_ious, self.candidate_topk, axis=0)
+        # topk_ious, _ = paddle.topk(pairwise_ious, self.candidate_topk, axis=0)
+
+        topk_ious, _ = paddle.topk(
+            pairwise_ious,
+            min(self.candidate_topk, pairwise_ious.shape[0]),
+            axis=0)
+
         # calculate dynamic k for each gt
         dynamic_ks = paddle.clip(topk_ious.sum(0).cast('int'), min=1)
         for gt_idx in range(num_gt):
