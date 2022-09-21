@@ -1,0 +1,276 @@
+
+
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+]
+
+snapshot_epoch: 1
+log_iter: 20
+
+# optimizer
+epoch: &epoch 30
+
+LearningRate:
+  base_lr: 0.0001
+  schedulers:
+    - !CosineDecay
+      max_epochs: *epoch
+      min_lr_ratio: 0.01
+      # last_plateau_epochs: 10
+    - !LinearWarmup
+      start_factor: 0.
+      epochs: 1
+
+
+# LearningRate:
+#   base_lr: 0.0001
+#   schedulers:
+#   - !PiecewiseDecay
+#     gamma: 0.1
+#     milestones: [45, 55]
+#   - !LinearWarmup
+#     start_factor: 0.001
+#     epochs: 1
+
+
+
+# # DETR OPTIMIZER
+# OptimizerBuilder:
+#   clip_grad_by_norm: 0.1
+#   regularizer: false
+#   optimizer:
+#     type: AdamW
+#     weight_decay: 0.0001
+
+
+# SWIN OPTIMIZER
+OptimizerBuilder:
+  clip_grad_by_norm: 1.0
+  optimizer:
+    type: AdamW
+    weight_decay: 0.05
+    param_groups:
+        -
+          params: ['norm', 'cls_token', 'pos_embed', '.bias', 'bn.weight']
+          weight_decay: 0.
+
+
+
+# LearningRateCNN:
+#   base_lr: 0.01
+#   schedulers:
+#     - !CosineDecay
+#       max_epochs: *epoch
+#       # min_lr_ratio: 0.05
+#       # last_plateau_epochs: 10
+#     - !LinearWarmup
+#       start_factor: 0.
+#       epochs: 1
+
+# OptimizerBuilderCNN:
+#   optimizer:
+#     type: Momentum
+#     momentum: 0.9
+#     use_nesterov: True
+#   regularizer:
+#     factor: 0.0005
+#     type: L2
+
+
+# VIT OPTIMIZER
+# OptimizerBuilder:
+#   optimizer:
+#     type: AdamWDL
+#     betas: [0.9, 0.999]
+#     layer_decay: 0.75
+#     weight_decay: 0.05
+#     num_layers: 12
+#     filter_bias_and_bn: True
+#     skip_decay_names: ['pos_embed', 'cls_token']
+#     set_param_lr_func: 'layerwise_lr_decay'
+
+
+
+# model
+architecture: YOLOv3
+norm_type: sync_bn
+use_ema: true
+ema_decay: 0.9999
+ema_warmup_steps: 2000 #
+ema_skip_names: ['yolo_head.proj_conv', 'backbone.pos_embed']
+
+# custom_black_list: ['reduce_mean']
+find_unused_parameters: True
+use_fused_allreduce_gradients: &use_checkpoint False
+
+
+YOLOv3:
+  backbone: VisionTransformer
+  neck: YOLOCSPPAN
+  yolo_head: PHead
+  post_process: ~
+
+
+VisionTransformer:
+  patch_size: 16
+  embed_dim: 768
+  depth: 12
+  num_heads: 12
+  mlp_ratio: 4
+  qkv_bias: True
+  drop_rate: 0.0
+  drop_path_rate: 0.2
+  init_values: 0.1
+  final_norm: False
+  use_rel_pos_bias: False
+  use_sincos_pos_emb: True
+  epsilon: 0.000001 # 1e-6
+  out_indices: [11, ]
+  with_fpn: True
+  out_with_norm: False
+  use_checkpoint: *use_checkpoint
+  pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
+
+
+YOLOCSPPAN:
+  depthwise: False
+  in_channels: [768, 768, 768]
+  act: 'silu'
+
+
+PHead:
+  in_channels: [768, 768, 768]
+  feat_channels: 768
+  fpn_strides: [8, 16, 32]
+  # in_channels: [768, ]
+  # feat_channels: 768
+  # fpn_strides: [16, ]
+
+  # ppn_threshold: 0.3
+  ppn_select_type: 'topk'
+  ppn_topk: 0.2
+
+  use_obj: True
+
+  # l1_epoch: 300
+  depthwise: False
+  loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
+  assigner:
+    name: SimOTAAssigner
+    candidate_topk: 10
+    use_vfl: False
+    check_center_in_gt: False
+  nms:
+    name: MultiClassNMS
+    nms_top_k: 1000
+    keep_top_k: 100
+    score_threshold: 0.01
+    nms_threshold: 0.65
+
+
+# PP-YOLOE READER
+worker_num: 4
+eval_height: &eval_height 640
+eval_width: &eval_width 640
+eval_size: &eval_size [*eval_height, *eval_width]
+
+TrainReader:
+  sample_transforms:
+    - Decode: {}
+    - RandomDistort: {}
+    - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
+    - RandomCrop: {}
+    - RandomFlip: {}
+  batch_transforms:
+    - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+    - PadGT: {}
+  batch_size: 1
+  shuffle: true
+  drop_last: true
+  use_shared_memory: true
+  # collate_batch: true
+  collate_batch: false
+
+EvalReader:
+  sample_transforms:
+    - Decode: {}
+    - Resize: {target_size: [640, 640], keep_ratio: False, interp: 2}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+  batch_size: 1
+
+# EvalReader:
+#   sample_transforms:
+#     - Decode: {}
+#     - Resize: {target_size: [640, 640], keep_ratio: True, interp: 1}
+#     - Pad: {size: [640, 640], fill_value: [114., 114., 114.]}
+#     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+#     - Permute: {}
+#   batch_size: 1
+
+
+TestReader:
+  inputs_def:
+    image_shape: [3, 640, 640]
+  sample_transforms:
+    - Decode: {}
+    - Resize: {target_size: [640, 640], keep_ratio: False, interp: 2}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+  batch_size: 1
+
+
+# # YOLOv5 READER
+# input_height: &input_height 640
+# input_width: &input_width 640
+# input_size: &input_size [*input_height, *input_width]
+# eval_size: &eval_size [*input_height, *input_width]
+# mosaic_epoch: &mosaic_epoch 300
+
+# worker_num: 4
+# TrainReader:
+#   sample_transforms:
+#     - Decode: {}
+#     - MosaicPerspective: {target_size: *input_size, mosaic_prob: 1.0, mixup_prob: 0.15, paste_in_prob: 0.15, translate: 0.2, scale: 0.9}
+#     - RandomHSV: {hgain: 0.015, sgain: 0.7, vgain: 0.4}
+#     - RandomFlip: {}
+#     # - BboxXYXY2XYWH: {}
+#     # - NormalizeBox: {}
+#     # - NormalizeImageQuick: {mean: [0, 0, 0], std: [1, 1, 1], is_scale: True}
+#     # - Permute: {}
+#   batch_transforms:
+#     - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: True}
+#     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+#     - Permute: {}
+#     - PadGT: {}
+
+#   batch_size: 4
+#   shuffle: True
+#   drop_last: False
+#   use_shared_memory: False
+#   collate_batch: true
+#   mosaic_epoch: *mosaic_epoch
+
+# EvalReader:
+#   sample_transforms:
+#     - Decode: {}
+#     - Resize: {target_size: *input_size, keep_ratio: True, interp: 1}
+#     - Pad: {size: *input_size, fill_value: [114., 114., 114.]}
+#     - NormalizeImageQuick: {mean: [0, 0, 0], std: [1, 1, 1], is_scale: True}
+#     - Permute: {}
+#   batch_size: 8
+
+# TestReader:
+#   inputs_def:
+#     image_shape: [3, 640, 640]
+#   sample_transforms:
+#     - Decode: {}
+#     - Resize: {target_size: *input_size, keep_ratio: True, interp: 1}
+#     - Pad: {size: *input_size, fill_value: [114., 114., 114.]}
+#     - NormalizeImage: {mean: [0, 0, 0], std: [1, 1, 1], is_scale: True}
+#     - Permute: {}
+#   batch_size: 1
+#   fuse_normalize: True

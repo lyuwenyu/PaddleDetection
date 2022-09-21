@@ -117,7 +117,8 @@ class PHead(nn.Layer):
                  exclude_nms=False,
                  ppn_threshold=0.1,
                  ppn_topk=0.1,
-                 ppn_select_type='topk'):
+                 ppn_select_type='topk',
+                 use_obj=True):
 
         super().__init__()
         self._dtype = paddle.framework.get_default_dtype()
@@ -132,6 +133,7 @@ class PHead(nn.Layer):
         self.ppn_threshold = ppn_threshold
         self.ppn_topk = ppn_topk
         self.ppn_select_type = ppn_select_type
+        self.use_obj = use_obj
 
         if isinstance(self.nms, MultiClassNMS) and trt:
             self.nms.trt = trt
@@ -364,8 +366,13 @@ class PHead(nn.Layer):
             yolox_losses['loss'] += loss_pps
 
             return yolox_losses
+
         else:
-            pred_scores = (cls_score_list * obj_score_list).sqrt()
+            if self.use_obj:
+                pred_scores = (cls_score_list * obj_score_list).sqrt()
+            else:
+                pred_scores = cls_score_list
+
             return pred_scores, bbox_pred_list, stride_tensor
 
     def get_loss(self, head_outs, targets):
@@ -373,7 +380,12 @@ class PHead(nn.Layer):
         anchor_points, stride_tensor, num_anchors_list = head_outs
         gt_labels = targets['gt_class']
         gt_bboxes = targets['gt_bbox']
-        pred_scores = (pred_cls * pred_obj).sqrt()
+
+        if self.use_obj:
+            pred_scores = (pred_cls * pred_obj).sqrt()
+        else:
+            pred_scores = pred_cls
+
         # label assignment
         center_and_strides = paddle.concat(
             [anchor_points, stride_tensor, stride_tensor], axis=-1)
@@ -392,10 +404,14 @@ class PHead(nn.Layer):
 
         # 1. obj score loss
         mask_positive = (labels != self.num_classes)
-        loss_obj = F.binary_cross_entropy(
-            pred_obj,
-            mask_positive.astype(pred_obj.dtype).unsqueeze(-1),
-            reduction='sum')
+
+        if self.use_obj:
+            loss_obj = F.binary_cross_entropy(
+                pred_obj,
+                mask_positive.astype(pred_obj.dtype).unsqueeze(-1),
+                reduction='sum')
+        else:
+            loss_obj = 0
 
         num_pos = sum(pos_num_list)
 
