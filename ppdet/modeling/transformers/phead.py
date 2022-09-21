@@ -18,6 +18,8 @@ __all__ = ['PHead']
 
 from ..bbox_utils import bbox_iou
 
+from .heatmap import BoxCenterGaussianMask
+
 
 class IouLoss(object):
     """
@@ -96,29 +98,31 @@ class PHead(nn.Layer):
     __shared__ = ['num_classes', 'width_mult', 'act', 'trt', 'exclude_nms']
     __inject__ = ['assigner', 'nms']
 
-    def __init__(self,
-                 num_classes=80,
-                 width_mult=1.0,
-                 depthwise=False,
-                 in_channels=[256, 512, 1024],
-                 feat_channels=256,
-                 fpn_strides=(8, 16, 32),
-                 l1_epoch=300,
-                 act='silu',
-                 assigner=SimOTAAssigner(use_vfl=False),
-                 nms='MultiClassNMS',
-                 loss_weight={
-                     'cls': 1.0,
-                     'obj': 1.0,
-                     'iou': 5.0,
-                     'l1': 1.0,
-                 },
-                 trt=False,
-                 exclude_nms=False,
-                 ppn_threshold=0.1,
-                 ppn_topk=0.1,
-                 ppn_select_type='topk',
-                 use_obj=True):
+    def __init__(
+            self,
+            num_classes=80,
+            width_mult=1.0,
+            depthwise=False,
+            in_channels=[256, 512, 1024],
+            feat_channels=256,
+            fpn_strides=(8, 16, 32),
+            l1_epoch=300,
+            act='silu',
+            assigner=SimOTAAssigner(use_vfl=False),
+            nms='MultiClassNMS',
+            loss_weight={
+                'cls': 1.0,
+                'obj': 1.0,
+                'iou': 5.0,
+                'l1': 1.0,
+            },
+            trt=False,
+            exclude_nms=False,
+            ppn_threshold=0.1,
+            ppn_topk=0.1,
+            ppn_select_type='topk',
+            ppn_gt_type='center',
+            use_obj=True, ):
 
         super().__init__()
         self._dtype = paddle.framework.get_default_dtype()
@@ -134,6 +138,9 @@ class PHead(nn.Layer):
         self.ppn_topk = ppn_topk
         self.ppn_select_type = ppn_select_type
         self.use_obj = use_obj
+        self.ppn_gt_type = ppn_gt_type
+
+        self.draw_gassian_mask = BoxCenterGaussianMask()
 
         if isinstance(self.nms, MultiClassNMS) and trt:
             self.nms.trt = trt
@@ -239,11 +246,19 @@ class PHead(nn.Layer):
         pp_logits_list = []
         index_list = []
         stride_list = []
+        mask_list = []
 
         for i, feat in enumerate(feats):
             n, c, h, w = feat.shape
             pp_feat = self.ppn_convs[i](feat)
             pp_logits_list.append(pp_feat)
+
+            if self.training and self.ppn_gt_type == 'gaussian':
+                boxes = targets['gt_bbox'][0]
+                boxes[:, 2:] -= boxes[:, :2]
+                boxes[:, :2] += boxes[:, 2:] / 2.
+                mask = self.draw_gassian_mask(boxes, shape=(h, w))
+                mask_list.append(paddle.to_tensor(mask))
 
             if self.ppn_select_type == 'threshod':
                 index = (F.sigmoid(pp_feat) > self.ppn_threshold
@@ -350,17 +365,27 @@ class PHead(nn.Layer):
                 stride_tensor, num_anchors_list
             ], targets)
 
-            # pp_logtis_list
-            gt_bboxes = paddle.to_tensor(targets['gt_bbox'])[0]  # bs==1
-            gt_centers = (gt_bboxes[:, 2:] - gt_bboxes[:, :2]) / 2.
+            # TODO only support bs==1, pp_logtis_list
             loss_pps = 0
-            for i, pp_logits in enumerate(pp_logits_list):
-                centers = paddle.cast(gt_centers / self.fpn_strides[i], 'int64')
-                pp_gt = paddle.zeros_like(pp_logits)
-                pp_gt[0, 0, centers[:, -1], centers[:, 0]] = 1.
-                loss_pp = F.binary_cross_entropy_with_logits(
-                    pp_logits, pp_gt, reduction='mean')
-                loss_pps += loss_pp
+
+            if self.ppn_gt_type == 'center':
+                gt_bboxes = paddle.to_tensor(targets['gt_bbox'])[0]  # bs==1
+                gt_centers = (
+                    gt_bboxes[:, 2:] + gt_bboxes[:, :2]) / 2.  # fix - to +
+                for i, pp_logits in enumerate(pp_logits_list):
+                    centers = paddle.cast(gt_centers / self.fpn_strides[i],
+                                          'int64')
+                    pp_gt = paddle.zeros_like(pp_logits)
+                    pp_gt[0, 0, centers[:, -1], centers[:, 0]] = 1.
+                    loss_pp = F.binary_cross_entropy_with_logits(
+                        pp_logits, pp_gt, reduction='mean')
+                    loss_pps += loss_pp
+
+            if self.ppn_gt_type == 'gassian':
+                for i, pp_logits in enumerate(pp_logits_list):
+                    loss_pp = F.binary_cross_entropy_with_logits(
+                        pp_logits.squeeze(1), mask_list[i], reduction='mean')
+                    loss_pps += loss_pp
 
             yolox_losses['loss_pps'] = loss_pp
             yolox_losses['loss'] += loss_pps

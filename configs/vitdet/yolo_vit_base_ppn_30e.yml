@@ -150,7 +150,7 @@ PHead:
   # ppn_threshold: 0.3
   ppn_select_type: 'topk'
   ppn_topk: 0.2
-
+  ppn_gt_type: 'center'
   use_obj: True
 
   # l1_epoch: 300
