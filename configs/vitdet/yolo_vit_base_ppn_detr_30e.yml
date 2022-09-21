@@ -6,7 +6,7 @@ _BASE_: [
 ]
 
 snapshot_epoch: 1
-log_iter: 20
+log_iter: 100
 
 # optimizer
 epoch: &epoch 30
@@ -107,8 +107,8 @@ use_fused_allreduce_gradients: &use_checkpoint False
 
 YOLOv3:
   backbone: VisionTransformer
-  neck: YOLOCSPPAN
-  yolo_head: PHead
+  neck: ~
+  yolo_head: PHeadL
   post_process: ~
 
 
@@ -127,46 +127,61 @@ VisionTransformer:
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
   out_indices: [11, ]
-  with_fpn: True
+  with_fpn: False
   out_with_norm: False
   use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
 
 
-YOLOCSPPAN:
-  depthwise: False
-  in_channels: [768, 768, 768]
-  act: 'silu'
+# YOLOCSPPAN:
+#   depthwise: False
+#   in_channels: [768, 768, 768]
+#   act: 'silu'
 
 
-PHead:
-  in_channels: [768, 768, 768]
-  feat_channels: 768
-  fpn_strides: [8, 16, 32]
-  # in_channels: [768, ]
+PHeadL:
+  # in_channels: [768, 768, 768]
   # feat_channels: 768
-  # fpn_strides: [16, ]
+  # fpn_strides: [8, 16, 32]
+  in_channels: [768, ]
+  feat_channels: 768
+  fpn_strides: [16, ]
 
   # ppn_threshold: 0.3
   ppn_select_type: 'topk'
-  ppn_topk: 0.2
-  ppn_gt_type: 'center'
-  use_obj: True
+  ppn_topk: 0.1
+  ppn_gt_type: 'center' # gaussian
+  ppn_with_attention: True
 
+  # use_obj: True
   # l1_epoch: 300
-  depthwise: False
-  loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
-  assigner:
-    name: SimOTAAssigner
-    candidate_topk: 10
-    use_vfl: False
-    check_center_in_gt: False
-  nms:
-    name: MultiClassNMS
-    nms_top_k: 1000
-    keep_top_k: 100
-    score_threshold: 0.01
-    nms_threshold: 0.65
+  # depthwise: False
+  # loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
+  # assigner:
+  #   name: SimOTAAssigner
+  #   candidate_topk: 10
+  #   use_vfl: False
+  #   check_center_in_gt: False
+  # nms:
+  #   name: MultiClassNMS
+  #   nms_top_k: 1000
+  #   keep_top_k: 100
+  #   score_threshold: 0.01
+  #   nms_threshold: 0.65
+
+
+DETRLoss:
+  loss_coeff: {class: 1, bbox: 5, giou: 2, no_object: 0.1, mask: 1, dice: 1}
+  aux_loss: False
+
+HungarianMatcher:
+  matcher_coeff: {class: 1, bbox: 5, giou: 2}
+
+DETRBBoxPostProcess:
+  num_classes: 80
+  num_top_queries: 100
+
+
 
 
 # PP-YOLOE READER
@@ -186,7 +201,10 @@ TrainReader:
     - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
-    - PadGT: {}
+    # - PadGT: {}
+    - NormalizeBox: {}
+    - BboxXYXY2XYWH: {}
+    # - Permute: {}
   batch_size: 1
   shuffle: true
   drop_last: true
