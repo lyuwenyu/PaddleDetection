@@ -6,7 +6,7 @@ _BASE_: [
 ]
 
 snapshot_epoch: 1
-log_iter: 20
+log_iter: 100
 
 # optimizer
 epoch: &epoch 30
@@ -108,7 +108,7 @@ use_fused_allreduce_gradients: &use_checkpoint False
 YOLOv3:
   backbone: VisionTransformer
   neck: YOLOCSPPAN
-  yolo_head: YOLOXHeadL
+  yolo_head: PHeadTransformer
   post_process: ~
 
 
@@ -139,7 +139,7 @@ YOLOCSPPAN:
   act: 'silu'
 
 
-YOLOXHeadL:
+PHead:
   in_channels: [768, 768, 768]
   feat_channels: 768
   fpn_strides: [8, 16, 32]
@@ -148,8 +148,12 @@ YOLOXHeadL:
   # fpn_strides: [16, ]
 
   # ppn_threshold: 0.3
-  # ppn_select_type: 'topk'
-  # ppn_topk: 0.2
+  ppn_select_type: 'topk'
+  ppn_topk: 0.1
+  ppn_gt_type: 'center' # gaussian
+  # ppn_with_attention: False
+
+  use_obj: True
 
   # l1_epoch: 300
   depthwise: False
@@ -158,7 +162,7 @@ YOLOXHeadL:
     name: SimOTAAssigner
     candidate_topk: 10
     use_vfl: False
-    # check_center_in_gt: False
+    check_center_in_gt: False
   nms:
     name: MultiClassNMS
     nms_top_k: 1000
@@ -184,7 +188,7 @@ TrainReader:
     - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
-    - PadGT: {}
+    # - PadGT: {} # TODO
   batch_size: 1
   shuffle: true
   drop_last: true

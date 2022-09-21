@@ -7,12 +7,14 @@ from ppdet.core.workspace import register
 
 import math
 import numpy as np
-from ppdet.modeling.initializer import bias_init_with_prob, constant_, conv_init_
+from ppdet.modeling.initializer import bias_init_with_prob, constant_, conv_init_, normal_
 # from ..backbones.csp_darknet import BaseConv, DWConv
 # from ppdet.modeling.losses import IouLoss
 from ppdet.modeling.assigners.simota_assigner import SimOTAAssigner
 from ppdet.modeling.bbox_utils import bbox_overlaps
 from ppdet.modeling.layers import MultiClassNMS
+
+import copy
 
 __all__ = ['PHead']
 
@@ -984,36 +986,38 @@ class PHeadTransformer(nn.Layer):
 
 
 @register
-class PHeadL(nn.Layer):
+class PHeadTETR(nn.Layer):
     __shared__ = ['num_classes', 'width_mult', 'act', 'trt', 'exclude_nms']
-    __inject__ = ['assigner', 'nms', 'loss', 'post_process']
+    __inject__ = ['nms', 'loss', 'post_process']
 
-    def __init__(self,
-                 num_classes=80,
-                 width_mult=1.0,
-                 in_channels=[256, 512, 1024],
-                 feat_channels=256,
-                 fpn_strides=(8, 16, 32),
-                 l1_epoch=300,
-                 act='silu',
-                 assigner=SimOTAAssigner(use_vfl=False),
-                 nms='MultiClassNMS',
-                 loss_weight={
-                     'cls': 1.0,
-                     'obj': 1.0,
-                     'iou': 5.0,
-                     'l1': 1.0,
-                 },
-                 trt=False,
-                 exclude_nms=False,
-                 ppn_threshold=0.1,
-                 ppn_topk=0.1,
-                 ppn_select_type='topk',
-                 ppn_gt_type='center',
-                 ppn_with_attention=True,
-                 use_obj=True,
-                 loss='DETRLoss',
-                 post_process='DETRBBoxPostProcess'):
+    def __init__(
+            self,
+            num_classes=80,
+            width_mult=1.0,
+            in_channels=[256, 512, 1024],
+            feat_channels=256,
+            fpn_strides=(8, 16, 32),
+            l1_epoch=300,
+            act='silu',
+            #  assigner=SimOTAAssigner(use_vfl=False),
+            nms='MultiClassNMS',
+            loss_weight={
+                'cls': 1.0,
+                'obj': 1.0,
+                'iou': 5.0,
+                'l1': 1.0,
+            },
+            trt=False,
+            exclude_nms=False,
+            ppn_threshold=0.1,
+            ppn_topk=0.1,
+            ppn_select_type='topk',
+            ppn_gt_type='center',
+            ppn_with_attention=True,
+            use_obj=True,
+            num_layers=6,
+            loss='DETRLoss',
+            post_process='DETRBBoxPostProcess'):
 
         super().__init__()
         self._dtype = paddle.framework.get_default_dtype()
@@ -1023,7 +1027,7 @@ class PHeadL(nn.Layer):
         feat_channels = int(feat_channels * width_mult)
         self.fpn_strides = fpn_strides
         self.l1_epoch = l1_epoch
-        self.assigner = assigner
+        # self.assigner = assigner
         self.nms = nms
         self.ppn_threshold = ppn_threshold
         self.ppn_topk = ppn_topk
@@ -1033,6 +1037,7 @@ class PHeadL(nn.Layer):
         self.ppn_with_attention = ppn_with_attention
         self.loss = loss
         self.post_process_func = post_process
+        self.num_layers = num_layers
 
         self.draw_gassian_mask = BoxCenterGaussianMask()
 
@@ -1056,9 +1061,15 @@ class PHeadL(nn.Layer):
         hidden_dim = 768
         encoder_layer = nn.TransformerEncoderLayer(
             hidden_dim, 12, hidden_dim * 4, 0, activation='gelu')
-        self.encoder = nn.TransformerEncoder(encoder_layer, 3)
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
 
-        self.score_head = nn.Linear(hidden_dim, self.num_classes)
+        if len(in_channels) > 1:
+            self.level_encoding = nn.Embedding(len(in_channels), 768)
+            normal_(self.level_encoding.weight, 0, 1)
+        else:
+            self.level_encoding = None
+
+        self.score_head = nn.Linear(hidden_dim, self.num_classes + 1)
         self.bbox_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim * 2),
             nn.GELU(),
@@ -1067,22 +1078,22 @@ class PHeadL(nn.Layer):
             nn.Linear(hidden_dim * 2, 4), )
         # https://github.com/lyuwenyu/PaddleDetection/blob/yolo_ctm_L/ppdet/modeling/transformers/tencoder.py
 
-        self._init_weights()
+        # self._init_weights()
 
     # @classmethod
     # def from_config(cls, cfg, input_shape):
     #     return {'in_channels': [i.channels for i in input_shape], }
 
-    def _init_weights(self):
-        bias_cls = bias_init_with_prob(0.01)
-        bias_reg = paddle.full([5], math.log(5.), dtype=self._dtype)
-        bias_reg[:2] = 0.
-        bias_reg[-1] = bias_cls
-        for cls_, reg_ in zip(self.conv_cls, self.conv_reg):
-            constant_(cls_[-1].weight)
-            constant_(cls_[-1].bias, bias_cls)
-            constant_(reg_[-1].weight)
-            reg_[-1].bias.set_value(bias_reg)
+    # def _init_weights(self):
+    #     bias_cls = bias_init_with_prob(0.01)
+    #     bias_reg = paddle.full([5], math.log(5.), dtype=self._dtype)
+    #     bias_reg[:2] = 0.
+    #     bias_reg[-1] = bias_cls
+    #     for cls_, reg_ in zip(self.conv_cls, self.conv_reg):
+    #         constant_(cls_[-1].weight)
+    #         constant_(cls_[-1].bias, bias_cls)
+    #         constant_(reg_[-1].weight)
+    #         reg_[-1].bias.set_value(bias_reg)
 
     def forward(self, feats, targets=None):
         assert len(feats) == len(self.fpn_strides), \
@@ -1166,6 +1177,9 @@ class PHeadL(nn.Layer):
             # just for bs=1
             feat = paddle.gather_nd(
                 feat.transpose([0, 2, 3, 1]), index=index).reshape([n, -1, c])
+
+            if self.level_encoding is not None:
+                feat += self.level_encoding.weight[i]
 
             feat_list.append(feat)
 
