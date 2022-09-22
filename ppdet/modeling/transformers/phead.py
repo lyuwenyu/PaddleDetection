@@ -552,32 +552,32 @@ class PHeadTransformer(nn.Layer):
     __shared__ = ['num_classes', 'width_mult', 'act', 'trt', 'exclude_nms']
     __inject__ = ['assigner', 'nms']
 
-    def __init__(
-            self,
-            num_classes=80,
-            width_mult=1.0,
-            depthwise=False,
-            in_channels=[256, 512, 1024],
-            feat_channels=256,
-            fpn_strides=(8, 16, 32),
-            l1_epoch=300,
-            act='silu',
-            assigner=SimOTAAssigner(use_vfl=False),
-            nms='MultiClassNMS',
-            loss_weight={
-                'cls': 1.0,
-                'obj': 1.0,
-                'iou': 5.0,
-                'l1': 1.0,
-            },
-            trt=False,
-            exclude_nms=False,
-            ppn_threshold=0.1,
-            ppn_topk=0.1,
-            ppn_select_type='topk',
-            ppn_gt_type='center',
-            num_layers=3,
-            use_obj=True, ):
+    def __init__(self,
+                 num_classes=80,
+                 width_mult=1.0,
+                 depthwise=False,
+                 in_channels=[256, 512, 1024],
+                 feat_channels=256,
+                 fpn_strides=(8, 16, 32),
+                 l1_epoch=300,
+                 act='silu',
+                 assigner=SimOTAAssigner(use_vfl=False),
+                 nms='MultiClassNMS',
+                 loss_weight={
+                     'cls': 1.0,
+                     'obj': 1.0,
+                     'iou': 5.0,
+                     'l1': 1.0,
+                 },
+                 trt=False,
+                 exclude_nms=False,
+                 ppn_threshold=0.1,
+                 ppn_topk=0.1,
+                 ppn_select_type='topk',
+                 ppn_gt_type='center',
+                 num_layers=3,
+                 use_obj=True,
+                 pred_type='conv'):
 
         super().__init__()
         self._dtype = paddle.framework.get_default_dtype()
@@ -594,6 +594,7 @@ class PHeadTransformer(nn.Layer):
         self.ppn_select_type = ppn_select_type
         self.use_obj = use_obj
         self.ppn_gt_type = ppn_gt_type
+        self.pred_type = pred_type
 
         self.draw_gassian_mask = BoxCenterGaussianMask()
 
@@ -621,38 +622,55 @@ class PHeadTransformer(nn.Layer):
         # for in_c in self.in_channels:
         for in_c in self.in_channels[-1:]:
 
-            self.stem_conv.append(BaseConv(in_c, feat_channels, 1, 1, act=act))
+            if pred_type == 'conv':
+                self.stem_conv.append(
+                    BaseConv(
+                        in_c, feat_channels, 1, 1, act=act))
 
-            self.conv_cls.append(
-                nn.Sequential(*[
-                    # ConvBlock(
-                    #     feat_channels, feat_channels, 1, 1, act=act), 
-                    ConvBlock(
-                        feat_channels, feat_channels, 1, 1, act=act),
-                    nn.Conv2D(
-                        feat_channels,
-                        self.num_classes,
-                        1,
-                        bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
-                ]))
+                self.conv_cls.append(
+                    nn.Sequential(*[
+                        # ConvBlock(
+                        #     feat_channels, feat_channels, 1, 1, act=act), 
+                        ConvBlock(
+                            feat_channels, feat_channels, 1, 1, act=act),
+                        nn.Conv2D(
+                            feat_channels,
+                            self.num_classes,
+                            1,
+                            bias_attr=ParamAttr(regularizer=L2Decay(0.0))),
+                    ]))
 
-            self.conv_reg.append(
-                nn.Sequential(*[
-                    # ConvBlock(
-                    #     feat_channels, feat_channels, 1, 1, act=act),
-                    ConvBlock(
-                        feat_channels, feat_channels, 1, 1, act=act),
-                    nn.Conv2D(
-                        feat_channels,
-                        4 + 1,  # reg [x,y,w,h] + obj
-                        1,
-                        bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
-                ]))
+                self.conv_reg.append(
+                    nn.Sequential(*[
+                        # ConvBlock(
+                        #     feat_channels, feat_channels, 1, 1, act=act),
+                        ConvBlock(
+                            feat_channels, feat_channels, 1, 1, act=act),
+                        nn.Conv2D(
+                            feat_channels,
+                            4 + 1,  # reg [x,y,w,h] + obj
+                            1,
+                            bias_attr=ParamAttr(regularizer=L2Decay(0.0))),
+                    ]))
 
-        # encoder_layer = nn.TransformerEncoderLayer(
-        #     hidden_dim, nhead, dim_feedforward, dropout, activation=act)
-        # self.encoder = PPTransformerEncoder(
-        #     encoder_layer, num_layers, return_intermediate=return_intermediate)
+            elif pred_type == 'linear':
+
+                self.stem_conv.append(
+                    nn.Sequential(
+                        nn.Linear(in_c, feat_channels),
+                        nn.GELU(), ))
+                self.conv_cls.append(
+                    nn.Sequential(*[
+                        nn.Linear(feat_channels, feat_channels), nn.GELU(),
+                        nn.Linear(feat_channels, self.num_classes)
+                    ]))
+
+                self.conv_reg.append(
+                    nn.Sequential(*[
+                        nn.Linear(feat_channels, feat_channels), nn.GELU(
+                        ), nn.Linear(feat_channels, feat_channels), nn.GELU(),
+                        nn.Linear(feat_channels, 4 + 1)
+                    ]))
 
         if len(in_channels) == 1:
             self.level_encoding = None
@@ -800,7 +818,11 @@ class PHeadTransformer(nn.Layer):
         feat = self.encoder(feat)
 
         ii = 0
-        feat = feat.transpose([0, 2, 1]).unsqueeze(-1)  # N C L1 1
+        if self.pred_type == 'conv':
+            feat = feat.transpose([0, 2, 1]).unsqueeze(-1)  # N C L1 1
+        elif self.pred_type == 'linear':
+            pass
+
         feat = self.stem_conv[ii](feat)
         cls_logit = self.conv_cls[ii](feat)
         reg_pred = self.conv_reg[ii](feat)

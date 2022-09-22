@@ -107,7 +107,7 @@ use_fused_allreduce_gradients: &use_checkpoint False
 
 YOLOv3:
   backbone: VisionTransformer
-  neck: YOLOCSPPAN
+  # neck: YOLOCSPPAN
   yolo_head: PHeadTransformer
   post_process: ~
 
@@ -127,8 +127,10 @@ VisionTransformer:
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
   out_indices: [11, ]
-  with_fpn: True
+
+  with_fpn: False
   out_with_norm: False
+
   use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
 
@@ -140,20 +142,21 @@ YOLOCSPPAN:
 
 
 PHeadTransformer:
-  in_channels: [768, 768, 768]
-  feat_channels: 768
-  fpn_strides: [8, 16, 32]
-  # in_channels: [768, ]
+  # in_channels: [768, 768, 768]
   # feat_channels: 768
-  # fpn_strides: [16, ]
+  # fpn_strides: [8, 16, 32]
+  in_channels: [768, ]
+  feat_channels: 768
+  fpn_strides: [16, ]
 
   # ppn_threshold: 0.3
   ppn_select_type: 'topk'
   ppn_topk: 0.1
   ppn_gt_type: 'center' # gaussian
-  num_layers: 3
+  num_layers: 6
 
   use_obj: True
+  pred_type: 'linear' # 'linear'
 
   # l1_epoch: 300
   depthwise: False
