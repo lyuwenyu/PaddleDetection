@@ -608,7 +608,7 @@ class PHeadTransformer(nn.Layer):
         self.ppn_convs = nn.LayerList([
             nn.Sequential(
                 ConvBlock(
-                    c, c, 1, 1, act=act),
+                    c, c, 3, 1, act=act),
                 nn.Conv2D(
                     c, 1, 1, bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
             for c in self.in_channels
@@ -619,15 +619,16 @@ class PHeadTransformer(nn.Layer):
         self.conv_reg = nn.LayerList()  # reg [x,y,w,h] + obj
 
         # for in_c in self.in_channels:
-        for in_c in range([768, ]):
+        for in_c in self.in_channels[-1:]:
 
             self.stem_conv.append(BaseConv(in_c, feat_channels, 1, 1, act=act))
 
             self.conv_cls.append(
                 nn.Sequential(*[
+                    # ConvBlock(
+                    #     feat_channels, feat_channels, 1, 1, act=act), 
                     ConvBlock(
-                        feat_channels, feat_channels, 1, 1, act=act), ConvBlock(
-                            feat_channels, feat_channels, 1, 1, act=act),
+                        feat_channels, feat_channels, 1, 1, act=act),
                     nn.Conv2D(
                         feat_channels,
                         self.num_classes,
@@ -637,8 +638,8 @@ class PHeadTransformer(nn.Layer):
 
             self.conv_reg.append(
                 nn.Sequential(*[
-                    ConvBlock(
-                        feat_channels, feat_channels, 1, 1, act=act),
+                    # ConvBlock(
+                    #     feat_channels, feat_channels, 1, 1, act=act),
                     ConvBlock(
                         feat_channels, feat_channels, 1, 1, act=act),
                     nn.Conv2D(

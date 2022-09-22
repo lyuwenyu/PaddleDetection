@@ -139,7 +139,7 @@ YOLOCSPPAN:
   act: 'silu'
 
 
-PHead:
+PHeadTransformer:
   in_channels: [768, 768, 768]
   feat_channels: 768
   fpn_strides: [8, 16, 32]
