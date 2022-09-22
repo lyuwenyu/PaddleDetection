@@ -147,12 +147,16 @@ PHeadTETR:
   feat_channels: 768
   fpn_strides: [16, ]
 
+
   # ppn_threshold: 0.3
   ppn_select_type: 'topk'
   ppn_topk: 0.1
   ppn_gt_type: 'center' # gaussian
-  ppn_with_attention: True
+  ppn_pred_type: 'linear'
   num_layers: 6
+
+  use_obj: True
+  pred_type: 'linear' # 'linear'
 
   # use_obj: True
   # l1_epoch: 300
@@ -183,7 +187,6 @@ DETRBBoxPostProcess:
   num_top_queries: 100
 
 
-
 # PP-YOLOE READER
 worker_num: 4
 eval_height: &eval_height 640
@@ -202,16 +205,6 @@ TrainReader:
     - NormalizeBox: {}
     - BboxXYXY2XYWH: {}
     - Permute: {}
-
-  # batch_transforms:
-  #   - RandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
-  #   - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
-  #   - Permute: {}
-    # - PadGT: {}
-    # - NormalizeBox: {}
-    # - BboxXYXY2XYWH: {}
-    # - Permute: {}
-
   batch_size: 1
   shuffle: true
   drop_last: true
