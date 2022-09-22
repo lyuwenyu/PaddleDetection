@@ -16,7 +16,7 @@ from ppdet.modeling.layers import MultiClassNMS
 
 import copy
 
-__all__ = ['PHead']
+__all__ = ['PHead', 'PHeadTransformer']
 
 from ..bbox_utils import bbox_iou
 
@@ -575,6 +575,7 @@ class PHeadTransformer(nn.Layer):
                  ppn_topk=0.1,
                  ppn_select_type='topk',
                  ppn_gt_type='center',
+                 ppn_pred_type='conv',
                  num_layers=3,
                  use_obj=True,
                  pred_type='conv'):
@@ -594,6 +595,7 @@ class PHeadTransformer(nn.Layer):
         self.ppn_select_type = ppn_select_type
         self.use_obj = use_obj
         self.ppn_gt_type = ppn_gt_type
+        self.ppn_pred_type = ppn_pred_type
         self.pred_type = pred_type
 
         self.draw_gassian_mask = BoxCenterGaussianMask()
@@ -606,14 +608,22 @@ class PHeadTransformer(nn.Layer):
 
         ConvBlock = BaseConv
 
-        self.ppn_convs = nn.LayerList([
-            nn.Sequential(
-                ConvBlock(
-                    c, c, 3, 1, act=act),
-                nn.Conv2D(
-                    c, 1, 1, bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
-            for c in self.in_channels
-        ])
+        if ppn_pred_type == 'conv':
+            self.ppn_convs = nn.LayerList([
+                nn.Sequential(
+                    ConvBlock(
+                        c, c, 3, 1, act=act),
+                    nn.Conv2D(
+                        c, 1, 1, bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
+                for c in self.in_channels
+            ])
+        elif ppn_pred_type == 'linear':
+            self.ppn_convs = nn.LayerList([
+                nn.Sequential(
+                    nn.Linear(c, c),
+                    nn.GELU(), nn.Linear(c, c), nn.GELU(), nn.Linear(c, 1))
+                for c in self.in_channels
+            ])
 
         self.stem_conv = nn.LayerList()
         self.conv_cls = nn.LayerList()
@@ -748,7 +758,14 @@ class PHeadTransformer(nn.Layer):
 
         for i, feat in enumerate(feats):
             n, c, h, w = feat.shape
-            pp_feat = self.ppn_convs[i](feat)
+
+            if self.ppn_pred_type == 'conv':
+                pp_feat = self.ppn_convs[i](feat)
+            elif self.ppn_pred_type == 'linear':
+                pp_feat = self.ppn_convs[i](feat.flatten(2).transpose(
+                    [0, 2, 1]))
+                pp_feat = pp_feat.transpose([0, 2, 1]).reshape([n, c, h, w])
+
             pp_logits_list.append(pp_feat)
 
             if self.training and self.ppn_gt_type == 'gaussian':
@@ -820,12 +837,17 @@ class PHeadTransformer(nn.Layer):
         ii = 0
         if self.pred_type == 'conv':
             feat = feat.transpose([0, 2, 1]).unsqueeze(-1)  # N C L1 1
-        elif self.pred_type == 'linear':
-            pass
+            feat = self.stem_conv[ii](feat)
+            cls_logit = self.conv_cls[ii](feat)
+            reg_pred = self.conv_reg[ii](feat)
 
-        feat = self.stem_conv[ii](feat)
-        cls_logit = self.conv_cls[ii](feat)
-        reg_pred = self.conv_reg[ii](feat)
+        elif self.pred_type == 'linear':
+            feat = self.stem_conv[ii](feat)
+            cls_logit = self.conv_cls[ii](feat)
+            reg_pred = self.conv_reg[ii](feat)
+
+            cls_logit = cls_logit.transpose([0, 2, 1]).unsqueeze(-1)
+            reg_pred = reg_pred.transpose([0, 2, 1]).unsqueeze(-1)
 
         # cls prediction
         cls_score = F.sigmoid(cls_logit)

@@ -107,7 +107,7 @@ use_fused_allreduce_gradients: &use_checkpoint False
 
 YOLOv3:
   backbone: VisionTransformer
-  # neck: YOLOCSPPAN
+  neck: ~ # YOLOCSPPAN
   yolo_head: PHeadTransformer
   post_process: ~
 
@@ -128,8 +128,8 @@ VisionTransformer:
   epsilon: 0.000001 # 1e-6
   out_indices: [11, ]
 
-  with_fpn: False
   out_with_norm: False
+  with_fpn: False
 
   use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
