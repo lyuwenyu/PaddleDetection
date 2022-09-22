@@ -1053,38 +1053,42 @@ class PHeadTransformer(nn.Layer):
 @register
 class PHeadTETR(nn.Layer):
     __shared__ = ['num_classes', 'width_mult', 'act', 'trt', 'exclude_nms']
-    __inject__ = ['assigner', 'nms']
+    # __inject__ = ['loss', 'nms', 'post_process']
+    __inject__ = [
+        'loss',
+        'nms',
+    ]
 
-    def __init__(
-            self,
-            num_classes=80,
-            width_mult=1.0,
-            depthwise=False,
-            in_channels=[256, 512, 1024],
-            feat_channels=256,
-            fpn_strides=(8, 16, 32),
-            l1_epoch=300,
-            act='silu',
-            #  assigner=SimOTAAssigner(use_vfl=False),
-            nms='MultiClassNMS',
-            loss_weight={
-                'cls': 1.0,
-                'obj': 1.0,
-                'iou': 5.0,
-                'l1': 1.0,
-            },
-            trt=False,
-            exclude_nms=False,
-            ppn_threshold=0.1,
-            ppn_topk=0.1,
-            ppn_select_type='topk',
-            ppn_gt_type='center',
-            ppn_pred_type='conv',
-            num_layers=3,
-            use_obj=True,
-            pred_type='conv',
-            loss='DETRLoss',
-            post_process='DETRBBoxPostProcess'):
+    def __init__(self,
+                 num_classes=80,
+                 width_mult=1.0,
+                 depthwise=False,
+                 in_channels=[256, 512, 1024],
+                 feat_channels=256,
+                 fpn_strides=(8, 16, 32),
+                 l1_epoch=300,
+                 act='silu',
+                 assigner='SimOTAAssigner',
+                 nms='MultiClassNMS',
+                 loss_weight={
+                     'cls': 1.0,
+                     'obj': 1.0,
+                     'iou': 5.0,
+                     'l1': 1.0,
+                 },
+                 trt=False,
+                 exclude_nms=False,
+                 ppn_threshold=0.1,
+                 ppn_topk=0.1,
+                 ppn_select_type='topk',
+                 ppn_gt_type='center',
+                 ppn_pred_type='conv',
+                 num_layers=3,
+                 use_obj=True,
+                 num_top_queries=100,
+                 pred_type='conv',
+                 loss='DETRLoss',
+                 post_process='DETRBBoxPostProcess'):
 
         super().__init__()
         self._dtype = paddle.framework.get_default_dtype()
@@ -1094,7 +1098,7 @@ class PHeadTETR(nn.Layer):
         feat_channels = int(feat_channels * width_mult)
         self.fpn_strides = fpn_strides
         self.l1_epoch = l1_epoch
-        # self.assigner = assigner
+        self.assigner = assigner
         self.nms = nms
         self.ppn_threshold = ppn_threshold
         self.ppn_topk = ppn_topk
@@ -1103,6 +1107,7 @@ class PHeadTETR(nn.Layer):
         self.ppn_gt_type = ppn_gt_type
         self.ppn_pred_type = ppn_pred_type
         self.pred_type = pred_type
+        self.num_top_queries = num_top_queries
 
         self.draw_gassian_mask = BoxCenterGaussianMask()
 
@@ -1198,7 +1203,7 @@ class PHeadTETR(nn.Layer):
                     nn.Sequential(*[
                         nn.Linear(feat_channels, feat_channels), nn.GELU(
                         ), nn.Linear(feat_channels, feat_channels), nn.GELU(),
-                        nn.Linear(feat_channels, 4 + 1)
+                        nn.Linear(feat_channels, 4)
                     ]))
 
         # https://github.com/lyuwenyu/PaddleDetection/blob/yolo_ctm_L/ppdet/modeling/transformers/tencoder.py
@@ -1210,13 +1215,13 @@ class PHeadTETR(nn.Layer):
                 m._epsilon = 1e-6
 
     def _init_weights(self):
-        bias_cls = bias_init_with_prob(0.01)
-        bias_reg = paddle.full([5], math.log(5.), dtype=self._dtype)
+        # bias_cls = bias_init_with_prob(0.01)
+        bias_reg = paddle.full([4], math.log(4.), dtype=self._dtype)
         bias_reg[:2] = 0.
-        bias_reg[-1] = bias_cls
+        # bias_reg[-1] = bias_cls
         for cls_, reg_ in zip(self.conv_cls, self.conv_reg):
             constant_(cls_[-1].weight)
-            constant_(cls_[-1].bias, bias_cls)
+            # constant_(cls_[-1].bias, bias_cls)
             constant_(reg_[-1].weight)
             reg_[-1].bias.set_value(bias_reg)
 
@@ -1336,19 +1341,24 @@ class PHeadTETR(nn.Layer):
             reg_pred = reg_pred.transpose([0, 2, 1]).unsqueeze(-1)
 
         # cls prediction
-        cls_score = F.sigmoid(cls_logit)
+        # TODO keep logits for detr_loss
+        # cls_score = F.sigmoid(cls_logit)
+        cls_score = cls_logit
         cls_score_list.append(cls_score.flatten(2).transpose([0, 2, 1]))
+
         # reg prediction
-        reg_xywh, obj_logit = paddle.split(reg_pred, [4, 1], axis=1)
+        # reg_xywh, obj_logit = paddle.split(reg_pred, [4, 1], axis=1)
+        reg_xywh = reg_pred
         reg_xywh = reg_xywh.flatten(2).transpose([0, 2, 1])
         reg_pred_list.append(reg_xywh)
+
         # obj prediction
-        obj_score = F.sigmoid(obj_logit)
-        obj_score_list.append(obj_score.flatten(2).transpose([0, 2, 1]))
+        # obj_score = F.sigmoid(obj_logit)
+        # obj_score_list.append(obj_score.flatten(2).transpose([0, 2, 1]))
 
         cls_score_list = paddle.concat(cls_score_list, axis=1)
         reg_pred_list = paddle.concat(reg_pred_list, axis=1)
-        obj_score_list = paddle.concat(obj_score_list, axis=1)
+        # obj_score_list = paddle.concat(obj_score_list, axis=1)
 
         index_list = paddle.concat(index_list, axis=0)  # L 3
         stride_list = paddle.concat(stride_list, axis=0)
@@ -1365,7 +1375,7 @@ class PHeadTETR(nn.Layer):
         # anchor_points, stride_tensor, _ =\
         #     self._generate_anchor_point(feat_sizes, self.fpn_strides)
 
-        reg_xy, reg_wh = paddle.split(reg_pred_list, 2, axis=-1)  # N L1 2
+        reg_xy, reg_wh = paddle.split(reg_pred_list, 2, axis=-1)  # N L1 4 -> 2
         reg_xy += (anchor_points / stride_tensor)
 
         reg_wh = paddle.exp(reg_wh) * 0.5
@@ -1378,6 +1388,12 @@ class PHeadTETR(nn.Layer):
         if self.training:
             assert targets is not None
             assert 'gt_bbox' in targets and 'gt_class' in targets
+
+            # TODO normalize for detr_loss, [cx cy w h]
+            outputs_bbox = paddle.concat([reg_xy, reg_wh], axis=-1)
+            outputs_bbox = outputs_bbox * stride_tensor / targets[
+                'image'].shape[-1]
+
             losses = self.loss(
                 outputs_bbox[None],
                 outputs_logit[None],
@@ -1387,7 +1403,7 @@ class PHeadTETR(nn.Layer):
             loss_pps = 0
             if self.ppn_gt_type == 'center':
                 gt_bboxes = paddle.to_tensor(targets['gt_bbox'])[0]  # bs==1
-                gt_centers = gt_bboxes[:, :2]
+                gt_centers = gt_bboxes[:, :2]  # cx cy, [0-1]
 
                 # gt_centers = (
                 #     gt_bboxes[:, 2:] + gt_bboxes[:, :2]) / 2.  # fix `-` to `+`
@@ -1417,7 +1433,7 @@ class PHeadTETR(nn.Layer):
             return losses
 
         else:
-            return (outputs_bbox, outputs_logit, None)
+            return (outputs_bbox * stride_tensor, outputs_logit, None)
 
     def post_process(self, head_outs, im_shape, scale_factor):
         # pred_scores, pred_bboxes, stride_tensor = head_outs
@@ -1433,9 +1449,54 @@ class PHeadTETR(nn.Layer):
         #     bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
         #     return bbox_pred, bbox_num
 
-        bbox, bbox_num = self.post_process_func(head_outs, im_shape,
-                                                scale_factor)
-        return bbox, bbox_num
+        bboxes, logits, _ = head_outs
+
+        # scale bbox to origin image
+        scale_factor = scale_factor.flip(-1).tile([1, 2]).unsqueeze(1)
+        bboxes /= scale_factor
+
+        # bbox_pred = bbox_cxcywh_to_xyxy(bboxes)
+        # origin_shape = paddle.floor(im_shape / scale_factor + 0.5)
+        # img_h, img_w = origin_shape.unbind(1)
+        # origin_shape = paddle.stack(
+        #     [img_w, img_h, img_w, img_h], axis=-1).unsqueeze(0)
+        # bbox_pred *= origin_shape
+
+        scores = F.softmax(logits)[:, :, :-1]
+        bbox_pred = bboxes
+
+        self.use_focal_loss = False
+        # self.num_top_queries = 100
+
+        if not self.use_focal_loss:
+            scores, labels = scores.max(-1), scores.argmax(-1)
+            if scores.shape[1] > self.num_top_queries:
+                scores, index = paddle.topk(
+                    scores, self.num_top_queries, axis=-1)
+                labels = paddle.stack(
+                    [paddle.gather(l, i) for l, i in zip(labels, index)])
+                bbox_pred = paddle.stack(
+                    [paddle.gather(b, i) for b, i in zip(bbox_pred, index)])
+        else:
+            scores, index = paddle.topk(
+                scores.reshape([logits.shape[0], -1]),
+                self.num_top_queries,
+                axis=-1)
+            labels = index % logits.shape[2]
+            index = index // logits.shape[2]
+            bbox_pred = paddle.stack(
+                [paddle.gather(b, i) for b, i in zip(bbox_pred, index)])
+
+        bbox_pred = paddle.concat(
+            [
+                labels.unsqueeze(-1).astype('float32'), scores.unsqueeze(-1),
+                bbox_pred
+            ],
+            axis=-1)
+        bbox_num = paddle.to_tensor(
+            bbox_pred.shape[1], dtype='int32').tile([bbox_pred.shape[0]])
+        bbox_pred = bbox_pred.reshape([-1, 6])
+        return bbox_pred, bbox_num
 
 
 # @register
