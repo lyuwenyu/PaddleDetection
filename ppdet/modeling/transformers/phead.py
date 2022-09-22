@@ -625,6 +625,16 @@ class PHeadTransformer(nn.Layer):
                 for c in self.in_channels
             ])
 
+        if len(in_channels) == 1:
+            self.level_encoding = None
+        else:
+            self.level_encoding = nn.Embedding(len(in_channels), 768)
+            normal_(self.level_encoding.weight)
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            768, 12, 768 * 4, 0, activation='gelu')
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
+
         self.stem_conv = nn.LayerList()
         self.conv_cls = nn.LayerList()
         self.conv_reg = nn.LayerList()  # reg [x,y,w,h] + obj
@@ -681,16 +691,6 @@ class PHeadTransformer(nn.Layer):
                         ), nn.Linear(feat_channels, feat_channels), nn.GELU(),
                         nn.Linear(feat_channels, 4 + 1)
                     ]))
-
-        if len(in_channels) == 1:
-            self.level_encoding = None
-        else:
-            self.level_encoding = nn.Embedding(len(in_channels), 768)
-            normal_(self.level_encoding.weight)
-
-        encoder_layer = nn.TransformerEncoderLayer(
-            768, 12, 768 * 4, 0, activation='gelu')
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
 
         # https://github.com/lyuwenyu/PaddleDetection/blob/yolo_ctm_L/ppdet/modeling/transformers/tencoder.py
 
@@ -764,7 +764,7 @@ class PHeadTransformer(nn.Layer):
             elif self.ppn_pred_type == 'linear':
                 pp_feat = self.ppn_convs[i](feat.flatten(2).transpose(
                     [0, 2, 1]))
-                pp_feat = pp_feat.transpose([0, 2, 1]).reshape([n, c, h, w])
+                pp_feat = pp_feat.transpose([0, 2, 1]).reshape([n, 1, h, w])
 
             pp_logits_list.append(pp_feat)
 
