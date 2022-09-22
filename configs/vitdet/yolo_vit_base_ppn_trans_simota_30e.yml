@@ -151,7 +151,7 @@ PHead:
   ppn_select_type: 'topk'
   ppn_topk: 0.1
   ppn_gt_type: 'center' # gaussian
-  # ppn_with_attention: False
+  num_layers: 3
 
   use_obj: True
 

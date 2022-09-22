@@ -157,7 +157,7 @@ class PHead(nn.Layer):
         self.ppn_convs = nn.LayerList([
             nn.Sequential(
                 ConvBlock(
-                    c, c, 1, 1, act=act),
+                    c, c, 3, 1, act=act),
                 nn.Conv2D(
                     c, 1, 1, bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
             for c in self.in_channels
@@ -260,6 +260,11 @@ class PHead(nn.Layer):
 
         feat_list = []
 
+        # import random 
+        # kk = random.randint(0, 100000)
+        # np.save(f'{kk}_image.npy', targets['image'].numpy())
+        # np.save(f'{kk}_gt_bbox.npy', targets['gt_bbox'])
+
         if self.training and self.ppn_gt_type == 'gaussian':
             boxes = targets['gt_bbox'][0]
             boxes[:, 2:] -= boxes[:, :2]
@@ -276,7 +281,9 @@ class PHead(nn.Layer):
                 mask_list.append(paddle.to_tensor(mask))
                 # np.save(f'{i}.npy', mask)
 
-            if self.ppn_select_type == 'threshod':
+            # np.save(f'{kk}_{i}.npy', F.sigmoid(pp_feat).numpy())
+
+            if self.ppn_select_type == 'threshold':
                 index = (F.sigmoid(pp_feat) > self.ppn_threshold
                          ).squeeze(1).nonzero()
 
@@ -317,7 +324,7 @@ class PHead(nn.Layer):
                     ],
                     axis=-1)
 
-            index_list.append(index)
+            index_list.append(index + 0.)  # offset
             stride_list.append(
                 paddle.full(
                     [index.shape[0], 1], self.fpn_strides[i],
@@ -356,6 +363,8 @@ class PHead(nn.Layer):
         stride_list = paddle.concat(stride_list, axis=0)
 
         stride_tensor = stride_list
+
+        # [image_id, h_id, w_id]
         anchor_points = paddle.concat(
             [index_list[:, 2:], index_list[:, 1:2]],
             axis=-1) * stride_tensor * 1.0
@@ -567,6 +576,7 @@ class PHeadTransformer(nn.Layer):
             ppn_topk=0.1,
             ppn_select_type='topk',
             ppn_gt_type='center',
+            num_layers=3,
             use_obj=True, ):
 
         super().__init__()
@@ -643,14 +653,23 @@ class PHeadTransformer(nn.Layer):
         # self.encoder = PPTransformerEncoder(
         #     encoder_layer, num_layers, return_intermediate=return_intermediate)
 
-        self.level_encoding = nn.Embedding(len(in_channels), 768)
+        if len(in_channels) == 1:
+            self.level_encoding = None
+        else:
+            self.level_encoding = nn.Embedding(len(in_channels), 768)
+            normal_(self.level_encoding.weight)
+
         encoder_layer = nn.TransformerEncoderLayer(
             768, 12, 768 * 4, 0, activation='gelu')
-        self.encoder = nn.TransformerEncoder(encoder_layer, 3)
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
 
         # https://github.com/lyuwenyu/PaddleDetection/blob/yolo_ctm_L/ppdet/modeling/transformers/tencoder.py
 
         self._init_weights()
+
+        for m in self.sublayers():
+            if isinstance(m, nn.LayerNorm):
+                m._epsilon = 1e-6
 
     # @classmethod
     # def from_config(cls, cfg, input_shape):
@@ -770,7 +789,8 @@ class PHeadTransformer(nn.Layer):
                 feat.transpose([0, 2, 3, 1]), index=index).reshape([n, -1, c])
 
             # add level encoding
-            feat += self.level_encoding.weight[i]
+            if self.level_encoding is not None:
+                feat += self.level_encoding.weight[i]
 
             feat_list.append(feat)
 
@@ -1071,14 +1091,18 @@ class PHeadTETR(nn.Layer):
 
         self.score_head = nn.Linear(hidden_dim, self.num_classes + 1)
         self.bbox_head = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim * 2),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
-            nn.Linear(hidden_dim * 2, hidden_dim * 2),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
-            nn.Linear(hidden_dim * 2, 4), )
+            nn.Linear(hidden_dim, 4), )
         # https://github.com/lyuwenyu/PaddleDetection/blob/yolo_ctm_L/ppdet/modeling/transformers/tencoder.py
 
         # self._init_weights()
+
+        for m in self.sublayers():
+            if isinstance(m, nn.LayerNorm):
+                m._epsilon = 1e-6
 
     # @classmethod
     # def from_config(cls, cfg, input_shape):
