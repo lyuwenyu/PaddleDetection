@@ -153,6 +153,7 @@ PHeadTransformer:
   ppn_select_type: 'topk'
   ppn_topk: 0.1
   ppn_gt_type: 'center' # gaussian
+  ppn_pred_type: 'linear'
   num_layers: 6
 
   use_obj: True
