@@ -153,6 +153,7 @@ PHead:
   ppn_gt_type: 'center' # gaussian
   ppn_with_attention: False
   pred_type: 'linear'
+  add_gt_as_proposal: True
 
   use_obj: True
 

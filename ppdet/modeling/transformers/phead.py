@@ -161,6 +161,8 @@ class PHead(nn.Layer):
             nn.Sequential(
                 ConvBlock(
                     c, c, 3, 1, act=act),
+                ConvBlock(
+                    c, c, 3, 1, act=act),
                 nn.Conv2D(
                     c, 1, 1, bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
             for c in self.in_channels
@@ -300,6 +302,13 @@ class PHead(nn.Layer):
             boxes[:, :2] += boxes[:, 2:] / 2.
             boxes = boxes / targets['image'].shape[-1]
 
+        if self.training:
+            _boxes = paddle.to_tensor(targets['gt_bbox'][0])
+            _centers = (_boxes[:, :2] + _boxes[:, 2:]) / 2.
+            _centers = [
+                paddle.cast(_centers / s, 'int64') for s in self.fpn_strides
+            ]
+
         for i, feat in enumerate(feats):
             n, c, h, w = feat.shape
             pp_feat = self.ppn_convs[i](feat)
@@ -354,8 +363,18 @@ class PHead(nn.Layer):
                     axis=-1)
 
             if self.training and self.add_gt_as_proposal:
-                # targets['gt_bbox'][0] 
-                pass
+                # _boxes = paddle.to_tensor( targets['gt_bbox'][0] )
+                # _centers_perlevel = paddle.cast( _centers / self.fpn_strides[i], 'int64')
+                _index = paddle.concat(
+                    [
+                        paddle.zeros(
+                            [len(_centers[i]), ], dtype='int64').unsqueeze(-1),
+                        _centers[i][1].unsqueeze(-1),  # h
+                        _centers[i][0].unsqueeze(-1),  # w
+                    ],
+                    axis=-1)
+
+                index = paddle.concat([index, _index], dim=0)
 
             index_list.append(index + 0.)  # offset
             stride_list.append(
@@ -443,12 +462,15 @@ class PHead(nn.Layer):
             loss_pps = 0
 
             if self.ppn_gt_type == 'center':
-                gt_bboxes = paddle.to_tensor(targets['gt_bbox'])[0]  # bs==1
-                gt_centers = (
-                    gt_bboxes[:, 2:] + gt_bboxes[:, :2]) / 2.  # fix `-` to `+`
+
+                # gt_bboxes = paddle.to_tensor(targets['gt_bbox'])[0]  # bs==1
+                # gt_centers = (
+                #     gt_bboxes[:, 2:] + gt_bboxes[:, :2]) / 2.  # fix `-` to `+`
+
                 for i, pp_logits in enumerate(pp_logits_list):
-                    centers = paddle.cast(gt_centers / self.fpn_strides[i],
-                                          'int64')
+                    # centers = paddle.cast(gt_centers / self.fpn_strides[i],
+                    #                       'int64')
+                    centers = _centers[i]
                     pp_gt = paddle.zeros_like(pp_logits)
                     pp_gt[0, 0, centers[:, -1], centers[:, 0]] = 1.
                     loss_pp = F.binary_cross_entropy_with_logits(
