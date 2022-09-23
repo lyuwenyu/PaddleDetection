@@ -209,6 +209,7 @@ class PHead(nn.Layer):
 
             elif pred_type == 'linear':
 
+                k = 4
                 self.stem_conv.append(
                     nn.Sequential(
                         nn.Linear(in_c, feat_channels),
@@ -216,15 +217,15 @@ class PHead(nn.Layer):
 
                 self.conv_cls.append(
                     nn.Sequential(*[
-                        nn.Linear(feat_channels, feat_channels * 4), nn.GELU(),
-                        nn.Linear(feat_channels * 4, feat_channels), nn.GELU(
+                        nn.Linear(feat_channels, feat_channels * k), nn.GELU(),
+                        nn.Linear(feat_channels * k, feat_channels), nn.GELU(
                         ), nn.Linear(feat_channels, self.num_classes)
                     ]))
 
                 self.conv_reg.append(
                     nn.Sequential(*[
-                        nn.Linear(feat_channels, feat_channels * 4), nn.GELU(),
-                        nn.Linear(feat_channels * 4, feat_channels), nn.GELU(
+                        nn.Linear(feat_channels, feat_channels * k), nn.GELU(),
+                        nn.Linear(feat_channels * k, feat_channels), nn.GELU(
                         ), nn.Linear(feat_channels, 4 + 1)
                     ]))
 
@@ -372,8 +373,8 @@ class PHead(nn.Layer):
                     [
                         paddle.zeros(
                             [len(_centers[i]), ], dtype='int64').unsqueeze(-1),
-                        _centers[i][1].unsqueeze(-1),  # h
-                        _centers[i][0].unsqueeze(-1),  # w
+                        _centers[i][:, 1].unsqueeze(-1),  # h
+                        _centers[i][:, 0].unsqueeze(-1),  # w
                     ],
                     axis=-1)
 
