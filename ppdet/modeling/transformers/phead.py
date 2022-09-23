@@ -209,7 +209,7 @@ class PHead(nn.Layer):
 
             elif pred_type == 'linear':
 
-                k = 4
+                k = 1
                 self.stem_conv.append(
                     nn.Sequential(
                         nn.Linear(in_c, feat_channels),
