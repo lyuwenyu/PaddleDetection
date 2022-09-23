@@ -160,11 +160,12 @@ class PHead(nn.Layer):
         self.ppn_convs = nn.LayerList([
             nn.Sequential(
                 ConvBlock(
-                    c, c, 3, 1, act=act),
-                ConvBlock(
-                    c, c, 3, 1, act=act),
+                    c, feat_channels, 3, 1, act=act),
                 nn.Conv2D(
-                    c, 1, 1, bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
+                    feat_channels,
+                    1,
+                    1,
+                    bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
             for c in self.in_channels
         ])
 
@@ -215,15 +216,16 @@ class PHead(nn.Layer):
 
                 self.conv_cls.append(
                     nn.Sequential(*[
-                        nn.Linear(feat_channels, feat_channels), nn.GELU(),
-                        nn.Linear(feat_channels, self.num_classes)
+                        nn.Linear(feat_channels, feat_channels * 4), nn.GELU(),
+                        nn.Linear(feat_channels * 4, feat_channels), nn.GELU(
+                        ), nn.Linear(feat_channels, self.num_classes)
                     ]))
 
                 self.conv_reg.append(
                     nn.Sequential(*[
-                        nn.Linear(feat_channels, feat_channels), nn.GELU(
-                        ), nn.Linear(feat_channels, feat_channels), nn.GELU(),
-                        nn.Linear(feat_channels, 4 + 1)
+                        nn.Linear(feat_channels, feat_channels * 4), nn.GELU(),
+                        nn.Linear(feat_channels * 4, feat_channels), nn.GELU(
+                        ), nn.Linear(feat_channels, 4 + 1)
                     ]))
 
         # encoder_layer = nn.TransformerEncoderLayer(
@@ -349,7 +351,8 @@ class PHead(nn.Layer):
                 topk = max(topk, 10)
 
                 v, index = paddle.topk(
-                    F.sigmoid(pp_feat).squeeze(1).flatten(1),
+                    pp_feat.squeeze(1).flatten(1),
+                    # F.sigmoid(pp_feat).squeeze(1).flatten(1),
                     sorted=False,
                     k=topk,
                     axis=-1)
