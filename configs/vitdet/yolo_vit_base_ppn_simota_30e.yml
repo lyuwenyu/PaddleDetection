@@ -152,6 +152,7 @@ PHead:
   ppn_topk: 0.1
   ppn_gt_type: 'center' # gaussian
   ppn_with_attention: False
+  pred_type: 'linear'
 
   use_obj: True
 

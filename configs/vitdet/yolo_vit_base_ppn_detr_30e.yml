@@ -182,9 +182,9 @@ DETRLoss:
 HungarianMatcher:
   matcher_coeff: {class: 1, bbox: 5, giou: 2}
 
-# DETRBBoxPostProcess:
-#   num_classes: 80
-#   num_top_queries: 100
+DETRBBoxPostProcess:
+  num_classes: 80
+  num_top_queries: 100
 
 
 # PP-YOLOE READER

@@ -100,32 +100,33 @@ class PHead(nn.Layer):
     __shared__ = ['num_classes', 'width_mult', 'act', 'trt', 'exclude_nms']
     __inject__ = ['assigner', 'nms']
 
-    def __init__(
-            self,
-            num_classes=80,
-            width_mult=1.0,
-            depthwise=False,
-            in_channels=[256, 512, 1024],
-            feat_channels=256,
-            fpn_strides=(8, 16, 32),
-            l1_epoch=300,
-            act='silu',
-            assigner=SimOTAAssigner(use_vfl=False),
-            nms='MultiClassNMS',
-            loss_weight={
-                'cls': 1.0,
-                'obj': 1.0,
-                'iou': 5.0,
-                'l1': 1.0,
-            },
-            trt=False,
-            exclude_nms=False,
-            ppn_threshold=0.1,
-            ppn_topk=0.1,
-            ppn_select_type='topk',
-            ppn_gt_type='center',
-            ppn_with_attention=False,
-            use_obj=True, ):
+    def __init__(self,
+                 num_classes=80,
+                 width_mult=1.0,
+                 depthwise=False,
+                 in_channels=[256, 512, 1024],
+                 feat_channels=256,
+                 fpn_strides=(8, 16, 32),
+                 l1_epoch=300,
+                 act='silu',
+                 assigner=SimOTAAssigner(use_vfl=False),
+                 nms='MultiClassNMS',
+                 loss_weight={
+                     'cls': 1.0,
+                     'obj': 1.0,
+                     'iou': 5.0,
+                     'l1': 1.0,
+                 },
+                 trt=False,
+                 exclude_nms=False,
+                 ppn_threshold=0.1,
+                 ppn_topk=0.1,
+                 ppn_select_type='topk',
+                 ppn_gt_type='center',
+                 ppn_with_attention=False,
+                 use_obj=True,
+                 add_gt_as_proposal=False,
+                 pred_type='conv'):
 
         super().__init__()
         self._dtype = paddle.framework.get_default_dtype()
@@ -143,6 +144,8 @@ class PHead(nn.Layer):
         self.use_obj = use_obj
         self.ppn_gt_type = ppn_gt_type
         self.ppn_with_attention = ppn_with_attention
+        self.add_gt_as_proposal = add_gt_as_proposal
+        self.pred_type = pred_type
 
         self.draw_gassian_mask = BoxCenterGaussianMask()
 
@@ -168,32 +171,58 @@ class PHead(nn.Layer):
         self.conv_reg = nn.LayerList()  # reg [x,y,w,h] + obj
 
         for in_c in self.in_channels:
-            self.stem_conv.append(BaseConv(in_c, feat_channels, 1, 1, act=act))
 
-            self.conv_cls.append(
-                nn.Sequential(*[
-                    ConvBlock(
-                        feat_channels, feat_channels, 1, 1, act=act), ConvBlock(
+            if pred_type == 'conv':
+
+                self.stem_conv.append(
+                    BaseConv(
+                        in_c, feat_channels, 1, 1, act=act))
+
+                self.conv_cls.append(
+                    nn.Sequential(*[
+                        ConvBlock(
+                            feat_channels, feat_channels, 1, 1,
+                            act=act), ConvBlock(
+                                feat_channels, feat_channels, 1, 1, act=act),
+                        nn.Conv2D(
+                            feat_channels,
+                            self.num_classes,
+                            1,
+                            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+                    ]))
+
+                self.conv_reg.append(
+                    nn.Sequential(*[
+                        ConvBlock(
                             feat_channels, feat_channels, 1, 1, act=act),
-                    nn.Conv2D(
-                        feat_channels,
-                        self.num_classes,
-                        1,
-                        bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
-                ]))
+                        ConvBlock(
+                            feat_channels, feat_channels, 1, 1, act=act),
+                        nn.Conv2D(
+                            feat_channels,
+                            4 + 1,  # reg [x,y,w,h] + obj
+                            1,
+                            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+                    ]))
 
-            self.conv_reg.append(
-                nn.Sequential(*[
-                    ConvBlock(
-                        feat_channels, feat_channels, 1, 1, act=act),
-                    ConvBlock(
-                        feat_channels, feat_channels, 1, 1, act=act),
-                    nn.Conv2D(
-                        feat_channels,
-                        4 + 1,  # reg [x,y,w,h] + obj
-                        1,
-                        bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
-                ]))
+            elif pred_type == 'linear':
+
+                self.stem_conv.append(
+                    nn.Sequential(
+                        nn.Linear(in_c, feat_channels),
+                        nn.GELU(), ))
+
+                self.conv_cls.append(
+                    nn.Sequential(*[
+                        nn.Linear(feat_channels, feat_channels), nn.GELU(),
+                        nn.Linear(feat_channels, self.num_classes)
+                    ]))
+
+                self.conv_reg.append(
+                    nn.Sequential(*[
+                        nn.Linear(feat_channels, feat_channels), nn.GELU(
+                        ), nn.Linear(feat_channels, feat_channels), nn.GELU(),
+                        nn.Linear(feat_channels, 4 + 1)
+                    ]))
 
         # encoder_layer = nn.TransformerEncoderLayer(
         #     hidden_dim, nhead, dim_feedforward, dropout, activation=act)
@@ -324,6 +353,10 @@ class PHead(nn.Layer):
                     ],
                     axis=-1)
 
+            if self.training and self.add_gt_as_proposal:
+                # targets['gt_bbox'][0] 
+                pass
+
             index_list.append(index + 0.)  # offset
             stride_list.append(
                 paddle.full(
@@ -339,10 +372,24 @@ class PHead(nn.Layer):
             # if self.ppn_with_attention:
             #     feat = self.encoder(feat)
 
-            feat = feat.transpose([0, 2, 1]).unsqueeze(-1)  # N C L1 1
-            feat = self.stem_conv[i](feat)
-            cls_logit = self.conv_cls[i](feat)
-            reg_pred = self.conv_reg[i](feat)
+            if self.pred_type == 'conv':
+                feat = feat.transpose([0, 2, 1]).unsqueeze(-1)  # N C L1 1
+                feat = self.stem_conv[i](feat)
+                cls_logit = self.conv_cls[i](feat)
+                reg_pred = self.conv_reg[i](feat)
+
+            elif self.pred_type == 'linear':
+                feat = self.stem_conv[i](feat)
+                cls_logit = self.conv_cls[i](feat)
+                reg_pred = self.conv_reg[i](feat)
+
+                cls_logit = cls_logit.transpose([0, 2, 1]).unsqueeze(-1)
+                reg_pred = reg_pred.transpose([0, 2, 1]).unsqueeze(-1)
+
+            # feat = feat.transpose([0, 2, 1]).unsqueeze(-1)  # N C L1 1
+            # feat = self.stem_conv[i](feat)
+            # cls_logit = self.conv_cls[i](feat)
+            # reg_pred = self.conv_reg[i](feat)
 
             # cls prediction
             cls_score = F.sigmoid(cls_logit)
@@ -1053,11 +1100,12 @@ class PHeadTransformer(nn.Layer):
 @register
 class PHeadTETR(nn.Layer):
     __shared__ = ['num_classes', 'width_mult', 'act', 'trt', 'exclude_nms']
-    # __inject__ = ['loss', 'nms', 'post_process']
-    __inject__ = [
-        'loss',
-        'nms',
-    ]
+    __inject__ = ['loss', 'nms', 'post_process']
+
+    # __inject__ = [
+    #     'loss',
+    #     'nms',
+    # ]
 
     def __init__(self,
                  num_classes=80,
@@ -1371,18 +1419,14 @@ class PHeadTETR(nn.Layer):
         anchor_points.stop_gradient = True
         stride_tensor.stop_gradient = True
 
-        # bbox decode
-        # anchor_points, stride_tensor, _ =\
-        #     self._generate_anchor_point(feat_sizes, self.fpn_strides)
+        # reg_xy, reg_wh = paddle.split(reg_pred_list, 2, axis=-1)  # N L1 4 -> 2
+        # reg_xy += (anchor_points / stride_tensor)
 
-        reg_xy, reg_wh = paddle.split(reg_pred_list, 2, axis=-1)  # N L1 4 -> 2
-        reg_xy += (anchor_points / stride_tensor)
+        # reg_wh = paddle.exp(reg_wh) * 0.5
+        # bbox_pred_list = paddle.concat(
+        #     [reg_xy - reg_wh, reg_xy + reg_wh], axis=-1)
 
-        reg_wh = paddle.exp(reg_wh) * 0.5
-        bbox_pred_list = paddle.concat(
-            [reg_xy - reg_wh, reg_xy + reg_wh], axis=-1)
-
-        outputs_bbox = bbox_pred_list
+        outputs_bbox = F.sigmoid(reg_pred_list)
         outputs_logit = cls_score_list
 
         if self.training:
@@ -1390,9 +1434,8 @@ class PHeadTETR(nn.Layer):
             assert 'gt_bbox' in targets and 'gt_class' in targets
 
             # TODO normalize for detr_loss, [cx cy w h]
-            outputs_bbox = paddle.concat([reg_xy, reg_wh], axis=-1)
-            outputs_bbox = outputs_bbox * stride_tensor / targets[
-                'image'].shape[-1]
+            # outputs_bbox = paddle.concat([reg_xy, reg_wh], axis=-1)
+            # outputs_bbox = outputs_bbox * stride_tensor / targets['image'].shape[-1]
 
             losses = self.loss(
                 outputs_bbox[None],
@@ -1413,7 +1456,9 @@ class PHeadTETR(nn.Layer):
                     centers = paddle.cast(gt_centers * pp_logits.shape[-1],
                                           'int64')
                     pp_gt = paddle.zeros_like(pp_logits)
+
                     pp_gt[0, 0, centers[:, -1], centers[:, 0]] = 1.
+
                     loss_pp = F.binary_cross_entropy_with_logits(
                         pp_logits, pp_gt, reduction='mean')
                     loss_pps += loss_pp
@@ -1433,9 +1478,14 @@ class PHeadTETR(nn.Layer):
             return losses
 
         else:
-            return (outputs_bbox * stride_tensor, outputs_logit, None)
+            return (outputs_bbox, outputs_logit, None)
 
     def post_process(self, head_outs, im_shape, scale_factor):
+
+        bbox, bbox_num = self.post_process_func(head_outs, im_shape,
+                                                scale_factor)
+        return bbox, bbox_num
+
         # pred_scores, pred_bboxes, stride_tensor = head_outs
         # pred_scores = pred_scores.transpose([0, 2, 1])
         # pred_bboxes *= stride_tensor
@@ -1449,346 +1499,338 @@ class PHeadTETR(nn.Layer):
         #     bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
         #     return bbox_pred, bbox_num
 
-        bboxes, logits, _ = head_outs
+        # bboxes, logits, _ = head_outs
 
-        # scale bbox to origin image
-        scale_factor = scale_factor.flip(-1).tile([1, 2]).unsqueeze(1)
-        bboxes /= scale_factor
+        # # scale bbox to origin image
+        # scale_factor = scale_factor.flip(-1).tile([1, 2]).unsqueeze(1)
+        # bboxes /= scale_factor
 
-        # bbox_pred = bbox_cxcywh_to_xyxy(bboxes)
-        # origin_shape = paddle.floor(im_shape / scale_factor + 0.5)
-        # img_h, img_w = origin_shape.unbind(1)
-        # origin_shape = paddle.stack(
-        #     [img_w, img_h, img_w, img_h], axis=-1).unsqueeze(0)
-        # bbox_pred *= origin_shape
+        # scores = F.softmax(logits)[:, :, :-1]
+        # bbox_pred = bboxes
 
-        scores = F.softmax(logits)[:, :, :-1]
-        bbox_pred = bboxes
+        # self.use_focal_loss = False
+        # # self.num_top_queries = 100
 
-        self.use_focal_loss = False
-        # self.num_top_queries = 100
+        # if not self.use_focal_loss:
+        #     scores, labels = scores.max(-1), scores.argmax(-1)
+        #     if scores.shape[1] > self.num_top_queries:
+        #         scores, index = paddle.topk(
+        #             scores, self.num_top_queries, axis=-1)
+        #         labels = paddle.stack(
+        #             [paddle.gather(l, i) for l, i in zip(labels, index)])
+        #         bbox_pred = paddle.stack(
+        #             [paddle.gather(b, i) for b, i in zip(bbox_pred, index)])
+        # else:
+        #     scores, index = paddle.topk(
+        #         scores.reshape([logits.shape[0], -1]),
+        #         self.num_top_queries,
+        #         axis=-1)
+        #     labels = index % logits.shape[2]
+        #     index = index // logits.shape[2]
+        #     bbox_pred = paddle.stack(
+        #         [paddle.gather(b, i) for b, i in zip(bbox_pred, index)])
 
-        if not self.use_focal_loss:
-            scores, labels = scores.max(-1), scores.argmax(-1)
-            if scores.shape[1] > self.num_top_queries:
-                scores, index = paddle.topk(
-                    scores, self.num_top_queries, axis=-1)
-                labels = paddle.stack(
-                    [paddle.gather(l, i) for l, i in zip(labels, index)])
-                bbox_pred = paddle.stack(
-                    [paddle.gather(b, i) for b, i in zip(bbox_pred, index)])
-        else:
-            scores, index = paddle.topk(
-                scores.reshape([logits.shape[0], -1]),
-                self.num_top_queries,
-                axis=-1)
-            labels = index % logits.shape[2]
-            index = index // logits.shape[2]
-            bbox_pred = paddle.stack(
-                [paddle.gather(b, i) for b, i in zip(bbox_pred, index)])
+        # bbox_pred = paddle.concat(
+        #     [
+        #         labels.unsqueeze(-1).astype('float32'), scores.unsqueeze(-1),
+        #         bbox_pred
+        #     ],
+        #     axis=-1)
+        # bbox_num = paddle.to_tensor(
+        #     bbox_pred.shape[1], dtype='int32').tile([bbox_pred.shape[0]])
+        # bbox_pred = bbox_pred.reshape([-1, 6])
+        # return bbox_pred, bbox_num
 
-        bbox_pred = paddle.concat(
-            [
-                labels.unsqueeze(-1).astype('float32'), scores.unsqueeze(-1),
-                bbox_pred
-            ],
-            axis=-1)
-        bbox_num = paddle.to_tensor(
-            bbox_pred.shape[1], dtype='int32').tile([bbox_pred.shape[0]])
-        bbox_pred = bbox_pred.reshape([-1, 6])
-        return bbox_pred, bbox_num
+    # @register
+    # class PHeadTETR(nn.Layer):
+    #     __shared__ = ['num_classes', 'width_mult', 'act', 'trt', 'exclude_nms']
+    #     __inject__ = ['nms', 'loss', 'post_process']
 
+    #     def __init__(
+    #             self,
+    #             num_classes=80,
+    #             width_mult=1.0,
+    #             in_channels=[256, 512, 1024],
+    #             feat_channels=256,
+    #             fpn_strides=(8, 16, 32),
+    #             l1_epoch=300,
+    #             act='silu',
+    #             #  assigner=SimOTAAssigner(use_vfl=False),
+    #             nms='MultiClassNMS',
+    #             loss_weight={
+    #                 'cls': 1.0,
+    #                 'obj': 1.0,
+    #                 'iou': 5.0,
+    #                 'l1': 1.0,
+    #             },
+    #             trt=False,
+    #             exclude_nms=False,
+    #             ppn_threshold=0.1,
+    #             ppn_topk=0.1,
+    #             ppn_select_type='topk',
+    #             ppn_gt_type='center',
+    #             ppn_with_attention=True,
+    #             use_obj=True,
+    #             num_layers=6,
+    #             loss='DETRLoss',
+    #             post_process='DETRBBoxPostProcess'):
 
-# @register
-# class PHeadTETR(nn.Layer):
-#     __shared__ = ['num_classes', 'width_mult', 'act', 'trt', 'exclude_nms']
-#     __inject__ = ['nms', 'loss', 'post_process']
+    #         super().__init__()
+    #         self._dtype = paddle.framework.get_default_dtype()
+    #         self.num_classes = num_classes
+    #         assert len(in_channels) > 0, "in_channels length should > 0"
+    #         self.in_channels = in_channels
+    #         feat_channels = int(feat_channels * width_mult)
+    #         self.fpn_strides = fpn_strides
+    #         self.l1_epoch = l1_epoch
+    #         # self.assigner = assigner
+    #         self.nms = nms
+    #         self.ppn_threshold = ppn_threshold
+    #         self.ppn_topk = ppn_topk
+    #         self.ppn_select_type = ppn_select_type
+    #         self.use_obj = use_obj
+    #         self.ppn_gt_type = ppn_gt_type
+    #         self.ppn_with_attention = ppn_with_attention
+    #         self.loss = loss
+    #         self.post_process_func = post_process
+    #         self.num_layers = num_layers
 
-#     def __init__(
-#             self,
-#             num_classes=80,
-#             width_mult=1.0,
-#             in_channels=[256, 512, 1024],
-#             feat_channels=256,
-#             fpn_strides=(8, 16, 32),
-#             l1_epoch=300,
-#             act='silu',
-#             #  assigner=SimOTAAssigner(use_vfl=False),
-#             nms='MultiClassNMS',
-#             loss_weight={
-#                 'cls': 1.0,
-#                 'obj': 1.0,
-#                 'iou': 5.0,
-#                 'l1': 1.0,
-#             },
-#             trt=False,
-#             exclude_nms=False,
-#             ppn_threshold=0.1,
-#             ppn_topk=0.1,
-#             ppn_select_type='topk',
-#             ppn_gt_type='center',
-#             ppn_with_attention=True,
-#             use_obj=True,
-#             num_layers=6,
-#             loss='DETRLoss',
-#             post_process='DETRBBoxPostProcess'):
+    #         self.draw_gassian_mask = BoxCenterGaussianMask()
 
-#         super().__init__()
-#         self._dtype = paddle.framework.get_default_dtype()
-#         self.num_classes = num_classes
-#         assert len(in_channels) > 0, "in_channels length should > 0"
-#         self.in_channels = in_channels
-#         feat_channels = int(feat_channels * width_mult)
-#         self.fpn_strides = fpn_strides
-#         self.l1_epoch = l1_epoch
-#         # self.assigner = assigner
-#         self.nms = nms
-#         self.ppn_threshold = ppn_threshold
-#         self.ppn_topk = ppn_topk
-#         self.ppn_select_type = ppn_select_type
-#         self.use_obj = use_obj
-#         self.ppn_gt_type = ppn_gt_type
-#         self.ppn_with_attention = ppn_with_attention
-#         self.loss = loss
-#         self.post_process_func = post_process
-#         self.num_layers = num_layers
+    #         if isinstance(self.nms, MultiClassNMS) and trt:
+    #             self.nms.trt = trt
+    #         self.exclude_nms = exclude_nms
+    #         self.loss_weight = loss_weight
+    #         self.iou_loss = IouLoss(loss_weight=1.0)  # default loss_weight 2.5
 
-#         self.draw_gassian_mask = BoxCenterGaussianMask()
+    #         ConvBlock = BaseConv
 
-#         if isinstance(self.nms, MultiClassNMS) and trt:
-#             self.nms.trt = trt
-#         self.exclude_nms = exclude_nms
-#         self.loss_weight = loss_weight
-#         self.iou_loss = IouLoss(loss_weight=1.0)  # default loss_weight 2.5
+    #         self.ppn_convs = nn.LayerList([
+    #             nn.Sequential(
+    #                 ConvBlock(
+    #                     c, c, 3, 1, act=act),
+    #                 nn.Conv2D(
+    #                     c, 1, 1, bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
+    #             for c in self.in_channels
+    #         ])
 
-#         ConvBlock = BaseConv
+    #         hidden_dim = 768
+    #         encoder_layer = nn.TransformerEncoderLayer(
+    #             hidden_dim, 12, hidden_dim * 4, 0, activation='gelu')
+    #         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
 
-#         self.ppn_convs = nn.LayerList([
-#             nn.Sequential(
-#                 ConvBlock(
-#                     c, c, 3, 1, act=act),
-#                 nn.Conv2D(
-#                     c, 1, 1, bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
-#             for c in self.in_channels
-#         ])
+    #         if len(in_channels) > 1:
+    #             self.level_encoding = nn.Embedding(len(in_channels), 768)
+    #             normal_(self.level_encoding.weight, 0, 1)
+    #         else:
+    #             self.level_encoding = None
 
-#         hidden_dim = 768
-#         encoder_layer = nn.TransformerEncoderLayer(
-#             hidden_dim, 12, hidden_dim * 4, 0, activation='gelu')
-#         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
+    #         self.score_head = nn.Linear(hidden_dim, self.num_classes + 1)
+    #         self.bbox_head = nn.Sequential(
+    #             nn.Linear(hidden_dim, hidden_dim),
+    #             nn.GELU(),
+    #             nn.Linear(hidden_dim, hidden_dim),
+    #             nn.GELU(),
+    #             nn.Linear(hidden_dim, 4), )
+    #         # https://github.com/lyuwenyu/PaddleDetection/blob/yolo_ctm_L/ppdet/modeling/transformers/tencoder.py
 
-#         if len(in_channels) > 1:
-#             self.level_encoding = nn.Embedding(len(in_channels), 768)
-#             normal_(self.level_encoding.weight, 0, 1)
-#         else:
-#             self.level_encoding = None
+    #         # self._init_weights()
 
-#         self.score_head = nn.Linear(hidden_dim, self.num_classes + 1)
-#         self.bbox_head = nn.Sequential(
-#             nn.Linear(hidden_dim, hidden_dim),
-#             nn.GELU(),
-#             nn.Linear(hidden_dim, hidden_dim),
-#             nn.GELU(),
-#             nn.Linear(hidden_dim, 4), )
-#         # https://github.com/lyuwenyu/PaddleDetection/blob/yolo_ctm_L/ppdet/modeling/transformers/tencoder.py
+    #         for m in self.sublayers():
+    #             if isinstance(m, nn.LayerNorm):
+    #                 m._epsilon = 1e-6
 
-#         # self._init_weights()
+    #     # @classmethod
+    #     # def from_config(cls, cfg, input_shape):
+    #     #     return {'in_channels': [i.channels for i in input_shape], }
 
-#         for m in self.sublayers():
-#             if isinstance(m, nn.LayerNorm):
-#                 m._epsilon = 1e-6
+    #     # def _init_weights(self):
+    #     #     bias_cls = bias_init_with_prob(0.01)
+    #     #     bias_reg = paddle.full([5], math.log(5.), dtype=self._dtype)
+    #     #     bias_reg[:2] = 0.
+    #     #     bias_reg[-1] = bias_cls
+    #     #     for cls_, reg_ in zip(self.conv_cls, self.conv_reg):
+    #     #         constant_(cls_[-1].weight)
+    #     #         constant_(cls_[-1].bias, bias_cls)
+    #     #         constant_(reg_[-1].weight)
+    #     #         reg_[-1].bias.set_value(bias_reg)
 
-#     # @classmethod
-#     # def from_config(cls, cfg, input_shape):
-#     #     return {'in_channels': [i.channels for i in input_shape], }
+    #     def forward(self, feats, targets=None):
+    #         assert len(feats) == len(self.fpn_strides), \
+    #             "The size of feats is not equal to size of fpn_strides"
 
-#     # def _init_weights(self):
-#     #     bias_cls = bias_init_with_prob(0.01)
-#     #     bias_reg = paddle.full([5], math.log(5.), dtype=self._dtype)
-#     #     bias_reg[:2] = 0.
-#     #     bias_reg[-1] = bias_cls
-#     #     for cls_, reg_ in zip(self.conv_cls, self.conv_reg):
-#     #         constant_(cls_[-1].weight)
-#     #         constant_(cls_[-1].bias, bias_cls)
-#     #         constant_(reg_[-1].weight)
-#     #         reg_[-1].bias.set_value(bias_reg)
+    #         # feat_sizes = [[f.shape[-2], f.shape[-1]] for f in feats]
 
-#     def forward(self, feats, targets=None):
-#         assert len(feats) == len(self.fpn_strides), \
-#             "The size of feats is not equal to size of fpn_strides"
+    #         # cls_score_list, reg_pred_list = [], []
+    #         # obj_score_list = []
 
-#         # feat_sizes = [[f.shape[-2], f.shape[-1]] for f in feats]
+    #         pp_logits_list = []
+    #         index_list = []
+    #         stride_list = []
+    #         mask_list = []
 
-#         # cls_score_list, reg_pred_list = [], []
-#         # obj_score_list = []
+    #         feat_list = []
 
-#         pp_logits_list = []
-#         index_list = []
-#         stride_list = []
-#         mask_list = []
+    #         if self.training and self.ppn_gt_type == 'gaussian':
+    #             boxes = targets['gt_bbox'][0]
+    #             # boxes[:, 2:] -= boxes[:, :2]
+    #             # boxes[:, :2] += boxes[:, 2:] / 2.
+    #             # boxes = boxes / targets['image'].shape[-1]
 
-#         feat_list = []
+    #         for i, feat in enumerate(feats):
+    #             n, c, h, w = feat.shape
+    #             pp_feat = self.ppn_convs[i](feat)
+    #             pp_logits_list.append(pp_feat)
 
-#         if self.training and self.ppn_gt_type == 'gaussian':
-#             boxes = targets['gt_bbox'][0]
-#             # boxes[:, 2:] -= boxes[:, :2]
-#             # boxes[:, :2] += boxes[:, 2:] / 2.
-#             # boxes = boxes / targets['image'].shape[-1]
+    #             if self.training and self.ppn_gt_type == 'gaussian':
+    #                 mask = self.draw_gassian_mask([boxes, ], shape=(h, w))
+    #                 mask_list.append(paddle.to_tensor(mask))
+    #                 # np.save(f'{i}.npy', mask)
 
-#         for i, feat in enumerate(feats):
-#             n, c, h, w = feat.shape
-#             pp_feat = self.ppn_convs[i](feat)
-#             pp_logits_list.append(pp_feat)
+    #             if self.ppn_select_type == 'threshod':
+    #                 index = (F.sigmoid(pp_feat) > self.ppn_threshold
+    #                          ).squeeze(1).nonzero()
 
-#             if self.training and self.ppn_gt_type == 'gaussian':
-#                 mask = self.draw_gassian_mask([boxes, ], shape=(h, w))
-#                 mask_list.append(paddle.to_tensor(mask))
-#                 # np.save(f'{i}.npy', mask)
+    #                 if len(index) < 10:
+    #                     topk = 10
+    #                     v, index = paddle.topk(
+    #                         F.sigmoid(pp_feat).squeeze(1).flatten(1),
+    #                         sorted=False,
+    #                         k=topk,
+    #                         axis=-1)
+    #                     index = paddle.concat(
+    #                         [
+    #                             paddle.zeros(
+    #                                 [topk, ], dtype='int64').unsqueeze(-1),
+    #                             (index[0] // w).unsqueeze(-1),  # h
+    #                             (index[0] % w).unsqueeze(-1),  # w
+    #                         ],
+    #                         axis=-1)
 
-#             if self.ppn_select_type == 'threshod':
-#                 index = (F.sigmoid(pp_feat) > self.ppn_threshold
-#                          ).squeeze(1).nonzero()
+    #             elif self.ppn_select_type == 'topk':
+    #                 # TODO select topk 
+    #                 topk = int(
+    #                     h * w *
+    #                     self.ppn_topk) if 0 < self.ppn_topk < 1 else self.ppn_topk
+    #                 topk = max(topk, 10)
 
-#                 if len(index) < 10:
-#                     topk = 10
-#                     v, index = paddle.topk(
-#                         F.sigmoid(pp_feat).squeeze(1).flatten(1),
-#                         sorted=False,
-#                         k=topk,
-#                         axis=-1)
-#                     index = paddle.concat(
-#                         [
-#                             paddle.zeros(
-#                                 [topk, ], dtype='int64').unsqueeze(-1),
-#                             (index[0] // w).unsqueeze(-1),  # h
-#                             (index[0] % w).unsqueeze(-1),  # w
-#                         ],
-#                         axis=-1)
+    #                 v, index = paddle.topk(
+    #                     F.sigmoid(pp_feat).squeeze(1).flatten(1),
+    #                     sorted=False,
+    #                     k=topk,
+    #                     axis=-1)
+    #                 index = paddle.concat(
+    #                     [
+    #                         paddle.zeros(
+    #                             [topk, ], dtype='int64').unsqueeze(-1),
+    #                         (index[0] // w).unsqueeze(-1),  # h
+    #                         (index[0] % w).unsqueeze(-1),  # w
+    #                     ],
+    #                     axis=-1)
 
-#             elif self.ppn_select_type == 'topk':
-#                 # TODO select topk 
-#                 topk = int(
-#                     h * w *
-#                     self.ppn_topk) if 0 < self.ppn_topk < 1 else self.ppn_topk
-#                 topk = max(topk, 10)
+    #             index_list.append(index)
+    #             stride_list.append(
+    #                 paddle.full(
+    #                     [index.shape[0], 1], self.fpn_strides[i],
+    #                     dtype=self._dtype))
 
-#                 v, index = paddle.topk(
-#                     F.sigmoid(pp_feat).squeeze(1).flatten(1),
-#                     sorted=False,
-#                     k=topk,
-#                     axis=-1)
-#                 index = paddle.concat(
-#                     [
-#                         paddle.zeros(
-#                             [topk, ], dtype='int64').unsqueeze(-1),
-#                         (index[0] // w).unsqueeze(-1),  # h
-#                         (index[0] % w).unsqueeze(-1),  # w
-#                     ],
-#                     axis=-1)
+    #             # just for bs=1
+    #             feat = paddle.gather_nd(
+    #                 feat.transpose([0, 2, 3, 1]), index=index).reshape([n, -1, c])
 
-#             index_list.append(index)
-#             stride_list.append(
-#                 paddle.full(
-#                     [index.shape[0], 1], self.fpn_strides[i],
-#                     dtype=self._dtype))
+    #             if self.level_encoding is not None:
+    #                 feat += self.level_encoding.weight[i]
 
-#             # just for bs=1
-#             feat = paddle.gather_nd(
-#                 feat.transpose([0, 2, 3, 1]), index=index).reshape([n, -1, c])
+    #             feat_list.append(feat)
 
-#             if self.level_encoding is not None:
-#                 feat += self.level_encoding.weight[i]
+    #         feat_list = paddle.concat(feat_list, axis=1)
+    #         outputs = self.encoder(feat_list)  # N L C
 
-#             feat_list.append(feat)
+    #         outputs_logit = self.score_head(outputs)
+    #         outputs_bbox = F.sigmoid(self.bbox_head(outputs))
 
-#         feat_list = paddle.concat(feat_list, axis=1)
-#         outputs = self.encoder(feat_list)  # N L C
+    #         # cls_score_list = paddle.concat(cls_score_list, axis=1)
+    #         # reg_pred_list = paddle.concat(reg_pred_list, axis=1)
+    #         # obj_score_list = paddle.concat(obj_score_list, axis=1)
 
-#         outputs_logit = self.score_head(outputs)
-#         outputs_bbox = F.sigmoid(self.bbox_head(outputs))
+    #         # index_list = paddle.concat(index_list, axis=0)  # L 3
+    #         # stride_list = paddle.concat(stride_list, axis=0)
 
-#         # cls_score_list = paddle.concat(cls_score_list, axis=1)
-#         # reg_pred_list = paddle.concat(reg_pred_list, axis=1)
-#         # obj_score_list = paddle.concat(obj_score_list, axis=1)
+    #         # stride_tensor = stride_list
+    #         # anchor_points = paddle.concat(
+    #         #     [index_list[:, 2:], index_list[:, 1:2]],
+    #         #     axis=-1) * stride_tensor * 1.0
 
-#         # index_list = paddle.concat(index_list, axis=0)  # L 3
-#         # stride_list = paddle.concat(stride_list, axis=0)
+    #         # anchor_points.stop_gradient = True
+    #         # stride_tensor.stop_gradient = True
 
-#         # stride_tensor = stride_list
-#         # anchor_points = paddle.concat(
-#         #     [index_list[:, 2:], index_list[:, 1:2]],
-#         #     axis=-1) * stride_tensor * 1.0
+    #         # reg_xy, reg_wh = paddle.split(outputs_bbox, 2, axis=-1)  # N L1 2
+    #         # reg_xy += (anchor_points / stride_tensor)
 
-#         # anchor_points.stop_gradient = True
-#         # stride_tensor.stop_gradient = True
+    #         # reg_wh = paddle.exp(reg_wh) * 0.5
+    #         # bbox_pred_list = paddle.concat(
+    #         #     [reg_xy - reg_wh, reg_xy + reg_wh], axis=-1)
 
-#         # reg_xy, reg_wh = paddle.split(outputs_bbox, 2, axis=-1)  # N L1 2
-#         # reg_xy += (anchor_points / stride_tensor)
+    #         # outputs_bbox = bbox_pred_list  # N L 4
 
-#         # reg_wh = paddle.exp(reg_wh) * 0.5
-#         # bbox_pred_list = paddle.concat(
-#         #     [reg_xy - reg_wh, reg_xy + reg_wh], axis=-1)
+    #         if self.training:
+    #             assert targets is not None
+    #             assert 'gt_bbox' in targets and 'gt_class' in targets
+    #             losses = self.loss(
+    #                 outputs_bbox[None],
+    #                 outputs_logit[None],
+    #                 targets['gt_bbox'],
+    #                 targets['gt_class'], )
 
-#         # outputs_bbox = bbox_pred_list  # N L 4
+    #             loss_pps = 0
+    #             if self.ppn_gt_type == 'center':
+    #                 gt_bboxes = paddle.to_tensor(targets['gt_bbox'])[0]  # bs==1
+    #                 gt_centers = gt_bboxes[:, :2]
 
-#         if self.training:
-#             assert targets is not None
-#             assert 'gt_bbox' in targets and 'gt_class' in targets
-#             losses = self.loss(
-#                 outputs_bbox[None],
-#                 outputs_logit[None],
-#                 targets['gt_bbox'],
-#                 targets['gt_class'], )
+    #                 # gt_centers = (
+    #                 #     gt_bboxes[:, 2:] + gt_bboxes[:, :2]) / 2.  # fix `-` to `+`
+    #                 for i, pp_logits in enumerate(pp_logits_list):
+    #                     # centers = paddle.cast(gt_centers / self.fpn_strides[i],
+    #                     #                       'int64')
+    #                     centers = paddle.cast(gt_centers * pp_logits.shape[-1],
+    #                                           'int64')
+    #                     pp_gt = paddle.zeros_like(pp_logits)
+    #                     pp_gt[0, 0, centers[:, -1], centers[:, 0]] = 1.
+    #                     loss_pp = F.binary_cross_entropy_with_logits(
+    #                         pp_logits, pp_gt, reduction='mean')
+    #                     loss_pps += loss_pp
 
-#             loss_pps = 0
-#             if self.ppn_gt_type == 'center':
-#                 gt_bboxes = paddle.to_tensor(targets['gt_bbox'])[0]  # bs==1
-#                 gt_centers = gt_bboxes[:, :2]
+    #             if self.ppn_gt_type == 'gaussian':
+    #                 for i, pp_logits in enumerate(pp_logits_list):
+    #                     loss_pp = F.binary_cross_entropy_with_logits(
+    #                         pp_logits.squeeze(1), mask_list[i], reduction='mean')
+    #                     loss_pps += loss_pp
 
-#                 # gt_centers = (
-#                 #     gt_bboxes[:, 2:] + gt_bboxes[:, :2]) / 2.  # fix `-` to `+`
-#                 for i, pp_logits in enumerate(pp_logits_list):
-#                     # centers = paddle.cast(gt_centers / self.fpn_strides[i],
-#                     #                       'int64')
-#                     centers = paddle.cast(gt_centers * pp_logits.shape[-1],
-#                                           'int64')
-#                     pp_gt = paddle.zeros_like(pp_logits)
-#                     pp_gt[0, 0, centers[:, -1], centers[:, 0]] = 1.
-#                     loss_pp = F.binary_cross_entropy_with_logits(
-#                         pp_logits, pp_gt, reduction='mean')
-#                     loss_pps += loss_pp
+    #             losses['loss_pps'] = loss_pp
+    #             losses.update({
+    #                 'loss':
+    #                 paddle.add_n([v for k, v in losses.items() if 'log' not in k])
+    #             })
 
-#             if self.ppn_gt_type == 'gaussian':
-#                 for i, pp_logits in enumerate(pp_logits_list):
-#                     loss_pp = F.binary_cross_entropy_with_logits(
-#                         pp_logits.squeeze(1), mask_list[i], reduction='mean')
-#                     loss_pps += loss_pp
+    #             return losses
 
-#             losses['loss_pps'] = loss_pp
-#             losses.update({
-#                 'loss':
-#                 paddle.add_n([v for k, v in losses.items() if 'log' not in k])
-#             })
+    #         else:
+    #             return (outputs_bbox, outputs_logit, None)
 
-#             return losses
+    #     def post_process(self, head_outs, im_shape, scale_factor):
+    #         # pred_scores, pred_bboxes, stride_tensor = head_outs
+    #         # pred_scores = pred_scores.transpose([0, 2, 1])
+    #         # pred_bboxes *= stride_tensor
+    #         # # scale bbox to origin image
+    #         # scale_factor = scale_factor.flip(-1).tile([1, 2]).unsqueeze(1)
+    #         # pred_bboxes /= scale_factor
+    #         # if self.exclude_nms:
+    #         #     # `exclude_nms=True` just use in benchmark
+    #         #     return pred_bboxes.sum(), pred_scores.sum()
+    #         # else:
+    #         #     bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
+    #         #     return bbox_pred, bbox_num
 
-#         else:
-#             return (outputs_bbox, outputs_logit, None)
-
-#     def post_process(self, head_outs, im_shape, scale_factor):
-#         # pred_scores, pred_bboxes, stride_tensor = head_outs
-#         # pred_scores = pred_scores.transpose([0, 2, 1])
-#         # pred_bboxes *= stride_tensor
-#         # # scale bbox to origin image
-#         # scale_factor = scale_factor.flip(-1).tile([1, 2]).unsqueeze(1)
-#         # pred_bboxes /= scale_factor
-#         # if self.exclude_nms:
-#         #     # `exclude_nms=True` just use in benchmark
-#         #     return pred_bboxes.sum(), pred_scores.sum()
-#         # else:
-#         #     bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
-#         #     return bbox_pred, bbox_num
-
-#         bbox, bbox_num = self.post_process_func(head_outs, im_shape,
-#                                                 scale_factor)
-#         return bbox, bbox_num
+    #         bbox, bbox_num = self.post_process_func(head_outs, im_shape,
+    #                                                 scale_factor)
+    #         return bbox, bbox_num
