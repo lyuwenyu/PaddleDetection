@@ -374,7 +374,7 @@ class PHead(nn.Layer):
                     ],
                     axis=-1)
 
-                index = paddle.concat([index, _index], dim=0)
+                index = paddle.concat([index, _index], axis=0)
 
             index_list.append(index + 0.)  # offset
             stride_list.append(
