@@ -164,9 +164,10 @@ PHeadTransformer:
   loss_weight: {cls: 1.0, obj: 1.0, iou: 5.0, l1: 1.0}
   assigner:
     name: SimOTAAssigner
-    candidate_topk: 10
+    candidate_topk: 1 #
     use_vfl: False
-    check_center_in_gt: False
+    check_point_in_gt: False
+    check_point_many_gt: True
   nms:
     name: MultiClassNMS
     nms_top_k: 1000

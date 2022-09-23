@@ -126,6 +126,7 @@ class PHead(nn.Layer):
                  ppn_with_attention=False,
                  use_obj=True,
                  add_gt_as_proposal=False,
+                 pred_share=False,
                  pred_type='conv'):
 
         super().__init__()
@@ -146,6 +147,7 @@ class PHead(nn.Layer):
         self.ppn_with_attention = ppn_with_attention
         self.add_gt_as_proposal = add_gt_as_proposal
         self.pred_type = pred_type
+        self.pred_share = pred_share
 
         self.draw_gassian_mask = BoxCenterGaussianMask()
 
@@ -172,6 +174,9 @@ class PHead(nn.Layer):
         self.stem_conv = nn.LayerList()
         self.conv_cls = nn.LayerList()
         self.conv_reg = nn.LayerList()  # reg [x,y,w,h] + obj
+
+        if self.pred_share:
+            pass
 
         for in_c in self.in_channels:
 
@@ -707,6 +712,7 @@ class PHeadTransformer(nn.Layer):
         encoder_layer = nn.TransformerEncoderLayer(
             768, 12, 768 * 4, 0, activation='gelu')
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
+        self.use_position_encoding = True
 
         self.stem_conv = nn.LayerList()
         self.conv_cls = nn.LayerList()
@@ -807,6 +813,24 @@ class PHeadTransformer(nn.Layer):
         stride_tensor.stop_gradient = True
         return anchor_points, stride_tensor, num_anchors_list
 
+    def build_1d_sincos_position_embedding(
+            self,
+            L,
+            embed_dim=768,
+            temperature=10000., ):
+        grid_L = paddle.arange(L, dtype=paddle.float32)
+        assert embed_dim % 2 == 0, 'Embed dimension must be divisible by 4 for 2D sin-cos position embedding'
+        pos_dim = embed_dim // 2
+        omega = paddle.arange(pos_dim, dtype=paddle.float32) / pos_dim
+        omega = 1. / (temperature**omega)
+
+        out_L = grid_L.flatten()[..., None] @omega[None]  # L dim
+
+        pos_emb = paddle.concat(
+            [paddle.sin(out_L), paddle.cos(out_L)], axis=1)[None, :, :]
+
+        return pos_emb
+
     def forward(self, feats, targets=None):
         assert len(feats) == len(self.fpn_strides), \
             "The size of feats is not equal to size of fpn_strides"
@@ -826,7 +850,7 @@ class PHeadTransformer(nn.Layer):
         if self.training and self.ppn_gt_type == 'gaussian':
             boxes = targets['gt_bbox'][0]
             boxes[:, 2:] -= boxes[:, :2]
-            boxes[:, :2] += boxes[:, 2:] / 2.
+            boxes[:, :2] += (boxes[:, 2:] / 2.)
             boxes = boxes / targets['image'].shape[-1]
 
         for i, feat in enumerate(feats):
@@ -904,7 +928,11 @@ class PHeadTransformer(nn.Layer):
             feat_list.append(feat)
 
         # # TODO add attention
-        feat = paddle.concat(feat_list, axis=1)
+        feat = paddle.concat(feat_list, axis=1)  # n l dim
+        if self.use_position_encoding:
+            feat += self.build_1d_sincos_position_embedding(
+                feat.shape[1],
+                feat.shape[-1], )
         feat = self.encoder(feat)
 
         ii = 0
@@ -981,16 +1009,18 @@ class PHeadTransformer(nn.Layer):
                     pp_gt = paddle.zeros_like(pp_logits)
                     pp_gt[0, 0, centers[:, -1], centers[:, 0]] = 1.
                     loss_pp = F.binary_cross_entropy_with_logits(
-                        pp_logits, pp_gt, reduction='mean')
+                        pp_logits, pp_gt,
+                        reduction='sum') / max(len(gt_centers), 1.)
                     loss_pps += loss_pp
 
             if self.ppn_gt_type == 'gaussian':
                 for i, pp_logits in enumerate(pp_logits_list):
                     loss_pp = F.binary_cross_entropy_with_logits(
-                        pp_logits.squeeze(1), mask_list[i], reduction='mean')
+                        pp_logits.squeeze(1), mask_list[i],
+                        reduction='sum') / max(1., (mask_list[i] > 0).sum())
                     loss_pps += loss_pp
 
-            yolox_losses['loss_pps'] = loss_pp
+            yolox_losses['loss_pps'] = loss_pps
             yolox_losses['loss'] += loss_pps
 
             return yolox_losses

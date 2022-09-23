@@ -48,14 +48,16 @@ class SimOTAAssigner(object):
                  cls_weight=1.0,
                  num_classes=80,
                  use_vfl=True,
-                 check_center_in_gt=True):
+                 check_point_in_gt=True,
+                 check_point_many_gt=True):
         self.center_radius = center_radius
         self.candidate_topk = candidate_topk
         self.iou_weight = iou_weight
         self.cls_weight = cls_weight
         self.num_classes = num_classes
         self.use_vfl = use_vfl
-        self.check_center_in_gt = check_center_in_gt
+        self.check_center_in_gt = check_point_in_gt
+        self.check_point_many_gt = check_point_many_gt
 
     def get_in_gt_and_in_center_info(self, flatten_center_and_stride,
                                      gt_bboxes):
@@ -146,13 +148,15 @@ class SimOTAAssigner(object):
         del topk_ious, dynamic_ks, pos_idx
 
         # match points more than two gts
-        extra_match_gts_mask = match_matrix.sum(1) > 1
-        if extra_match_gts_mask.sum() > 0:
-            cost_matrix = cost_matrix.numpy()
-            cost_argmin = np.argmin(
-                cost_matrix[extra_match_gts_mask, :], axis=1)
-            match_matrix[extra_match_gts_mask, :] *= 0.0
-            match_matrix[extra_match_gts_mask, cost_argmin] = 1.0
+        if self.check_point_many_gt:
+            extra_match_gts_mask = match_matrix.sum(1) > 1
+            if extra_match_gts_mask.sum() > 0:
+                cost_matrix = cost_matrix.numpy()
+                cost_argmin = np.argmin(
+                    cost_matrix[extra_match_gts_mask, :], axis=1)
+                match_matrix[extra_match_gts_mask, :] *= 0.0
+                match_matrix[extra_match_gts_mask, cost_argmin] = 1.0
+
         # get foreground mask
         match_fg_mask_inmatrix = match_matrix.sum(1) > 0
         match_gt_inds_to_fg = match_matrix[match_fg_mask_inmatrix, :].argmax(1)
