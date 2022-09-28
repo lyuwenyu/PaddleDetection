@@ -1017,7 +1017,7 @@ class PHeadTransformer(nn.Layer):
                 for i, pp_logits in enumerate(pp_logits_list):
                     loss_pp = F.binary_cross_entropy_with_logits(
                         pp_logits.squeeze(1), mask_list[i],
-                        reduction='sum') / max(1., (mask_list[i] > 0).sum())
+                        reduction='sum') / max(mask_list[i].sum(), 1.)
                     loss_pps += loss_pp
 
             yolox_losses['loss_pps'] = loss_pps
