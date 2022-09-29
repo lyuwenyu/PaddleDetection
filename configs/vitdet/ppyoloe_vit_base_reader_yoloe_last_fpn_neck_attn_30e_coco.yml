@@ -137,8 +137,7 @@ VisionTransformer:
 ViTPAN:
   depthwise: False
   in_channels: [768, 768, 768]
-  act: 'silu'
-
+  use_concat: True
 
 PPYOLOEHead:
   # reverse: True

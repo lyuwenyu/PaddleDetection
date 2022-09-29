@@ -1224,17 +1224,30 @@ class CSPLayerL(nn.Layer):
                  expansion=0.5,
                  depthwise=False,
                  bias=False,
-                 act="silu"):
+                 act="silu",
+                 use_concat=True):
         super(CSPLayerL, self).__init__()
-        hidden_channels = int(out_channels * expansion)
+
         # self.conv1 = BaseConv(
         #     in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
         # self.conv2 = BaseConv(
         #     in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        self.conv1 = nn.Sequential(
-            nn.Conv2D(in_channels, hidden_channels, 1, 1), nn.GELU())
-        self.conv2 = nn.Sequential(
-            nn.Conv2D(in_channels, hidden_channels, 1, 1), nn.GELU())
+        self.use_concat = use_concat
+
+        if use_concat:
+            hidden_channels = int(out_channels * expansion)
+            self.conv1 = nn.Sequential(
+                nn.Conv2D(in_channels, hidden_channels, 1, 1), nn.GELU())
+            self.conv2 = nn.Sequential(
+                nn.Conv2D(in_channels, hidden_channels, 1, 1), nn.GELU())
+            self.conv3 = nn.Sequential(
+                nn.Conv2D(hidden_channels * 2, out_channels, 1, 1), nn.GELU())
+
+        else:
+            hidden_channels = out_channels
+            self.conv1 = nn.Identity()
+            self.conv2 = nn.Identity()
+            self.conv3 = nn.Identity()
 
         # self.bottlenecks = nn.LayerNorm(hidden_channels)
         # self.attn = nn.MultiHeadAttention(hidden_channels, hidden_channels // 64, attn_drop=0, )
@@ -1262,20 +1275,22 @@ class CSPLayerL(nn.Layer):
         #     stride=1,
         #     bias=bias,
         #     act=act)
-        self.conv3 = nn.Sequential(
-            nn.Conv2D(hidden_channels * 2, out_channels, 1, 1), nn.GELU())
 
     def forward(self, x):
         x_1 = self.conv1(x)
-
         n, c, h, w = x_1.shape
         x_1 = self.bottlenecks(x_1.flatten(2).transpose([0, 2, 1]))
         x_1 = x_1.transpose([0, 2, 1]).reshape([n, c, h, w])
         # x_1 = self.bottlenecks(x_1)
-
         x_2 = self.conv2(x)
-        x = paddle.concat([x_1, x_2], axis=1)
-        x = self.conv3(x)
+
+        if self.use_concat:
+            x = paddle.concat([x_1, x_2], axis=1)
+            x = self.conv3(x)
+
+        else:
+            x = x_1 + x
+
         return x
 
 
@@ -1293,11 +1308,13 @@ class ViTPAN(nn.Layer):
                  depthwise=False,
                  data_format='NCHW',
                  act='silu',
-                 trt=False):
+                 trt=False,
+                 use_concat=True):
         super(ViTPAN, self).__init__()
         self.in_channels = in_channels
         self._out_channels = in_channels
         Conv = DWConv if depthwise else BaseConv
+        self.use_concat = use_concat
 
         self.data_format = data_format
         act = get_act_fn(
@@ -1308,6 +1325,7 @@ class ViTPAN(nn.Layer):
         # top-down fpn
         self.lateral_convs = nn.LayerList()
         self.fpn_blocks = nn.LayerList()
+
         for idx in range(len(in_channels) - 1, 0, -1):
             self.lateral_convs.append(
                 #                 BaseConv(
@@ -1320,7 +1338,8 @@ class ViTPAN(nn.Layer):
 
             self.fpn_blocks.append(
                 CSPLayerL(
-                    int(in_channels[idx - 1] * 2),
+                    int(in_channels[idx - 1] * 2)
+                    if use_concat else int(in_channels[idx - 1]),
                     int(in_channels[idx - 1]),
                     # round(3 * depth_mult),
                     1,
@@ -1343,7 +1362,8 @@ class ViTPAN(nn.Layer):
 
             self.pan_blocks.append(
                 CSPLayerL(
-                    int(in_channels[idx] * 2),
+                    int(in_channels[idx] * 2)
+                    if use_concat else int(in_channels[idx]),
                     int(in_channels[idx + 1]),
                     # round(3 * depth_mult),
                     1,
@@ -1368,9 +1388,15 @@ class ViTPAN(nn.Layer):
                 scale_factor=2.,
                 mode="nearest",
                 data_format=self.data_format)
+
+            # inner_out = self.fpn_blocks[len(self.in_channels) - 1 - idx](
+            #     paddle.concat(
+            #         [upsample_feat, feat_low], axis=1))
             inner_out = self.fpn_blocks[len(self.in_channels) - 1 - idx](
                 paddle.concat(
-                    [upsample_feat, feat_low], axis=1))
+                    [upsample_feat, feat_low], axis=1)
+                if self.use_concat else upsample_feat + feat_low)
+
             inner_outs.insert(0, inner_out)
 
         # bottom-up pan
@@ -1379,8 +1405,13 @@ class ViTPAN(nn.Layer):
             feat_low = outs[-1]
             feat_height = inner_outs[idx + 1]
             downsample_feat = self.downsample_convs[idx](feat_low)
+            # out = self.pan_blocks[idx](paddle.concat(
+            #     [downsample_feat, feat_height], axis=1))
+
             out = self.pan_blocks[idx](paddle.concat(
-                [downsample_feat, feat_height], axis=1))
+                [downsample_feat, feat_height], axis=1) if self.use_concat else
+                                       downsample_feat + feat_height)
+
             outs.append(out)
 
         return outs
