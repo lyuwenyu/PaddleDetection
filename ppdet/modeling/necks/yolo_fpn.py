@@ -1345,7 +1345,8 @@ class ViTPAN(nn.Layer):
                     1,
                     shortcut=False,
                     depthwise=depthwise,
-                    act=act))
+                    act=act,
+                    use_concat=use_concat))
 
         # bottom-up pan
         self.downsample_convs = nn.LayerList()
@@ -1369,7 +1370,8 @@ class ViTPAN(nn.Layer):
                     1,
                     shortcut=False,
                     depthwise=depthwise,
-                    act=act))
+                    act=act,
+                    use_concat=use_concat))
 
     def forward(self, feats, for_mot=False):
         assert len(feats) == len(self.in_channels)
