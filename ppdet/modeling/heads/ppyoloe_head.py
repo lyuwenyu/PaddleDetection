@@ -223,7 +223,7 @@ class PPYOLOEHead(nn.Layer):
                 reg_dist = self.pred_reg[i](self.stem_reg[i](feat, avg_feat))
             else:
                 cls_logit = self.pred_cls[i](self.stem_cls[i](feat))
-                reg_distri = self.pred_reg[i](self.stem_reg[i](feat))
+                reg_dist = self.pred_reg[i](self.stem_reg[i](feat))
 
             reg_dist = reg_dist.reshape([-1, 4, self.reg_max + 1, l]).transpose(
                 [0, 2, 1, 3])
