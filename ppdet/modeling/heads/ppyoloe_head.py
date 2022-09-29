@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from matplotlib import use
 import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
@@ -51,32 +52,32 @@ class PPYOLOEHead(nn.Layer):
     ]
     __inject__ = ['static_assigner', 'assigner', 'nms', 'fpn']
 
-    def __init__(
-            self,
-            in_channels=[1024, 512, 256],
-            num_classes=80,
-            act='swish',
-            fpn_strides=(32, 16, 8),
-            grid_cell_scale=5.0,
-            grid_cell_offset=0.5,
-            reg_max=16,
-            static_assigner_epoch=4,
-            use_varifocal_loss=True,
-            static_assigner='ATSSAssigner',
-            assigner='TaskAlignedAssigner',
-            nms='MultiClassNMS',
-            eval_size=None,
-            loss_weight={
-                'class': 1.0,
-                'iou': 2.5,
-                'dfl': 0.5,
-            },
-            trt=False,
-            exclude_nms=False,
-            exclude_post_process=False,
-            reverse=False,
-            fpn=None,
-            preds_kernel=3, ):
+    def __init__(self,
+                 in_channels=[1024, 512, 256],
+                 num_classes=80,
+                 act='swish',
+                 fpn_strides=(32, 16, 8),
+                 grid_cell_scale=5.0,
+                 grid_cell_offset=0.5,
+                 reg_max=16,
+                 static_assigner_epoch=4,
+                 use_varifocal_loss=True,
+                 static_assigner='ATSSAssigner',
+                 assigner='TaskAlignedAssigner',
+                 nms='MultiClassNMS',
+                 eval_size=None,
+                 loss_weight={
+                     'class': 1.0,
+                     'iou': 2.5,
+                     'dfl': 0.5,
+                 },
+                 trt=False,
+                 exclude_nms=False,
+                 exclude_post_process=False,
+                 reverse=False,
+                 fpn=None,
+                 preds_kernel=3,
+                 use_ese=False):
 
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
@@ -93,6 +94,7 @@ class PPYOLOEHead(nn.Layer):
         self.reverse = reverse
         self.fpn = fpn
         self.preds_kernel = preds_kernel
+        self.use_ese = use_ese
 
         self.static_assigner_epoch = static_assigner_epoch
         self.static_assigner = static_assigner
@@ -108,9 +110,15 @@ class PPYOLOEHead(nn.Layer):
         act = get_act_fn(
             act, trt=trt) if act is None or isinstance(act,
                                                        (str, dict)) else act
+
         for in_c in self.in_channels:
-            self.stem_cls.append(ESEAttn(in_c, act=act))
-            self.stem_reg.append(ESEAttn(in_c, act=act))
+            self.stem_cls.append(
+                ESEAttn(
+                    in_c, act=act) if self.use_ese else nn.Identity())
+            self.stem_reg.append(
+                ESEAttn(
+                    in_c, act=act) if self.use_ese else nn.Identity())
+
         # pred head
         self.pred_cls = nn.LayerList()
         self.pred_reg = nn.LayerList()
@@ -156,10 +164,15 @@ class PPYOLOEHead(nn.Layer):
 
         cls_score_list, reg_distri_list = [], []
         for i, feat in enumerate(feats):
-            avg_feat = F.adaptive_avg_pool2d(feat, (1, 1))
-            cls_logit = self.pred_cls[i](self.stem_cls[i](feat, avg_feat) +
-                                         feat)
-            reg_distri = self.pred_reg[i](self.stem_reg[i](feat, avg_feat))
+            if self.use_ese:
+                avg_feat = F.adaptive_avg_pool2d(feat, (1, 1))
+                cls_logit = self.pred_cls[i](self.stem_cls[i](feat, avg_feat) +
+                                             feat)
+                reg_distri = self.pred_reg[i](self.stem_reg[i](feat, avg_feat))
+            else:
+                cls_logit = self.pred_cls[i](self.stem_cls[i](feat))
+                reg_distri = self.pred_reg[i](self.stem_reg[i](feat))
+
             # cls and reg
             cls_score = F.sigmoid(cls_logit)
             cls_score_list.append(cls_score.flatten(2).transpose([0, 2, 1]))
@@ -203,10 +216,15 @@ class PPYOLOEHead(nn.Layer):
         for i, feat in enumerate(feats):
             b, _, h, w = feat.shape
             l = h * w
-            avg_feat = F.adaptive_avg_pool2d(feat, (1, 1))
-            cls_logit = self.pred_cls[i](self.stem_cls[i](feat, avg_feat) +
-                                         feat)
-            reg_dist = self.pred_reg[i](self.stem_reg[i](feat, avg_feat))
+            if self.use_ese:
+                avg_feat = F.adaptive_avg_pool2d(feat, (1, 1))
+                cls_logit = self.pred_cls[i](self.stem_cls[i](feat, avg_feat) +
+                                             feat)
+                reg_dist = self.pred_reg[i](self.stem_reg[i](feat, avg_feat))
+            else:
+                cls_logit = self.pred_cls[i](self.stem_cls[i](feat))
+                reg_distri = self.pred_reg[i](self.stem_reg[i](feat))
+
             reg_dist = reg_dist.reshape([-1, 4, self.reg_max + 1, l]).transpose(
                 [0, 2, 1, 3])
             reg_dist = self.proj_conv(F.softmax(reg_dist, axis=1))

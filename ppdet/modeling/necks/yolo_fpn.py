@@ -22,7 +22,10 @@ from ..backbones.darknet import ConvBNLayer
 from ..shape_spec import ShapeSpec
 from ..backbones.csp_darknet import BaseConv, DWConv, CSPLayer
 
-__all__ = ['YOLOv3FPN', 'PPYOLOFPN', 'PPYOLOTinyFPN', 'PPYOLOPAN', 'YOLOCSPPAN']
+__all__ = [
+    'YOLOv3FPN', 'PPYOLOFPN', 'PPYOLOTinyFPN', 'PPYOLOPAN', 'YOLOCSPPAN',
+    'ViTPAN'
+]
 
 
 def add_coord(x, data_format):
@@ -1093,6 +1096,294 @@ class YOLOCSPPAN(nn.Layer):
     # @classmethod
     # def from_config(cls, cfg, input_shape):
     #     return {'in_channels': [i.channels for i in input_shape], }
+
+    @property
+    def out_shape(self):
+        return [ShapeSpec(channels=c) for c in self._out_channels]
+
+
+from paddle.nn.initializer import Constant
+zeros_ = Constant(value=0.)
+
+
+class Attention(nn.Layer):
+    def __init__(self,
+                 dim,
+                 num_heads=8,
+                 qkv_bias=False,
+                 qk_scale=None,
+                 attn_drop=0.,
+                 proj_drop=0.,
+                 window_size=None):
+        super().__init__()
+        self.num_heads = num_heads
+        head_dim = dim // num_heads
+        self.scale = qk_scale or head_dim**-0.5
+
+        self.qkv = nn.Linear(dim, dim * 3, bias_attr=False)
+
+        if qkv_bias:
+            self.q_bias = self.create_parameter(
+                shape=([dim]), default_initializer=zeros_)
+            self.v_bias = self.create_parameter(
+                shape=([dim]), default_initializer=zeros_)
+        else:
+            self.q_bias = None
+            self.v_bias = None
+        if window_size:
+            self.window_size = window_size
+            self.num_relative_distance = (2 * window_size[0] - 1) * (
+                2 * window_size[1] - 1) + 3
+            self.relative_position_bias_table = self.create_parameter(
+                shape=(self.num_relative_distance, num_heads),
+                default_initializer=zeros_)  # 2*Wh-1 * 2*Ww-1, nH
+            # cls to token & token 2 cls & cls to cls
+
+            # get pair-wise relative position index for each token inside the window
+            coords_h = paddle.arange(window_size[0])
+            coords_w = paddle.arange(window_size[1])
+            coords = paddle.stack(paddle.meshgrid(
+                [coords_h, coords_w]))  # 2, Wh, Ww
+            coords_flatten = paddle.flatten(coords, 1)  # 2, Wh*Ww 
+            coords_flatten_1 = paddle.unsqueeze(coords_flatten, 2)
+            coords_flatten_2 = paddle.unsqueeze(coords_flatten, 1)
+            relative_coords = coords_flatten_1.clone() - coords_flatten_2.clone(
+            )
+
+            #relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Wh
+            relative_coords = relative_coords.transpose(
+                (1, 2, 0))  #.contiguous()  # Wh*Ww, Wh*Ww, 2
+            relative_coords[:, :, 0] += window_size[
+                0] - 1  # shift to start from 0
+            relative_coords[:, :, 1] += window_size[1] - 1
+            relative_coords[:, :, 0] *= 2 * window_size[1] - 1
+            relative_position_index = \
+                paddle.zeros(shape=(window_size[0] * window_size[1] + 1, ) * 2, dtype=relative_coords.dtype)
+            relative_position_index[1:, 1:] = relative_coords.sum(
+                -1)  # Wh*Ww, Wh*Ww
+            relative_position_index[0, 0:] = self.num_relative_distance - 3
+            relative_position_index[0:, 0] = self.num_relative_distance - 2
+            relative_position_index[0, 0] = self.num_relative_distance - 1
+
+            self.register_buffer("relative_position_index",
+                                 relative_position_index)
+            # trunc_normal_(self.relative_position_bias_table, std=.0)
+        else:
+            self.window_size = None
+            self.relative_position_bias_table = None
+            self.relative_position_index = None
+
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(proj_drop)
+
+    def forward(self, x, rel_pos_bias=None):
+        x_shape = paddle.shape(x)
+        N, C = x_shape[1], x_shape[2]
+
+        qkv_bias = None
+        if self.q_bias is not None:
+            qkv_bias = paddle.concat(
+                (self.q_bias, paddle.zeros_like(self.v_bias), self.v_bias))
+        qkv = F.linear(x, weight=self.qkv.weight, bias=qkv_bias)
+
+        qkv = qkv.reshape((-1, N, 3, self.num_heads,
+                           C // self.num_heads)).transpose((2, 0, 3, 1, 4))
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        attn = (q.matmul(k.transpose((0, 1, 3, 2)))) * self.scale
+
+        if self.relative_position_bias_table is not None:
+            relative_position_bias = self.relative_position_bias_table[
+                self.relative_position_index.reshape([-1])].reshape([
+                    self.window_size[0] * self.window_size[1] + 1,
+                    self.window_size[0] * self.window_size[1] + 1, -1
+                ])  # Wh*Ww,Wh*Ww,nH
+            relative_position_bias = relative_position_bias.transpose(
+                (2, 0, 1))  #.contiguous()  # nH, Wh*Ww, Wh*Ww
+            attn = attn + relative_position_bias.unsqueeze(0)
+        if rel_pos_bias is not None:
+            attn = attn + rel_pos_bias
+
+        attn = nn.functional.softmax(attn, axis=-1)
+        attn = self.attn_drop(attn)
+
+        x = (attn.matmul(v)).transpose((0, 2, 1, 3)).reshape((-1, N, C))
+        x = self.proj(x)
+        x = self.proj_drop(x)
+        return x
+
+
+class CSPLayerL(nn.Layer):
+    """CSP (Cross Stage Partial) layer with 3 convs, named C3 in YOLOv5"""
+
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 num_blocks=1,
+                 shortcut=True,
+                 expansion=0.5,
+                 depthwise=False,
+                 bias=False,
+                 act="silu"):
+        super(CSPLayerL, self).__init__()
+        hidden_channels = int(out_channels * expansion)
+        # self.conv1 = BaseConv(
+        #     in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
+        # self.conv2 = BaseConv(
+        #     in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
+        self.conv1 = nn.Sequential(
+            nn.Conv2D(in_channels, hidden_channels, 1, 1), nn.GELU())
+        self.conv2 = nn.Sequential(
+            nn.Conv2D(in_channels, hidden_channels, 1, 1), nn.GELU())
+
+        # self.bottlenecks = nn.LayerNorm(hidden_channels)
+        # self.attn = nn.MultiHeadAttention(hidden_channels, hidden_channels // 64, attn_drop=0, )
+
+        self.bottlenecks = nn.Sequential(*[
+            Attention(
+                hidden_channels,
+                hidden_channels // 64, ) for _ in range(num_blocks)
+        ])
+        # self.bottlenecks = nn.Sequential(* [
+        #     BottleNeck(
+        #         hidden_channels,
+        #         hidden_channels,
+        #         shortcut=shortcut,
+        #         expansion=1.0,
+        #         depthwise=depthwise,
+        #         bias=bias,
+        #         act=act) for _ in range(num_blocks)
+        # ])
+
+        # self.conv3 = BaseConv(
+        #     hidden_channels * 2,
+        #     out_channels,
+        #     ksize=1,
+        #     stride=1,
+        #     bias=bias,
+        #     act=act)
+        self.conv3 = nn.Sequential(
+            nn.Conv2D(hidden_channels * 2, out_channels, 1, 1), nn.GELU())
+
+    def forward(self, x):
+        x_1 = self.conv1(x)
+
+        n, c, h, w = x_1.shape
+        x_1 = self.bottlenecks(x_1.flatten(2).transpose([0, 2, 1]))
+        x_1 = x_1.transpose([0, 2, 1]).reshape([n, c, h, w])
+        # x_1 = self.bottlenecks(x_1)
+
+        x_2 = self.conv2(x)
+        x = paddle.concat([x_1, x_2], axis=1)
+        x = self.conv3(x)
+        return x
+
+
+@register
+@serializable
+class ViTPAN(nn.Layer):
+    """
+    YOLO CSP-PAN, used in YOLOv5 and YOLOX.
+    """
+    __shared__ = ['depth_mult', 'data_format', 'act', 'trt']
+
+    def __init__(self,
+                 depth_mult=1.0,
+                 in_channels=[256, 512, 1024],
+                 depthwise=False,
+                 data_format='NCHW',
+                 act='silu',
+                 trt=False):
+        super(ViTPAN, self).__init__()
+        self.in_channels = in_channels
+        self._out_channels = in_channels
+        Conv = DWConv if depthwise else BaseConv
+
+        self.data_format = data_format
+        act = get_act_fn(
+            act, trt=trt) if act is None or isinstance(act,
+                                                       (str, dict)) else act
+        self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
+
+        # top-down fpn
+        self.lateral_convs = nn.LayerList()
+        self.fpn_blocks = nn.LayerList()
+        for idx in range(len(in_channels) - 1, 0, -1):
+            self.lateral_convs.append(
+                #                 BaseConv(
+                #                     int(in_channels[idx]),
+                #                     int(in_channels[idx - 1]),
+                #                     1,
+                #                     1,
+                #                     act=act)
+                nn.Conv2D(in_channels[idx], in_channels[idx], 1, 1, 0))
+
+            self.fpn_blocks.append(
+                CSPLayerL(
+                    int(in_channels[idx - 1] * 2),
+                    int(in_channels[idx - 1]),
+                    # round(3 * depth_mult),
+                    1,
+                    shortcut=False,
+                    depthwise=depthwise,
+                    act=act))
+
+        # bottom-up pan
+        self.downsample_convs = nn.LayerList()
+        self.pan_blocks = nn.LayerList()
+        for idx in range(len(in_channels) - 1):
+            self.downsample_convs.append(
+                #                 Conv(
+                #                     int(in_channels[idx]),
+                #                     int(in_channels[idx]),
+                #                     3,
+                #                     stride=2,
+                #                     act=act)
+                nn.Conv2D(in_channels[idx], in_channels[idx], 3, 2, 1))
+
+            self.pan_blocks.append(
+                CSPLayerL(
+                    int(in_channels[idx] * 2),
+                    int(in_channels[idx + 1]),
+                    # round(3 * depth_mult),
+                    1,
+                    shortcut=False,
+                    depthwise=depthwise,
+                    act=act))
+
+    def forward(self, feats, for_mot=False):
+        assert len(feats) == len(self.in_channels)
+
+        # top-down fpn
+        inner_outs = [feats[-1]]
+        for idx in range(len(self.in_channels) - 1, 0, -1):
+            feat_heigh = inner_outs[0]
+            feat_low = feats[idx - 1]
+            feat_heigh = self.lateral_convs[len(self.in_channels) - 1 - idx](
+                feat_heigh)
+            inner_outs[0] = feat_heigh
+
+            upsample_feat = F.interpolate(
+                feat_heigh,
+                scale_factor=2.,
+                mode="nearest",
+                data_format=self.data_format)
+            inner_out = self.fpn_blocks[len(self.in_channels) - 1 - idx](
+                paddle.concat(
+                    [upsample_feat, feat_low], axis=1))
+            inner_outs.insert(0, inner_out)
+
+        # bottom-up pan
+        outs = [inner_outs[0]]
+        for idx in range(len(self.in_channels) - 1):
+            feat_low = outs[-1]
+            feat_height = inner_outs[idx + 1]
+            downsample_feat = self.downsample_convs[idx](feat_low)
+            out = self.pan_blocks[idx](paddle.concat(
+                [downsample_feat, feat_height], axis=1))
+            outs.append(out)
+
+        return outs
 
     @property
     def out_shape(self):
