@@ -100,7 +100,7 @@ ema_decay: 0.9999
 ema_warmup_steps: 2000 #
 ema_skip_names: ['yolo_head.proj_conv', 'backbone.pos_embed']
 
-# custom_black_list: ['reduce_mean']
+custom_black_list: ['reduce_mean']
 find_unused_parameters: True
 use_fused_allreduce_gradients: &use_checkpoint False
 
@@ -144,6 +144,7 @@ PPYOLOEHead:
   # reverse: True
   fpn_strides: [8, 16, 32]
   in_channels: [768, 768, 768]
+  use_ese: True
 
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5

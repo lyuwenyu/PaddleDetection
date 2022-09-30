@@ -5,10 +5,10 @@ _BASE_: [
   '../runtime.yml',
 ]
 
-snapshot_epoch: 1
+snapshot_epoch: 5
 
 # optimizer
-epoch: &epoch 60
+epoch: &epoch 180
 
 LearningRate:
   base_lr: 0.0001
@@ -48,7 +48,7 @@ OptimizerBuilder:
   clip_grad_by_norm: 1.0
   optimizer:
     type: AdamW
-    weight_decay: 0.05
+    weight_decay: 0.02
     param_groups:
         -
           params: ['norm', 'cls_token', 'pos_embed', '.bias', 'bn.weight']
@@ -143,10 +143,11 @@ PPYOLOEHead:
   # reverse: True
   fpn_strides: [8, 16, 32]
   in_channels: [768, 768, 768]
+  use_ese: False
 
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
-  static_assigner_epoch: 20
+  static_assigner_epoch: 60
   use_varifocal_loss: True
   loss_weight: {class: 1.0, iou: 2.5, dfl: 0.5}
   static_assigner:

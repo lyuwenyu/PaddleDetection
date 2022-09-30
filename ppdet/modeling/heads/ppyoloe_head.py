@@ -77,7 +77,7 @@ class PPYOLOEHead(nn.Layer):
                  reverse=False,
                  fpn=None,
                  preds_kernel=3,
-                 use_ese=False):
+                 use_ese=True):
 
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
