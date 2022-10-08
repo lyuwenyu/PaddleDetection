@@ -223,3 +223,140 @@ class CustomCSPPAN(nn.Layer):
     @property
     def out_shape(self):
         return [ShapeSpec(channels=c) for c in self._out_channels]
+
+
+@register
+@serializable
+class CustomCSPPANL(nn.Layer):
+    __shared__ = ['norm_type', 'data_format', 'width_mult', 'depth_mult', 'trt']
+
+    def __init__(self,
+                 in_channels=[256, 512, 1024],
+                 out_channels=[1024, 512, 256],
+                 norm_type='bn',
+                 act='leaky',
+                 stage_fn='CSPStage',
+                 block_fn='BasicBlock',
+                 stage_num=1,
+                 block_num=3,
+                 drop_block=False,
+                 block_size=3,
+                 keep_prob=0.9,
+                 spp=False,
+                 data_format='NCHW',
+                 width_mult=1.0,
+                 depth_mult=1.0,
+                 trt=False):
+
+        super(CustomCSPPAN, self).__init__()
+        out_channels = [max(round(c * width_mult), 1) for c in out_channels]
+        block_num = max(round(block_num * depth_mult), 1)
+        act = get_act_fn(
+            act, trt=trt) if act is None or isinstance(act,
+                                                       (str, dict)) else act
+        self.num_blocks = len(in_channels)
+        self.data_format = data_format
+        self._out_channels = out_channels
+        in_channels = in_channels[::-1]
+        fpn_stages = []
+        fpn_routes = []
+        for i, (ch_in, ch_out) in enumerate(zip(in_channels, out_channels)):
+            if i > 0:
+                ch_in += ch_pre // 2
+
+            stage = nn.Sequential()
+            for j in range(stage_num):
+                stage.add_sublayer(
+                    str(j),
+                    eval(stage_fn)(block_fn,
+                                   ch_in if j == 0 else ch_out,
+                                   ch_out,
+                                   block_num,
+                                   act=act,
+                                   spp=(spp and i == 0)))
+
+            if drop_block:
+                stage.add_sublayer('drop', DropBlock(block_size, keep_prob))
+
+            fpn_stages.append(stage)
+
+            if i < self.num_blocks - 1:
+                fpn_routes.append(
+                    ConvBNLayer(
+                        ch_in=ch_out,
+                        ch_out=ch_out // 2,
+                        filter_size=1,
+                        stride=1,
+                        padding=0,
+                        act=act))
+
+            ch_pre = ch_out
+
+        self.fpn_stages = nn.LayerList(fpn_stages)
+        self.fpn_routes = nn.LayerList(fpn_routes)
+
+        pan_stages = []
+        pan_routes = []
+        for i in reversed(range(self.num_blocks - 1)):
+            pan_routes.append(
+                ConvBNLayer(
+                    ch_in=out_channels[i + 1],
+                    ch_out=out_channels[i + 1],
+                    filter_size=3,
+                    stride=2,
+                    padding=1,
+                    act=act))
+
+            ch_in = out_channels[i] + out_channels[i + 1]
+            ch_out = out_channels[i]
+            stage = nn.Sequential()
+            for j in range(stage_num):
+                stage.add_sublayer(
+                    str(j),
+                    eval(stage_fn)(block_fn,
+                                   ch_in if j == 0 else ch_out,
+                                   ch_out,
+                                   block_num,
+                                   act=act,
+                                   spp=False))
+            if drop_block:
+                stage.add_sublayer('drop', DropBlock(block_size, keep_prob))
+
+            pan_stages.append(stage)
+
+        self.pan_stages = nn.LayerList(pan_stages[::-1])
+        self.pan_routes = nn.LayerList(pan_routes[::-1])
+
+    def forward(self, blocks, for_mot=False):
+        blocks = blocks[::-1]
+        fpn_feats = []
+
+        for i, block in enumerate(blocks):
+            if i > 0:
+                block = paddle.concat([route, block], axis=1)
+            route = self.fpn_stages[i](block)
+            fpn_feats.append(route)
+
+            if i < self.num_blocks - 1:
+                route = self.fpn_routes[i](route)
+                route = F.interpolate(
+                    route, scale_factor=2., data_format=self.data_format)
+
+        pan_feats = [fpn_feats[-1], ]
+        route = fpn_feats[-1]
+        for i in reversed(range(self.num_blocks - 1)):
+            block = fpn_feats[i]
+            route = self.pan_routes[i](route)
+            block = paddle.concat([route, block], axis=1)
+            route = self.pan_stages[i](block)
+            pan_feats.append(route)
+
+        return pan_feats[::-1]
+
+    @classmethod
+    def from_config(cls, cfg, input_shape):
+        return {'in_channels': [i.channels for i in input_shape], }
+
+    @property
+    def out_shape(self):
+        return [ShapeSpec(channels=c) for c in self._out_channels]
