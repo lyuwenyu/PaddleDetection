@@ -328,11 +328,8 @@ class CustomCSPPANL(nn.Layer):
         self.pan_routes = nn.LayerList(pan_routes[::-1])
 
         self.scalers = nn.LayerList([
-            nn.Sequential(
-                nn.Conv2DTranspose(1024, 256, 4, 4),
-                nn.BatchNorm2D(256), nn.Silu()), nn.Sequential(
-                    nn.Conv2DTranspose(1024, 512, 2, 2),
-                    nn.BatchNorm2D(512), nn.Silu()), nn.Identity()
+            nn.Sequential(nn.Conv2DTranspose(1024, 256, 4, 4), ),
+            nn.Sequential(nn.Conv2DTranspose(1024, 512, 2, 2), ), nn.Identity()
         ])
 
 #         self.scalers = nn.LayerList([
