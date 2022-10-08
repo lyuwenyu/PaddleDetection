@@ -327,9 +327,17 @@ class CustomCSPPANL(nn.Layer):
         self.pan_stages = nn.LayerList(pan_stages[::-1])
         self.pan_routes = nn.LayerList(pan_routes[::-1])
 
+        # self.scalers = nn.LayerList([
+        #     nn.Sequential(nn.Conv2DTranspose(1024, 256, 4, 4), nn.BatchNorm2D(256), nn.Silu()), 
+        #     nn.Sequential(nn.Conv2DTranspose(1024, 512, 2, 2), nn.BatchNorm2D(512), nn.Silu()), 
+        #     nn.Identity()
+        # ])
         self.scalers = nn.LayerList([
-            nn.Conv2DTranspose(1024, 256, 4, 4),
-            nn.Conv2DTranspose(1024, 512, 2, 2), nn.Identity()
+            nn.Sequential(
+                nn.Conv2DTranspose(1024, 512, 2, 2),
+                nn.BatchNorm2D(512),
+                nn.Silu(), nn.Conv2DTranspose(512, 256, 2, 2)),
+            nn.Sequential(nn.Conv2DTranspose(1024, 512, 2, 2)), nn.Identity()
         ])
 
     def forward(self, blocks, for_mot=False):
