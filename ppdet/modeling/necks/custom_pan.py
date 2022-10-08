@@ -327,7 +327,18 @@ class CustomCSPPANL(nn.Layer):
         self.pan_stages = nn.LayerList(pan_stages[::-1])
         self.pan_routes = nn.LayerList(pan_routes[::-1])
 
+        self.scalers = nn.LayerList([
+            nn.Conv2DTranspose(1024, 256, 4, 4),
+            nn.Conv2DTranspose(1024, 512, 2, 2), nn.Identity()
+        ])
+
     def forward(self, blocks, for_mot=False):
+
+        last_feat = blocks[-1]
+        assert last_feat.shape[1] == 1024, ''
+        blocks = [m(last_feat) for m in self.scalers]
+        # print([o.shape for o in blocks])
+
         blocks = blocks[::-1]
         fpn_feats = []
 
