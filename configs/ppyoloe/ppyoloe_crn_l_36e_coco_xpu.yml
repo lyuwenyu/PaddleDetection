@@ -22,6 +22,9 @@ width_mult: 1.0
 TrainReader:
   batch_size: 8
 
+EvalReader:
+  batch_size: 8
+
 architecture: YOLOv3
 norm_type: sync_bn
 use_ema: true
