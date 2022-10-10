@@ -215,6 +215,12 @@ class PPYOLOEHead(nn.Layer):
         assert len(feats) == len(self.fpn_strides), \
             "The size of feats is not equal to size of fpn_strides"
 
+        # TODO
+        self.fpn_strides = [
+            targets['image'].shape[-1] / x.shape[-1] for x in feats
+        ]
+        # print(self.fpn_strides)
+
         if self.training:
             return self.forward_train(feats, targets)
         else:

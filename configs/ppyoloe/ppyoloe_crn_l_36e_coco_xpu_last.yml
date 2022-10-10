@@ -25,6 +25,10 @@ TrainReader:
 EvalReader:
   batch_size: 8
 
+LearningRate:
+  base_lr: 0.01
+
+
 architecture: YOLOv3
 norm_type: sync_bn
 use_ema: true

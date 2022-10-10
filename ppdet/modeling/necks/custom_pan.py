@@ -332,20 +332,51 @@ class CustomCSPPANL(nn.Layer):
             nn.Sequential(nn.Conv2DTranspose(1024, 512, 2, 2), ), nn.Identity()
         ])
 
-#         self.scalers = nn.LayerList([
-#             nn.Sequential(
-#                 nn.Conv2DTranspose(1024, 512, 2, 2),
-#                 nn.BatchNorm2D(512),
-#                 nn.Silu(), nn.Conv2DTranspose(512, 256, 2, 2)),
-#             nn.Sequential(nn.Conv2DTranspose(1024, 512, 2, 2)), nn.Identity()
-#         ])
+        self.scalers = nn.LayerList([
+            nn.Sequential(
+                nn.Conv2DTranspose(1024, 512, 4, 2, 1),
+                nn.BatchNorm2D(512),
+                nn.Silu(),
+                nn.Conv2DTranspose(512, 256, 4, 2, 1), ), nn.Sequential(
+                    nn.Conv2DTranspose(1024, 512, 4, 2, 1), ),
+            nn.Sequential(nn.Identity())
+        ])
+
+        # self.scalers = nn.LayerList([
+        #     nn.Sequential(
+        #         nn.Conv2DTranspose(1024, 512, 2, 2),
+        #         nn.BatchNorm2D(512),
+        #         nn.Silu(), nn.Conv2DTranspose(512, 256, 2, 2)),
+        #     nn.Sequential(nn.Conv2DTranspose(1024, 512, 2, 2)), nn.Identity()
+        # ])
+
+        # self.scalers = nn.LayerList([
+        #     nn.Sequential(
+        #         nn.Conv2DTranspose(1024, 512, 2, 2),
+        #         nn.BatchNorm2D(512),
+        #         nn.Silu(), 
+        #         nn.Conv2D(512, 512, 3, 1, 1),
+        #         nn.BatchNorm2D(512),
+        #         nn.Silu(), 
+        #         nn.Conv2DTranspose(512, 256, 2, 2)
+        #     ),
+        #     nn.Sequential(nn.Conv2DTranspose(1024, 512, 2, 2)), 
+        #     nn.Identity()
+        # ])
 
     def forward(self, blocks, for_mot=False):
 
         last_feat = blocks[-1]
         assert last_feat.shape[1] == 1024, ''
-        blocks = [m(last_feat) for m in self.scalers]
+        _blocks = [m(last_feat) for m in self.scalers]
         # print([o.shape for o in blocks])
+
+        for b, _b in zip(blocks, _blocks):
+            assert b.shape == _b.shape, ''
+
+        blocks = _blocks
+
+        # ----------------------
 
         blocks = blocks[::-1]
         fpn_feats = []
@@ -379,3 +410,226 @@ class CustomCSPPANL(nn.Layer):
     @property
     def out_shape(self):
         return [ShapeSpec(channels=c) for c in self._out_channels]
+
+
+@register
+@serializable
+class DecoderT(nn.Layer):
+    __shared__ = ['norm_type', 'data_format', 'width_mult', 'depth_mult', 'trt']
+
+    def __init__(self,
+                 in_channels=[256, 512, 1024],
+                 out_channels=[1024, 512, 256],
+                 norm_type='bn',
+                 act='leaky',
+                 stage_fn='CSPStage',
+                 block_fn='BasicBlock',
+                 stage_num=1,
+                 block_num=3,
+                 drop_block=False,
+                 block_size=3,
+                 keep_prob=0.9,
+                 spp=False,
+                 data_format='NCHW',
+                 width_mult=1.0,
+                 depth_mult=1.0,
+                 trt=False):
+
+        super().__init__()
+
+        # print(in_channels)
+        in_channels = [1024, 1024, 1024, 1024]
+
+        out_channels = [max(round(c * width_mult), 1) for c in out_channels]
+        block_num = max(round(block_num * depth_mult), 1)
+        act = get_act_fn(
+            act, trt=trt) if act is None or isinstance(act,
+                                                       (str, dict)) else act
+        self.num_blocks = len(in_channels)
+        self.data_format = data_format
+        self._out_channels = out_channels
+        in_channels = in_channels[::-1]
+        fpn_stages = []
+        fpn_routes = []
+        for i, (ch_in, ch_out) in enumerate(zip(in_channels, out_channels)):
+            if i > 0:
+                ch_in += ch_pre // 2
+
+            stage = nn.Sequential()
+            for j in range(stage_num):
+                stage.add_sublayer(
+                    str(j),
+                    eval(stage_fn)(block_fn,
+                                   ch_in if j == 0 else ch_out,
+                                   ch_out,
+                                   block_num,
+                                   act=act,
+                                   spp=(spp and i == 0)))
+
+            if drop_block:
+                stage.add_sublayer('drop', DropBlock(block_size, keep_prob))
+
+            fpn_stages.append(stage)
+
+            if i < self.num_blocks - 1:
+                fpn_routes.append(
+                    ConvBNLayer(
+                        ch_in=ch_out,
+                        ch_out=ch_out // 2,
+                        filter_size=1,
+                        stride=1,
+                        padding=0,
+                        act=act))
+
+            ch_pre = ch_out
+
+        self.fpn_stages = nn.LayerList(fpn_stages)
+        self.fpn_routes = nn.LayerList(fpn_routes)
+
+        pan_stages = []
+        pan_routes = []
+        for i in reversed(range(self.num_blocks - 1)):
+            pan_routes.append(
+                ConvBNLayer(
+                    ch_in=out_channels[i + 1],
+                    ch_out=out_channels[i + 1],
+                    filter_size=3,
+                    stride=2,
+                    padding=1,
+                    act=act))
+
+            ch_in = out_channels[i] + out_channels[i + 1]
+            ch_out = out_channels[i]
+            stage = nn.Sequential()
+            for j in range(stage_num):
+                stage.add_sublayer(
+                    str(j),
+                    eval(stage_fn)(block_fn,
+                                   ch_in if j == 0 else ch_out,
+                                   ch_out,
+                                   block_num,
+                                   act=act,
+                                   spp=False))
+            if drop_block:
+                stage.add_sublayer('drop', DropBlock(block_size, keep_prob))
+
+            pan_stages.append(stage)
+
+        self.pan_stages = nn.LayerList(pan_stages[::-1])
+        self.pan_routes = nn.LayerList(pan_routes[::-1])
+
+        sizes = [128, 64, 32, 16]
+        hiddien_dim = 1024
+
+        self.sizes = sizes
+        self.hiddien_dim = hiddien_dim
+        self.scaler_queries = nn.LayerList(
+            [nn.Embedding(s * s, hiddien_dim) for s in sizes])
+
+        self.level_embeddings = nn.Embedding(
+            len(sizes), embedding_dim=hiddien_dim)
+        self.pos_embeddings = [
+            self.build_2d_sincos_position_embedding(s, s, hiddien_dim)
+            for s in sizes
+        ]
+
+        self.cross_attns = nn.LayerList([
+            nn.MultiHeadAttention(hiddien_dim, hiddien_dim // 64) for _ in sizes
+        ])
+        self.norms = nn.LayerList([nn.LayerNorm(hiddien_dim) for _ in sizes])
+
+        # self.projs = nn.LayerList([
+        #     nn.Conv2D(hiddien_dim, 768) for _ in sizes
+        # ]) 
+
+    def forward(self, blocks, for_mot=False):
+
+        last_feat = blocks[-1]
+        n = last_feat.shape[0]
+
+        assert last_feat.shape[1] == 1024, ''
+
+        k = v = last_feat.flatten(2).transpose([0, 2, 1])  # n c l 
+
+        _blocks = []
+        for i, q in enumerate(self.scaler_queries):
+            q = q.weight.T + self.level_embeddings[i] + self.pos_embeddings[i]
+            q = q.unsqueeze(0).tile([n, 1, 1])
+
+            out = self.cross_attns[i](q, k, v)
+            out = self.norms[i](out)
+            out = out.transpose([0, 2, 1]).reshape(
+                [-1, self.hiddien_dim, self.sizes[i], self.sizes[i]])
+            # out = self.projs[i](out)
+
+            _blocks.append(out)
+
+        # for b, _b in zip(blocks, _blocks):
+        #     assert b.shape == _b.shape, ''
+
+        blocks = _blocks
+
+        # ----------------------
+
+        blocks = blocks[::-1]
+        fpn_feats = []
+
+        for i, block in enumerate(blocks):
+            if i > 0:
+                block = paddle.concat([route, block], axis=1)
+            route = self.fpn_stages[i](block)
+            fpn_feats.append(route)
+
+            if i < self.num_blocks - 1:
+                route = self.fpn_routes[i](route)
+                route = F.interpolate(
+                    route, scale_factor=2., data_format=self.data_format)
+
+        pan_feats = [fpn_feats[-1], ]
+        route = fpn_feats[-1]
+        for i in reversed(range(self.num_blocks - 1)):
+            block = fpn_feats[i]
+            route = self.pan_routes[i](route)
+            block = paddle.concat([route, block], axis=1)
+            route = self.pan_stages[i](block)
+            pan_feats.append(route)
+
+        return pan_feats[::-1]
+
+    # @classmethod
+    # def from_config(cls, cfg, input_shape):
+    #     return {'in_channels': [i.channels for i in input_shape], }
+
+    @property
+    def out_shape(self):
+        return [ShapeSpec(channels=c) for c in self._out_channels]
+
+    def build_2d_sincos_position_embedding(
+            self,
+            h,
+            w,
+            embed_dim=768,
+            temperature=10000., ):
+
+        grid_w = paddle.arange(w, dtype=paddle.float32)
+        grid_h = paddle.arange(h, dtype=paddle.float32)
+        grid_w, grid_h = paddle.meshgrid(grid_w, grid_h)
+        assert embed_dim % 4 == 0, 'Embed dimension must be divisible by 4 for 2D sin-cos position embedding'
+        pos_dim = embed_dim // 4
+        omega = paddle.arange(pos_dim, dtype=paddle.float32) / pos_dim
+        omega = 1. / (temperature**omega)
+
+        out_w = grid_w.flatten()[..., None] @omega[None]
+        out_h = grid_h.flatten()[..., None] @omega[None]
+
+        pos_emb = paddle.concat(
+            [
+                paddle.sin(out_w), paddle.cos(out_w), paddle.sin(out_h),
+                paddle.cos(out_h)
+            ],
+            axis=1)[None, :, :]
+
+        # pe_token = paddle.zeros([1, 1, embed_dim], dtype=paddle.float32)
+        # pos_embed = paddle.concat([pe_token, pos_emb], axis=1)
+
+        return pos_emb

@@ -93,7 +93,9 @@ class YOLOv3(BaseArch):
                 return yolo_losses
 
         else:
-            yolo_head_outs = self.yolo_head(neck_feats)
+            # TODO 
+            # yolo_head_outs = self.yolo_head(neck_feats)
+            yolo_head_outs = self.yolo_head(neck_feats, self.inputs)
 
             if self.for_mot:
                 boxes_idx, bbox, bbox_num, nms_keep_idx = self.post_process(
