@@ -65,16 +65,21 @@ class DETR(BaseArch):
         body_feats = self.backbone(self.inputs)
 
         # Transformer
-        out_transformer = self.transformer(body_feats, self.inputs['pad_mask'])
+        if self.training:
+            out_transformer = self.transformer(body_feats,
+                                               self.inputs['pad_mask'])
+        else:
+            out_transformer = self.transformer(body_feats)
 
         # DETR Head
         if self.training:
             return self.detr_head(out_transformer, body_feats, self.inputs)
         else:
             preds = self.detr_head(out_transformer, body_feats)
-            bbox, bbox_num = self.post_process(preds, self.inputs['im_shape'],
-                                               self.inputs['scale_factor'])
-            return bbox, bbox_num
+            # bbox, bbox_num = self.post_process(preds, self.inputs['im_shape'],
+            #                                    self.inputs['scale_factor'])
+            # return bbox, bbox_num
+            return preds[0], preds[0]
 
     def get_loss(self, ):
         losses = self._forward()
