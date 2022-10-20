@@ -127,7 +127,7 @@ VisionTransformer:
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
   out_indices: [11, ]
-  with_fpn: True
+  with_fpn: False
   out_with_norm: False
   use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams

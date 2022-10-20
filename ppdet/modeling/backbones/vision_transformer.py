@@ -516,8 +516,7 @@ class VisionTransformer(nn.Layer):
                 self.patch_embed.num_patches_h, dim
             ]).transpose((0, 3, 1, 2)),
             scale_factor=(w0 / self.patch_embed.num_patches_w,
-                          h0 / self.patch_embed.num_patches_h),
-            mode='bicubic', )
+                          h0 / self.patch_embed.num_patches_h), )
         assert int(w0) == patch_pos_embed.shape[-2] and int(
             h0) == patch_pos_embed.shape[-1]
         patch_pos_embed = patch_pos_embed.transpose(
@@ -540,8 +539,7 @@ class VisionTransformer(nn.Layer):
 
         pos_embed = pos_embed.transpose([0, 2, 1])
         pos_embed = pos_embed.reshape([1, -1, old_hw[0], old_hw[1]])
-        pos_embed = F.interpolate(
-            pos_embed, new_hw, mode='bicubic', align_corners=False)
+        pos_embed = F.interpolate(pos_embed, new_hw, align_corners=False)
         pos_embed = pos_embed.flatten(2).transpose([0, 2, 1])
         pos_embed = paddle.concat([cls_pos_embed, pos_embed], axis=1)
 
