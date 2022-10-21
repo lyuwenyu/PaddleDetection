@@ -191,7 +191,8 @@ class DETRLoss(nn.Layer):
                 gt_bbox,
                 gt_class,
                 masks=None,
-                gt_mask=None):
+                gt_mask=None,
+                **kwargs):
         r"""
         Args:
             boxes (Tensor): [l, b, query, 4]
