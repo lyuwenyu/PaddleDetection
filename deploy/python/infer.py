@@ -194,12 +194,13 @@ class Detector(object):
             output_names = self.predictor.get_output_names()
             boxes_tensor = self.predictor.get_output_handle(output_names[0])
             np_boxes = boxes_tensor.copy_to_cpu()
-            boxes_num = self.predictor.get_output_handle(output_names[1])
-            np_boxes_num = boxes_num.copy_to_cpu()
-            if self.pred_config.mask:
-                masks_tensor = self.predictor.get_output_handle(output_names[2])
-                np_masks = masks_tensor.copy_to_cpu()
-        result = dict(boxes=np_boxes, masks=np_masks, boxes_num=np_boxes_num)
+            # boxes_num = self.predictor.get_output_handle(output_names[1])
+            # np_boxes_num = boxes_num.copy_to_cpu()
+            # if self.pred_config.mask:
+            #     masks_tensor = self.predictor.get_output_handle(output_names[2])
+            #     np_masks = masks_tensor.copy_to_cpu()
+        # result = dict(boxes=np_boxes, masks=np_masks, boxes_num=np_boxes_num)
+        result = {}
         return result
 
     def merge_batch_result(self, batch_result):
@@ -269,9 +270,9 @@ class Detector(object):
                 self.det_times.inference_time_s.end(repeats=repeats)
 
                 # postprocess
-                result_warmup = self.postprocess(inputs, result)  # warmup
+                # result_warmup = self.postprocess(inputs, result)  # warmup
                 self.det_times.postprocess_time_s.start()
-                result = self.postprocess(inputs, result)
+                # result = self.postprocess(inputs, result)
                 self.det_times.postprocess_time_s.end()
                 self.det_times.img_num += 1
 
@@ -367,9 +368,9 @@ class Detector(object):
                 self.det_times.inference_time_s.end(repeats=repeats)
 
                 # postprocess
-                result_warmup = self.postprocess(inputs, result)  # warmup
+                # result_warmup = self.postprocess(inputs, result)  # warmup
                 self.det_times.postprocess_time_s.start()
-                result = self.postprocess(inputs, result)
+                # result = self.postprocess(inputs, result)
                 self.det_times.postprocess_time_s.end()
                 self.det_times.img_num += len(batch_image_list)
 
@@ -429,7 +430,7 @@ class Detector(object):
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         out_path = os.path.join(self.output_dir, video_out_name)
-        fourcc = cv2.VideoWriter_fourcc(* 'mp4v')
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         writer = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
         index = 1
         while (1):

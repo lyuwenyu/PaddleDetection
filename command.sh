@@ -6,3 +6,6 @@
 # ps aux | grep "tools/train.py" | awk '{print $2}' | xargs kill -9 
 
 
+
+
+python deploy/python/infer.py  --run_mode=paddle --device=GPU  --run_benchmark True --threshold=0.5 --output_dir=python_infer_output --image_dir=./demo --model_dir=output_inference/ 
