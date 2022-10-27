@@ -123,7 +123,10 @@ class TaskAlignedAssigner(nn.Layer):
         if mask_positive_sum.max() > 1:
             mask_multiple_gts = (mask_positive_sum.unsqueeze(1) > 1).tile(
                 [1, num_max_boxes, 1])
+
             is_max_iou = compute_max_iou_anchor(ious)
+            # is_max_iou = compute_max_iou_anchor(alignment_metrics * is_in_gts * pad_gt_mask)
+
             mask_positive = paddle.where(mask_multiple_gts, is_max_iou,
                                          mask_positive)
             mask_positive_sum = mask_positive.sum(axis=-2)

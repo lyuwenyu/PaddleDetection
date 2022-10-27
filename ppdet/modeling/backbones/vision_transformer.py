@@ -480,7 +480,8 @@ class VisionTransformer(nn.Layer):
 
             self.fpn3 = Identity()
 
-            self.fpn4 = nn.MaxPool2D(kernel_size=2, stride=2)
+            self.fpn4 = nn.Conv2D(kernel_size=2, stride=2)
+
         elif patch_size == 8:
             self.fpn1 = nn.Sequential(
                 nn.Conv2DTranspose(

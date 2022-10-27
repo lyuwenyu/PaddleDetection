@@ -1004,17 +1004,20 @@ class YOLOCSPPAN(nn.Layer):
                  depthwise=False,
                  data_format='NCHW',
                  act='silu',
-                 trt=False):
+                 trt=False,
+                 interpolate_mode='nearest'):
         super(YOLOCSPPAN, self).__init__()
         self.in_channels = in_channels
         self._out_channels = in_channels
         Conv = DWConv if depthwise else BaseConv
 
+        self.interpolate_mode = interpolate_mode
+
         self.data_format = data_format
         act = get_act_fn(
             act, trt=trt) if act is None or isinstance(act,
                                                        (str, dict)) else act
-        self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
+        self.upsample = nn.Upsample(scale_factor=2, mode=interpolate_mode)
 
         # top-down fpn
         self.lateral_convs = nn.LayerList()
@@ -1071,7 +1074,7 @@ class YOLOCSPPAN(nn.Layer):
             upsample_feat = F.interpolate(
                 feat_heigh,
                 scale_factor=2.,
-                mode="nearest",
+                mode=self.interpolate_mode,
                 data_format=self.data_format)
             inner_out = self.fpn_blocks[len(self.in_channels) - 1 - idx](
                 paddle.concat(
@@ -1090,10 +1093,11 @@ class YOLOCSPPAN(nn.Layer):
 
         return outs
 
-    @classmethod
-    def from_config(cls, cfg, input_shape):
-        return {'in_channels': [i.channels for i in input_shape], }
 
-    @property
-    def out_shape(self):
-        return [ShapeSpec(channels=c) for c in self._out_channels]
+# @classmethod
+# def from_config(cls, cfg, input_shape):
+#     return {'in_channels': [i.channels for i in input_shape], }
+
+# @property
+# def out_shape(self):
+#     return [ShapeSpec(channels=c) for c in self._out_channels]
