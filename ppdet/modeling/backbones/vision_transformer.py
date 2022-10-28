@@ -341,6 +341,7 @@ class VisionTransformer(nn.Layer):
                  use_sincos_pos_emb=True,
                  with_fpn=True,
                  num_fpn_levels=4,
+                 use_dcn=False,
                  use_checkpoint=False,
                  **args):
         super().__init__()
@@ -353,6 +354,7 @@ class VisionTransformer(nn.Layer):
         self.final_norm = final_norm
         self.out_indices = out_indices
         self.num_fpn_levels = num_fpn_levels
+        self.use_dcn = use_dcn
 
         if use_checkpoint:
             paddle.seed(0)
@@ -465,6 +467,8 @@ class VisionTransformer(nn.Layer):
             print("Load load_state_dict....")
 
     def init_fpn(self, embed_dim=768, patch_size=16, out_with_norm=False):
+        from ppdet.modeling.dcn import DCN2D
+
         if patch_size == 16:
             self.fpn1 = nn.Sequential(
                 nn.Conv2DTranspose(
@@ -474,13 +478,32 @@ class VisionTransformer(nn.Layer):
                 nn.Conv2DTranspose(
                     embed_dim, embed_dim, kernel_size=2, stride=2), )
 
-            self.fpn2 = nn.Sequential(
-                nn.Conv2DTranspose(
-                    embed_dim, embed_dim, kernel_size=2, stride=2), )
+            if self.use_dcn:
+                self.fpn2 = nn.Sequential(
+                    nn.Conv2DTranspose(
+                        embed_dim, embed_dim, kernel_size=2, stride=2),
+                    nn.BatchNorm2D(embed_dim),
+                    nn.GELU(),
+                    DCN2D(
+                        embed_dim, embed_dim, kernel_size=3, stride=1), )
 
-            self.fpn3 = Identity()
+                self.fpn3 = Identity()
 
-            self.fpn4 = nn.Conv2D(embed_dim, embed_dim, kernel_size=2, stride=2)
+                self.fpn4 = nn.Sequential(
+                    nn.Conv2D(
+                        embed_dim, embed_dim, kernel_size=2, stride=2),
+                    nn.BatchNorm2D(embed_dim),
+                    nn.GELU(),
+                    DCN2D(
+                        embed_dim, embed_dim, kernel_size=3, stride=1), )
+            else:
+                self.fpn2 = nn.Sequential(
+                    nn.Conv2DTranspose(
+                        embed_dim, embed_dim, kernel_size=2, stride=2), )
+                self.fpn3 = Identity()
+                self.fpn4 = nn.Sequential(
+                    nn.Conv2D(
+                        embed_dim, embed_dim, kernel_size=2, stride=2), )
 
         elif patch_size == 8:
             self.fpn1 = nn.Sequential(
