@@ -484,8 +484,7 @@ class VisionTransformer(nn.Layer):
                         embed_dim, embed_dim, kernel_size=2, stride=2),
                     nn.BatchNorm2D(embed_dim),
                     nn.GELU(),
-                    DCN2D(
-                        embed_dim, embed_dim, kernel_size=3, stride=1), )
+                    DCN2D(embed_dim, embed_dim, 3, 1), )
 
                 self.fpn3 = Identity()
 
@@ -494,8 +493,7 @@ class VisionTransformer(nn.Layer):
                         embed_dim, embed_dim, kernel_size=2, stride=2),
                     nn.BatchNorm2D(embed_dim),
                     nn.GELU(),
-                    DCN2D(
-                        embed_dim, embed_dim, kernel_size=3, stride=1), )
+                    DCN2D(embed_dim, embed_dim, 3, 1), )
             else:
                 self.fpn2 = nn.Sequential(
                     nn.Conv2DTranspose(
