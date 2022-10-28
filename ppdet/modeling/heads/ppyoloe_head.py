@@ -118,9 +118,9 @@ class PPYOLOEHead(nn.Layer):
         self.proj_conv.skip_quant = True
         self._init_weights()
 
-    @classmethod
-    def from_config(cls, cfg, input_shape):
-        return {'in_channels': [i.channels for i in input_shape], }
+    # @classmethod
+    # def from_config(cls, cfg, input_shape):
+    #     return {'in_channels': [i.channels for i in input_shape], }
 
     def _init_weights(self):
         bias_cls = bias_init_with_prob(0.01)
