@@ -486,7 +486,9 @@ class VisionTransformer(nn.Layer):
                     nn.GELU(),
                     DCN2D(embed_dim, embed_dim, 3, 1), )
 
-                self.fpn3 = Identity()
+                self.fpn3 = nn.Sequential(
+                    Identity(),
+                    DCN2D(embed_dim, embed_dim, 3, 1), )
 
                 self.fpn4 = nn.Sequential(
                     nn.Conv2D(
@@ -494,6 +496,7 @@ class VisionTransformer(nn.Layer):
                     nn.BatchNorm2D(embed_dim),
                     nn.GELU(),
                     DCN2D(embed_dim, embed_dim, 3, 1), )
+
             else:
                 self.fpn2 = nn.Sequential(
                     nn.Conv2DTranspose(
@@ -503,16 +506,13 @@ class VisionTransformer(nn.Layer):
                     nn.Conv2D(
                         embed_dim, embed_dim, kernel_size=2, stride=2), )
 
-        elif patch_size == 8:
-            self.fpn1 = nn.Sequential(
-                nn.Conv2DTranspose(
-                    embed_dim, embed_dim, kernel_size=2, stride=2), )
-
-            self.fpn2 = Identity()
-
-            self.fpn3 = nn.Sequential(nn.MaxPool2D(kernel_size=2, stride=2), )
-
-            self.fpn4 = nn.Sequential(nn.MaxPool2D(kernel_size=4, stride=4), )
+        # elif patch_size == 8:
+        #     self.fpn1 = nn.Sequential(
+        #         nn.Conv2DTranspose(
+        #             embed_dim, embed_dim, kernel_size=2, stride=2), )
+        #     self.fpn2 = Identity()
+        #     self.fpn3 = nn.Sequential(nn.MaxPool2D(kernel_size=2, stride=2), )
+        #     self.fpn4 = nn.Sequential(nn.MaxPool2D(kernel_size=4, stride=4), )
 
         if not out_with_norm:
             self.norm = Identity()
