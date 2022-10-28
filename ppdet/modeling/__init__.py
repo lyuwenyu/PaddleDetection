@@ -30,6 +30,7 @@ from . import mot
 from . import transformers
 from . import assigners
 from . import rbox_utils
+from . import dcn
 
 from .ops import *
 from .backbones import *

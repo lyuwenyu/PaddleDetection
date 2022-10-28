@@ -989,38 +989,9 @@ class PPYOLOPAN(nn.Layer):
     def out_shape(self):
         return [ShapeSpec(channels=c) for c in self._out_channels]
 
-        # self.offset_channel = 2 * filter_size**2
-        # self.mask_channel = filter_size**2
-
-        # self.conv_offset = nn.Conv2D(
-        #     in_channels=ch_in,
-        #     out_channels=3 * filter_size**2,
-        #     kernel_size=filter_size,
-        #     stride=stride,
-        #     padding=(filter_size - 1) // 2,
-        #     weight_attr=ParamAttr(initializer=Constant(0.)),
-        #     bias_attr=ParamAttr(initializer=Constant(0.)))
-        # self.conv = DeformConv2D(
-        #     in_channels=ch_in,
-        #     out_channels=ch_out,
-        #     kernel_size=filter_size,
-        #     stride=stride,
-        #     padding=(filter_size - 1) // 2,
-        #     dilation=1,
-        #     groups=groups,
-        #     weight_attr=ParamAttr(learning_rate=lr),
-        #     bias_attr=False)
-
-        # offset_mask = self.conv_offset(inputs)
-        # offset, mask = paddle.split(
-        #     offset_mask,
-        #     num_or_sections=[self.offset_channel, self.mask_channel],
-        #     axis=1)
-        # mask = F.sigmoid(mask)
-        # out = self.conv(inputs, offset, mask=mask)
-
 
 import ppdet.modeling.initializer as init
+from ppdet.modeling.dcn import DCN2D
 
 
 class BaseConv(nn.Layer):
@@ -1035,14 +1006,17 @@ class BaseConv(nn.Layer):
                  act="silu"):
         super(BaseConv, self).__init__()
 
-        self.conv = nn.Conv2D(
-            in_channels,
-            out_channels,
-            kernel_size=ksize,
-            stride=stride,
-            padding=(ksize - 1) // 2,
-            groups=groups,
-            bias_attr=bias)
+        if use_dcn:
+            self.conv = DCN2D(in_channels, out_channels, ksize, stride)
+        else:
+            self.conv = nn.Conv2D(
+                in_channels,
+                out_channels,
+                kernel_size=ksize,
+                stride=stride,
+                padding=(ksize - 1) // 2,
+                groups=groups,
+                bias_attr=bias)
 
         self.bn = nn.BatchNorm2D(out_channels)
 
