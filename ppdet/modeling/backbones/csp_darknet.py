@@ -91,8 +91,8 @@ class BaseConv(nn.Layer):
 
         self._init_weights()
 
-    def _init_weights(self):
-        init.conv_init_(self.conv)
+    # def _init_weights(self):
+    #     init.conv_init_(self.conv)
 
     def forward(self, x):
         # use 'x * F.sigmoid(x)' replace 'silu'
