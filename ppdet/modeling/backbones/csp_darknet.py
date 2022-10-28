@@ -89,7 +89,7 @@ class BaseConv(nn.Layer):
 
         self.bn = nn.BatchNorm2D(out_channels)
 
-        self._init_weights()
+        # self._init_weights()
 
     # def _init_weights(self):
     #     init.conv_init_(self.conv)
