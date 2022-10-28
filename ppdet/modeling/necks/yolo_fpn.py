@@ -990,48 +990,6 @@ class PPYOLOPAN(nn.Layer):
         return [ShapeSpec(channels=c) for c in self._out_channels]
 
 
-import ppdet.modeling.initializer as init
-from ppdet.modeling.dcn import DCN2D
-
-
-class BaseConv(nn.Layer):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 ksize,
-                 stride,
-                 groups=1,
-                 bias=False,
-                 use_dcn=False,
-                 act="silu"):
-        super(BaseConv, self).__init__()
-
-        if use_dcn:
-            self.conv = DCN2D(in_channels, out_channels, ksize, stride)
-        else:
-            self.conv = nn.Conv2D(
-                in_channels,
-                out_channels,
-                kernel_size=ksize,
-                stride=stride,
-                padding=(ksize - 1) // 2,
-                groups=groups,
-                bias_attr=bias)
-
-        self.bn = nn.BatchNorm2D(out_channels)
-
-        self._init_weights()
-
-    def _init_weights(self):
-        init.conv_init_(self.conv)
-
-    def forward(self, x):
-        # use 'x * F.sigmoid(x)' replace 'silu'
-        x = self.bn(self.conv(x))
-        y = x * F.sigmoid(x)
-        return y
-
-
 @register
 @serializable
 class YOLOCSPPAN(nn.Layer):
@@ -1047,7 +1005,8 @@ class YOLOCSPPAN(nn.Layer):
                  data_format='NCHW',
                  act='silu',
                  trt=False,
-                 interpolate_mode='nearest'):
+                 interpolate_mode='nearest',
+                 use_dcn=False):
         super(YOLOCSPPAN, self).__init__()
         self.in_channels = in_channels
         self._out_channels = in_channels
@@ -1079,7 +1038,8 @@ class YOLOCSPPAN(nn.Layer):
                     round(3 * depth_mult),
                     shortcut=False,
                     depthwise=depthwise,
-                    act=act))
+                    act=act,
+                    use_dcn=use_dcn))
 
         # bottom-up pan
         self.downsample_convs = nn.LayerList()
@@ -1091,7 +1051,8 @@ class YOLOCSPPAN(nn.Layer):
                     int(in_channels[idx]),
                     3,
                     stride=2,
-                    act=act))
+                    act=act,
+                    use_dcn=use_dcn))
             self.pan_blocks.append(
                 CSPLayer(
                     int(in_channels[idx] * 2),
@@ -1099,7 +1060,8 @@ class YOLOCSPPAN(nn.Layer):
                     round(3 * depth_mult),
                     shortcut=False,
                     depthwise=depthwise,
-                    act=act))
+                    act=act,
+                    use_dcn=use_dcn))
 
     def forward(self, feats, for_mot=False):
         assert len(feats) == len(self.in_channels)

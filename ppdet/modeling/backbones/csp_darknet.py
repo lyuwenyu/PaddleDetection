@@ -25,6 +25,43 @@ __all__ = [
     'CSPDarkNet', 'BaseConv', 'DWConv', 'BottleNeck', 'SPPLayer', 'SPPFLayer'
 ]
 
+# class BaseConv(nn.Layer):
+#     def __init__(self,
+#                  in_channels,
+#                  out_channels,
+#                  ksize,
+#                  stride,
+#                  groups=1,
+#                  bias=False,
+#                  act="silu"):
+#         super(BaseConv, self).__init__()
+#         self.conv = nn.Conv2D(
+#             in_channels,
+#             out_channels,
+#             kernel_size=ksize,
+#             stride=stride,
+#             padding=(ksize - 1) // 2,
+#             groups=groups,
+#             bias_attr=bias)
+#         self.bn = nn.BatchNorm2D(
+#             out_channels,
+#             weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+#             bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+
+#         self._init_weights()
+
+#     def _init_weights(self):
+#         conv_init_(self.conv)
+
+#     def forward(self, x):
+#         # use 'x * F.sigmoid(x)' replace 'silu'
+#         x = self.bn(self.conv(x))
+#         y = x * F.sigmoid(x)
+#         return y
+
+import ppdet.modeling.initializer as init
+from ppdet.modeling.dcn import DCN2D
+
 
 class BaseConv(nn.Layer):
     def __init__(self,
@@ -34,25 +71,28 @@ class BaseConv(nn.Layer):
                  stride,
                  groups=1,
                  bias=False,
+                 use_dcn=False,
                  act="silu"):
         super(BaseConv, self).__init__()
-        self.conv = nn.Conv2D(
-            in_channels,
-            out_channels,
-            kernel_size=ksize,
-            stride=stride,
-            padding=(ksize - 1) // 2,
-            groups=groups,
-            bias_attr=bias)
-        self.bn = nn.BatchNorm2D(
-            out_channels,
-            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+
+        if use_dcn:
+            self.conv = DCN2D(in_channels, out_channels, ksize, stride)
+        else:
+            self.conv = nn.Conv2D(
+                in_channels,
+                out_channels,
+                kernel_size=ksize,
+                stride=stride,
+                padding=(ksize - 1) // 2,
+                groups=groups,
+                bias_attr=bias)
+
+        self.bn = nn.BatchNorm2D(out_channels)
 
         self._init_weights()
 
     def _init_weights(self):
-        conv_init_(self.conv)
+        init.conv_init_(self.conv)
 
     def forward(self, x):
         # use 'x * F.sigmoid(x)' replace 'silu'
@@ -131,7 +171,8 @@ class BottleNeck(nn.Layer):
                  expansion=0.5,
                  depthwise=False,
                  bias=False,
-                 act="silu"):
+                 act="silu",
+                 use_dcn=False):
         super(BottleNeck, self).__init__()
         hidden_channels = int(out_channels * expansion)
         Conv = DWConv if depthwise else BaseConv
@@ -143,7 +184,8 @@ class BottleNeck(nn.Layer):
             ksize=3,
             stride=1,
             bias=bias,
-            act=act)
+            act=act,
+            use_dcn=use_dcn)
         self.add_shortcut = shortcut and in_channels == out_channels
 
     def forward(self, x):
@@ -224,14 +266,15 @@ class CSPLayer(nn.Layer):
                  expansion=0.5,
                  depthwise=False,
                  bias=False,
-                 act="silu"):
+                 act="silu",
+                 use_dcn=False):
         super(CSPLayer, self).__init__()
         hidden_channels = int(out_channels * expansion)
         self.conv1 = BaseConv(
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
         self.conv2 = BaseConv(
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        self.bottlenecks = nn.Sequential(* [
+        self.bottlenecks = nn.Sequential(*[
             BottleNeck(
                 hidden_channels,
                 hidden_channels,
@@ -239,7 +282,8 @@ class CSPLayer(nn.Layer):
                 expansion=1.0,
                 depthwise=depthwise,
                 bias=bias,
-                act=act) for _ in range(num_blocks)
+                act=act,
+                use_dcn=use_dcn) for _ in range(num_blocks)
         ])
         self.conv3 = BaseConv(
             hidden_channels * 2,
