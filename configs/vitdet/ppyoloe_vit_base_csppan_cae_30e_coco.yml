@@ -52,7 +52,7 @@ VisionTransformer:
 
 YOLOCSPPAN:
   in_channels: [768, 768, 768]
-  act: 'silu'
+  interpolate_mode: 'bicubic' # nearest
 
 PPYOLOEHead:
   fpn_strides: [8, 16, 32]
