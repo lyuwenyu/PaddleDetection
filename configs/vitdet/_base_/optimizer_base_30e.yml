@@ -1,0 +1,24 @@
+epoch: &epoch 30
+
+LearningRate:
+  base_lr: 0.0001
+  schedulers:
+    - !CosineDecay
+      max_epochs: *epoch
+      min_lr_ratio: 0.01
+      # last_plateau_epochs: 10
+    - !LinearWarmup
+      start_factor: 0.
+      epochs: 1
+
+
+OptimizerBuilder:
+  optimizer:
+    type: AdamWDL
+    betas: [0.9, 0.999]
+    layer_decay: 0.75
+    weight_decay: 0.02
+    num_layers: 12
+    filter_bias_and_bn: True
+    skip_decay_names: ['pos_embed', 'cls_token']
+    set_param_lr_func: 'layerwise_lr_decay'
