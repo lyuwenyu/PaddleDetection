@@ -1031,6 +1031,7 @@ class BaseConv(nn.Layer):
                  stride,
                  groups=1,
                  bias=False,
+                 use_dcn=False,
                  act="silu"):
         super(BaseConv, self).__init__()
 
