@@ -471,7 +471,6 @@ class DeformableTransformer(nn.Layer):
             offset=-0.5)
 
         self._reset_parameters()
-
         self.l_nums = [6400, 1600, 400, 100]
 
     def _reset_parameters(self):
@@ -522,9 +521,9 @@ class DeformableTransformer(nn.Layer):
                 mask = paddle.ones([bs, h, w])
             valid_ratios.append(self._get_valid_ratio(mask))
 
-            # pos_embed = self.position_embedding(mask).flatten(2).transpose(
-            #     [0, 2, 1])
-            pos_embed = paddle.ones([1, self.l_nums[level], 256])
+            pos_embed = self.position_embedding(mask).flatten(2).transpose(
+                [0, 2, 1])
+            # pos_embed = paddle.ones([1, self.l_nums[level], 256])
             # print('pos_embed ', pos_embed.shape)
 
             lvl_pos_embed = pos_embed + self.level_embed.weight[level].reshape(
