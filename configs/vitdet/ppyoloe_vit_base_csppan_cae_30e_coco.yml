@@ -47,7 +47,7 @@ VisionTransformer:
   with_fpn: True
   num_fpn_levels: 3
   out_with_norm: False
-  use_dcn: False
+  use_dcn: True
   use_checkpoint: *use_checkpoint
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
 
