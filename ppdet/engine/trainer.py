@@ -1022,6 +1022,8 @@ class Trainer(object):
         if export_post_process and not export_benchmark:
             image_shape = [None] + image_shape[1:]
 
+        image_shape[0] = 1
+
         # Save infer cfg
         _dump_infer_config(self.cfg,
                            os.path.join(save_dir, 'infer_cfg.yml'), image_shape,

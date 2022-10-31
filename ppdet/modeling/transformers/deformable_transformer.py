@@ -209,10 +209,17 @@ class DeformableTransformerEncoder(nn.Layer):
     def get_reference_points(spatial_shapes, valid_ratios):
         valid_ratios = valid_ratios.unsqueeze(1)
         reference_points = []
-        for i, (H, W) in enumerate(spatial_shapes.tolist()):
+        # for i, (H, W) in enumerate(spatial_shapes.tolist()):
+        #     ref_y, ref_x = paddle.meshgrid(
+        #         paddle.linspace(0.5, H - 0.5, H),
+        #         paddle.linspace(0.5, W - 0.5, W))
+        for i, (H, W) in enumerate(spatial_shapes):
             ref_y, ref_x = paddle.meshgrid(
-                paddle.linspace(0.5, H - 0.5, H),
-                paddle.linspace(0.5, W - 0.5, W))
+                paddle.arange(
+                    0.5, H + 0.5, 1, dtype='float32'),
+                paddle.arange(
+                    0.5, W + 0.5, 1, dtype='float32'))
+
             ref_y = ref_y.flatten().unsqueeze(0) / (valid_ratios[:, :, i, 1] *
                                                     H)
             ref_x = ref_x.flatten().unsqueeze(0) / (valid_ratios[:, :, i, 0] *
