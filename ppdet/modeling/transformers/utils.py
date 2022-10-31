@@ -81,13 +81,36 @@ def deformable_attention_core_func(value, value_spatial_shapes,
     bs, Len_v, n_head, c = value.shape
     _, Len_q, n_head, n_levels, n_points, _ = sampling_locations.shape
 
-    value_list = value.split(value_spatial_shapes.prod(1).tolist(), axis=1)
+    # print(value_spatial_shapes.shape)
+
+    # value_list = value.split(value_spatial_shapes.prod(1).tolist(), axis=1)
+    # tmps = value_spatial_shapes.prod(1)
+    value_list = value.split([6400, 1600, 400, 100], axis=1)
+
     sampling_grids = 2 * sampling_locations - 1
     sampling_value_list = []
-    for level, (h, w) in enumerate(value_spatial_shapes.tolist()):
-        # N_, H_*W_, M_, D_ -> N_, H_*W_, M_*D_ -> N_, M_*D_, H_*W_ -> N_*M_, D_, H_, W_
+    # for level, (h, w) in enumerate(value_spatial_shapes.tolist()):
+
+    # print('value_spatial_shapes', value_spatial_shapes.shape)
+
+    # for level, (h, w) in enumerate(value_spatial_shapes):
+    # for level in range(value_spatial_shapes.shape[0]):
+    for level in range(4):
+
+        h, w = value_spatial_shapes[level]
+
+        # st = 0
+        # end = st + tmps[level]
+        # # N_, H_*W_, M_, D_ -> N_, H_*W_, M_*D_ -> N_, M_*D_, H_*W_ -> N_*M_, D_, H_, W_
+        # value_l_ = value[st: end].flatten(2).transpose(
+        #     [0, 2, 1]).reshape([bs * n_head, c, h, w])
+        # st = end 
+
+        # print('value_l_', value_l_.shape)
+
         value_l_ = value_list[level].flatten(2).transpose(
             [0, 2, 1]).reshape([bs * n_head, c, h, w])
+
         # N_, Lq_, M_, P_, 2 -> N_, M_, Lq_, P_, 2 -> N_*M_, Lq_, P_, 2
         sampling_grid_l_ = sampling_grids[:, :, :, level].transpose(
             [0, 2, 1, 3, 4]).flatten(0, 1)
@@ -100,10 +123,23 @@ def deformable_attention_core_func(value, value_spatial_shapes,
             align_corners=False)
         sampling_value_list.append(sampling_value_l_)
     # (N_, Lq_, M_, L_, P_) -> (N_, M_, Lq_, L_, P_) -> (N_*M_, 1, Lq_, L_*P_)
+    # attention_weights = attention_weights.transpose([0, 2, 1, 3, 4]).reshape(
+    #     [bs * n_head, 1, Len_q, n_levels * n_points])
     attention_weights = attention_weights.transpose([0, 2, 1, 3, 4]).reshape(
-        [bs * n_head, 1, Len_q, n_levels * n_points])
-    output = (paddle.stack(
-        sampling_value_list, axis=-2).flatten(-2) *
-              attention_weights).sum(-1).reshape([bs, n_head * c, Len_q])
+        [1 * 8, 1, Len_q, 4 * 4])
+
+    print('n_head', bs, n_head, c, Len_q, n_levels,
+          n_points)  # n_head 1 8 32 8500/300 4 4
+
+    # output = (paddle.stack(
+    #     sampling_value_list, axis=-2).flatten(-2) *
+    #           attention_weights).sum(-1).reshape([bs, n_head * c, Len_q])
+
+    print([o.shape for o in sampling_value_list])
+
+    # output = (paddle.stack(
+    #     sampling_value_list, axis=-2).flatten(-2) *
+    #           attention_weights).sum(-1).reshape([1, 256, Len_q])
+    output = sum(sampling_value_list).sum(-1).reshape([1, 256, Len_q])
 
     return output.transpose([0, 2, 1])

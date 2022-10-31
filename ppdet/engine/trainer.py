@@ -1019,8 +1019,12 @@ class Trainer(object):
             self.model.export_post_process = export_post_process if not export_benchmark else False
         if hasattr(self.model, 'export_nms'):
             self.model.export_nms = export_nms if not export_benchmark else False
-        if export_post_process and not export_benchmark:
-            image_shape = [None] + image_shape[1:]
+
+        # if export_post_process and not export_benchmark:
+        #     image_shape = [None] + image_shape[1:]
+
+        # image_shape[0] = 1
+        print(image_shape)
 
         # Save infer cfg
         _dump_infer_config(self.cfg,
