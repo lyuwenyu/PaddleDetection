@@ -218,6 +218,7 @@ class DeformableTransformerEncoder(nn.Layer):
         spatial_shapes = [(80, 80), (40, 40), (20, 20), (10, 10)]
         self.reference_points = self.get_reference_points(spatial_shapes,
                                                           self.valid_ratios)
+        self.spatial_shapes = spatial_shapes
 
     @staticmethod
     def get_reference_points(spatial_shapes, valid_ratios):
@@ -523,7 +524,7 @@ class DeformableTransformer(nn.Layer):
 
             # pos_embed = self.position_embedding(mask).flatten(2).transpose(
             #     [0, 2, 1])
-            pos_embed = paddle.rand([1, self.l_nums[level], 256])
+            pos_embed = paddle.ones([1, self.l_nums[level], 256])
             # print('pos_embed ', pos_embed.shape)
 
             lvl_pos_embed = pos_embed + self.level_embed.weight[level].reshape(
@@ -531,6 +532,7 @@ class DeformableTransformer(nn.Layer):
             lvl_pos_embed_flatten.append(lvl_pos_embed)
             mask = mask.flatten(1)
             mask_flatten.append(mask)
+
         src_flatten = paddle.concat(src_flatten, 1)
         mask_flatten = paddle.concat(mask_flatten, 1)
         lvl_pos_embed_flatten = paddle.concat(lvl_pos_embed_flatten, 1)
@@ -542,6 +544,8 @@ class DeformableTransformer(nn.Layer):
         # encoder
         memory = self.encoder(src_flatten, spatial_shapes, mask_flatten,
                               lvl_pos_embed_flatten, valid_ratios)
+        # print('memory', memory.shape)
+        # memory = paddle.ones([1, 8500, 256])
 
         # prepare input for decoder
         bs, _, c = memory.shape

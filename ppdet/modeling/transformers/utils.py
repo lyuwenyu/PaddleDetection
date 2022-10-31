@@ -121,6 +121,10 @@ def deformable_attention_core_func(value, value_spatial_shapes,
             mode='bilinear',
             padding_mode='zeros',
             align_corners=False)
+
+        # print('sampling_value_l_ ', sampling_value_l_.shape)
+        # sampling_value_l_ = paddle.ones([bs * n_head, c, Len_q, n_points])
+
         sampling_value_list.append(sampling_value_l_)
     # (N_, Lq_, M_, L_, P_) -> (N_, M_, Lq_, L_, P_) -> (N_*M_, 1, Lq_, L_*P_)
     # attention_weights = attention_weights.transpose([0, 2, 1, 3, 4]).reshape(
@@ -128,14 +132,14 @@ def deformable_attention_core_func(value, value_spatial_shapes,
     attention_weights = attention_weights.transpose([0, 2, 1, 3, 4]).reshape(
         [1 * 8, 1, Len_q, 4 * 4])
 
-    print('n_head', bs, n_head, c, Len_q, n_levels,
-          n_points)  # n_head 1 8 32 8500/300 4 4
+    # print('n_head', bs, n_head, c, Len_q, n_levels,
+    #       n_points)  # n_head 1 8 32 8500/300 4 4
 
     # output = (paddle.stack(
     #     sampling_value_list, axis=-2).flatten(-2) *
     #           attention_weights).sum(-1).reshape([bs, n_head * c, Len_q])
 
-    print([o.shape for o in sampling_value_list])
+    # print([o.shape for o in sampling_value_list])
 
     # output = (paddle.stack(
     #     sampling_value_list, axis=-2).flatten(-2) *
