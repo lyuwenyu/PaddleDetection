@@ -4,6 +4,8 @@ import paddle.nn.functional as F
 
 from paddle.vision.ops import DeformConv2D
 
+import numpy as np
+
 
 class DCN2D(nn.Layer):
     def __init__(
@@ -78,6 +80,9 @@ class MSDCN2D(nn.Layer):
                 bias_attr=False) for k in kernels
         ])
 
+        self.weights = nn.Embedding(len(kernels), 1)
+        self.weights.weight.set_value(np.ones(len(kernels), 1, dtype='float32'))
+
     def forward(self, x, feats):
 
         offset_mask = self.conv_offset(x)
@@ -111,7 +116,11 @@ class MSDCN2D(nn.Layer):
             offset_idx = _offset_idx
             mask_idx = _mask_idx
 
-        out = sum(outputs)
+        out = 0
+        for i, o in enumerate(outputs):
+            out += o * self.weights[i]
+
+        # out = sum(outputs)
 
         return out
 
