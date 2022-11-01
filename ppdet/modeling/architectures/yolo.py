@@ -63,10 +63,14 @@ class YOLOv3(BaseArch):
 
         # fpn
         kwargs = {'input_shape': backbone.out_shape}
-        neck = create(cfg['neck'], **kwargs)
 
+        if cfg['neck'] is not None:
+            neck = create(cfg['neck'], **kwargs)
+            kwargs = {'input_shape': neck.out_shape}
+        else:
+            neck = None
         # head
-        kwargs = {'input_shape': neck.out_shape}
+
         yolo_head = create(cfg['yolo_head'], **kwargs)
 
         return {
@@ -76,19 +80,21 @@ class YOLOv3(BaseArch):
         }
 
     def _forward(self):
-        body_feats = self.backbone(self.inputs)
-        if self.for_mot:
-            neck_feats = self.neck(body_feats, self.for_mot)
-        else:
-            neck_feats = self.neck(body_feats)
+        feats = self.backbone(self.inputs)
 
-        if isinstance(neck_feats, dict):
+        if self.neck is not None:
+            if self.for_mot:
+                feats = self.neck(feats, self.for_mot)
+            else:
+                feats = self.neck(feats)
+
+        if isinstance(feats, dict):
             assert self.for_mot == True
-            emb_feats = neck_feats['emb_feats']
-            neck_feats = neck_feats['yolo_feats']
+            emb_feats = feats['emb_feats']
+            feats = feats['yolo_feats']
 
         if self.training:
-            yolo_losses = self.yolo_head(neck_feats, self.inputs)
+            yolo_losses = self.yolo_head(feats, self.inputs)
 
             if self.for_mot:
                 return {'det_losses': yolo_losses, 'emb_feats': emb_feats}
@@ -96,7 +102,7 @@ class YOLOv3(BaseArch):
                 return yolo_losses
 
         else:
-            yolo_head_outs = self.yolo_head(neck_feats)
+            yolo_head_outs = self.yolo_head(feats)
 
             if self.for_mot:
                 boxes_idx, bbox, bbox_num, nms_keep_idx = self.post_process(

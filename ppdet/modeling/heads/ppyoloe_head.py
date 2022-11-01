@@ -72,7 +72,8 @@ class PPYOLOEHead(nn.Layer):
                  },
                  trt=False,
                  exclude_nms=False,
-                 exclude_post_process=False):
+                 exclude_post_process=False,
+                 use_msdcn_head=False):
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
         self.in_channels = in_channels
@@ -117,6 +118,12 @@ class PPYOLOEHead(nn.Layer):
         self.proj_conv = nn.Conv2D(self.reg_max + 1, 1, 1, bias_attr=False)
         self.proj_conv.skip_quant = True
         self._init_weights()
+
+        self.use_msdcn_head = use_msdcn_head
+        if use_msdcn_head:
+            from ppdet.modeling.dcn import MSDCNHead
+            self.msdcn = MSDCNHead(
+                in_channels[-1], kernels=[3 for _ in in_channels])
 
     # @classmethod
     # def from_config(cls, cfg, input_shape):
@@ -212,6 +219,10 @@ class PPYOLOEHead(nn.Layer):
         return cls_score_list, reg_dist_list, anchor_points, stride_tensor
 
     def forward(self, feats, targets=None):
+
+        if self.use_msdcn_head:
+            feats = self.msdcn(feats)
+
         assert len(feats) == len(self.fpn_strides), \
             "The size of feats is not equal to size of fpn_strides"
 
