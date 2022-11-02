@@ -72,14 +72,17 @@ class MSDCN2D(nn.Layer):
             padding=0, )
 
         self.convs = nn.LayerList([
-            DeformConv2D(
-                in_channels=in_c,
-                out_channels=out_c,
-                kernel_size=k,
-                stride=stride,
-                padding=(k - 1) // 2,
-                dilation=1,
-                bias_attr=False) for k in kernels
+            nn.Sequential(
+                DeformConv2D(
+                    in_channels=in_c,
+                    out_channels=out_c,
+                    kernel_size=k,
+                    stride=stride,
+                    padding=(k - 1) // 2,
+                    dilation=1,
+                    bias_attr=False),
+                nn.BatchNorm2D(out_c),
+                nn.Silu()) for k in kernels
         ])
 
         self.weights = nn.Embedding(len(kernels), 1)
@@ -90,8 +93,8 @@ class MSDCN2D(nn.Layer):
         self.out_proj = nn.Sequential(
             nn.Conv2D(out_c, out_c, 3, 2, 1),
             nn.BatchNorm2D(out_c),
-            nn.Swish(),
-            nn.Conv2D(out_c, out_c, 3, 2, 1), nn.BatchNorm2D(out_c), nn.Swish())
+            nn.Silu(),
+            nn.Conv2D(out_c, out_c, 3, 2, 1), nn.BatchNorm2D(out_c), nn.Silu())
 
     def forward(self, x, feats):
 
