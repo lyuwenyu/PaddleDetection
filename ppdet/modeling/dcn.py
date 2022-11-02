@@ -147,11 +147,15 @@ class MSDCN2D(nn.Layer):
 
 
 class MSDCNHead(nn.Layer):
-    def __init__(self, hidden_dim, kernels=[
-            3,
-            3,
-            3,
-    ], use_pan=False):
+    def __init__(self,
+                 hidden_dim,
+                 kernels=[
+                     3,
+                     3,
+                     3,
+                 ],
+                 use_pan=False,
+                 num_layers=1):
         super().__init__()
 
         self.kernels = kernels
@@ -192,14 +196,27 @@ class MSDCNHead(nn.Layer):
         self.dcns_2 = nn.LayerList(
             [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
 
+        # self.dcns = nn.LayerList([
+        #     nn.LayerList(
+        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+        #     for _ in range(num_layers)
+        # ])
+
         # if use_pan:
         #     from ppdet.modeling.necks import YOLOCSPPAN
         #     self.pan = YOLOCSPPAN([hidden_dim for _ in range(3)])
+
+        import ppdet.modeling.initializer as init
+        init.reset_initialized_parameter(self)
 
     def forward(self, feats):
         assert len(feats) == self.num_levels, ''
 
         preds = [m(feats[-1]) for m in self.fpns]
+
+        # for i, ms in enumerate(self.dcns):
+        #     preds = [m(x, feats) for m, x in zip(ms, preds)]
+
         preds = [m(x, feats) for m, x in zip(self.dcns_0, preds)]
         preds = [m(x, feats) for m, x in zip(self.dcns_1, preds)]
         preds = [m(x, feats) for m, x in zip(self.dcns_2, preds)]
