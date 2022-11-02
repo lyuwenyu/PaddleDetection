@@ -91,7 +91,7 @@ class MSDCN2D(nn.Layer):
                 (len(kernels), 1), dtype='float32'))
 
         self.out_proj = nn.Sequential(
-            nn.Conv2D(out_c, out_c, 3, 2, 1),
+            nn.Conv2D(out_c * len(kernels), out_c, 3, 2, 1),
             nn.BatchNorm2D(out_c),
             nn.Silu(),
             nn.Conv2D(out_c, out_c, 3, 2, 1), nn.BatchNorm2D(out_c), nn.Silu())
@@ -123,7 +123,8 @@ class MSDCN2D(nn.Layer):
             # print(masks[:, i:i+1].shape)
             # print('y ', y.shape)
 
-            out = self.convs[i](y, offsets, mask=masks)
+            out = self.convs[i](y, offsets,
+                                mask=masks)  # * self.weights.weight[i]
 
             # out = self.convs[i](y,
             #                     offsets[:, offset_idx:_offset_idx],
@@ -138,9 +139,11 @@ class MSDCN2D(nn.Layer):
             offset_idx = _offset_idx
             mask_idx = _mask_idx
 
-        out = 0
-        for i, o in enumerate(outputs):
-            out += o * self.weights.weight[i]
+        out = paddle.concat(outputs, dim=1)
+
+        # out = 0
+        # for i, o in enumerate(outputs):
+        #     out += o * self.weights.weight[i]
 
         out = self.out_proj(out)
         # out = sum(outputs)
