@@ -87,6 +87,12 @@ class MSDCN2D(nn.Layer):
             np.ones(
                 (len(kernels), 1), dtype='float32'))
 
+        self.out_proj = nn.Sequential(
+            nn.Conv2D(out_c, out_c, 3, 2, 1),
+            nn.BatchNorm2D(out_c),
+            nn.Swish(),
+            nn.Conv2D(out_c, out_c, 3, 2, 1), nn.BatchNorm2D(out_c), nn.Swish())
+
     def forward(self, x, feats):
 
         offset_mask = self.conv_offset(x)
@@ -133,6 +139,7 @@ class MSDCN2D(nn.Layer):
         for i, o in enumerate(outputs):
             out += o * self.weights.weight[i]
 
+        out = self.out_proj(out)
         # out = sum(outputs)
 
         return out
