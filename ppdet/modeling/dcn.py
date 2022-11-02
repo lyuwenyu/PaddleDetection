@@ -139,7 +139,7 @@ class MSDCN2D(nn.Layer):
             offset_idx = _offset_idx
             mask_idx = _mask_idx
 
-        out = paddle.concat(outputs, dim=1)
+        out = paddle.concat(outputs, axis=1)
 
         # out = 0
         # for i, o in enumerate(outputs):
