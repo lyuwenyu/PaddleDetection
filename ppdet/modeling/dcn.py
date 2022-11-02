@@ -58,16 +58,18 @@ class MSDCN2D(nn.Layer):
         super().__init__()
         self.kernels = kernels
 
-        kernel = sum([k**2 for k in kernels])
+        # kernel = sum([k**2 for k in kernels])
+        kernel = kernels[0]**2
+
         self.offset_channel = 2 * kernel
         self.mask_channel = kernel
 
         self.conv_offset = nn.Conv2D(
             in_channels=in_c,
             out_channels=self.offset_channel + self.mask_channel,
-            kernel_size=kernels[0],
-            stride=stride,
-            padding=(kernels[0] - 1) // 2, )
+            kernel_size=1,
+            stride=1,
+            padding=0, )
 
         self.convs = nn.LayerList([
             DeformConv2D(
@@ -81,7 +83,9 @@ class MSDCN2D(nn.Layer):
         ])
 
         self.weights = nn.Embedding(len(kernels), 1)
-        self.weights.weight.set_value(np.ones(len(kernels), 1, dtype='float32'))
+        self.weights.weight.set_value(
+            np.ones(
+                (len(kernels), 1), dtype='float32'))
 
     def forward(self, x, feats):
 
@@ -101,16 +105,25 @@ class MSDCN2D(nn.Layer):
             _mask_idx = mask_idx + self.kernels[i]**2
 
             _, _, h, w = offsets.shape
-            y = F.interpolate(y, size=(h, w))
+            y = F.interpolate(
+                y,
+                size=(h, w), )
 
             # print(i, y.shape)
             # print(f' {idx} : {_idx} ', offsets[:, idx:_idx].shape)
             # print(masks[:, i:i+1].shape)
             # print('y ', y.shape)
 
-            out = self.convs[i](y,
-                                offsets[:, offset_idx:_offset_idx],
-                                mask=masks[:, mask_idx:_mask_idx])
+            out = self.convs[i](y, offsets, mask=masks)
+
+            # out = self.convs[i](y,
+            #                     offsets[:, offset_idx:_offset_idx],
+            #                     mask=masks[:, mask_idx:_mask_idx])
+
+            # out = self.convs(y, 
+            #                 offsets[:, offset_idx:_offset_idx], 
+            #                 mask=masks[:, mask_idx:_mask_idx])
+
             outputs.append(out)
 
             offset_idx = _offset_idx
@@ -118,7 +131,7 @@ class MSDCN2D(nn.Layer):
 
         out = 0
         for i, o in enumerate(outputs):
-            out += o * self.weights[i]
+            out += o * self.weights.weight[i]
 
         # out = sum(outputs)
 
@@ -138,8 +151,10 @@ class MSDCNHead(nn.Layer):
 
         self.fpns = nn.LayerList([
             nn.Conv2DTranspose(
-                hidden_dim, hidden_dim, kernel_size=2, stride=2), nn.Identity(),
-            nn.MaxPool2D(2, 2)
+                hidden_dim, hidden_dim, kernel_size=2, stride=2),
+            nn.Identity(),
+            # nn.MaxPool2D(2, 2)
+            nn.Conv2D(hidden_dim, hidden_dim, 2, 2)
         ])
 
         self.dcns = nn.LayerList(
