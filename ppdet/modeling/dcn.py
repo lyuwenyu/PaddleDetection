@@ -90,7 +90,7 @@ class MSDCN2D(nn.Layer):
                 (len(kernels), 1), dtype='float32'))
 
         self.out_proj = nn.Sequential(
-            nn.Conv2D(out_c * len(kernels), out_c, 3, 2, 1),
+            nn.Conv2D(out_c * len(kernels), out_c, 1, 1, 0),
             nn.BatchNorm2D(out_c),
             nn.Silu(),
             nn.Conv2D(out_c, out_c, 3, 2, 1), nn.BatchNorm2D(out_c), nn.Silu())
