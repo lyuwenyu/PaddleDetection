@@ -93,7 +93,7 @@ class MSDCN2D(nn.Layer):
             nn.Conv2D(out_c * len(kernels), out_c, 1, 1, 0),
             nn.BatchNorm2D(out_c),
             nn.Silu(),
-            nn.Conv2D(out_c, out_c, 3, 2, 1), nn.BatchNorm2D(out_c), nn.Silu())
+            nn.Conv2D(out_c, out_c, 3, 1, 1), nn.BatchNorm2D(out_c), nn.Silu())
 
     def forward(self, x, feats):
 
@@ -140,7 +140,8 @@ class MSDCN2D(nn.Layer):
         # for i, o in enumerate(outputs):
         #     out += o * self.weights.weight[i]
 
-        out = self.out_proj(out)
+        out = self.out_proj(out) + x
+
         # out = sum(outputs)
 
         return out
@@ -172,8 +173,8 @@ class MSDCNHead(nn.Layer):
                 nn.Silu(), ),
             nn.Sequential(
                 nn.Identity(),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(),
+                # nn.BatchNorm2D(hidden_dim),
+                # nn.Silu(),
                 nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
                 nn.BatchNorm2D(hidden_dim),
                 nn.Silu(), ),
