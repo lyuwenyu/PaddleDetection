@@ -72,17 +72,18 @@ class MSDCN2D(nn.Layer):
             padding=0, )
 
         self.convs = nn.LayerList([
-            nn.Sequential(
-                DeformConv2D(
-                    in_channels=in_c,
-                    out_channels=out_c,
-                    kernel_size=k,
-                    stride=stride,
-                    padding=(k - 1) // 2,
-                    dilation=1,
-                    bias_attr=False),
-                nn.BatchNorm2D(out_c),
-                nn.Silu()) for k in kernels
+            DeformConv2D(
+                in_channels=in_c,
+                out_channels=out_c,
+                kernel_size=k,
+                stride=stride,
+                padding=(k - 1) // 2,
+                dilation=1,
+                bias_attr=False) for k in kernels
+        ])
+        self.norms = nn.LayerList([
+            nn.Sequential(nn.BatchNorm2D(out_c), nn.Silu())
+            for _ in range(kernels)
         ])
 
         self.weights = nn.Embedding(len(kernels), 1)
@@ -125,6 +126,7 @@ class MSDCN2D(nn.Layer):
 
             out = self.convs[i](y, offsets,
                                 mask=masks)  # * self.weights.weight[i]
+            out = self.norms[i](out)
 
             # out = self.convs[i](y,
             #                     offsets[:, offset_idx:_offset_idx],
