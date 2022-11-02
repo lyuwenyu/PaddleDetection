@@ -183,11 +183,14 @@ class MSDCNHead(nn.Layer):
             # nn.MaxPool2D(2, 2)
         ])
 
-        self.dcns = nn.LayerList(
+        self.dcns_0 = nn.LayerList(
             [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
 
-        # self.dcns_1 = nn.LayerList(
-        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+        self.dcns_1 = nn.LayerList(
+            [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+
+        self.dcns_2 = nn.LayerList(
+            [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
 
         # if use_pan:
         #     from ppdet.modeling.necks import YOLOCSPPAN
@@ -197,9 +200,9 @@ class MSDCNHead(nn.Layer):
         assert len(feats) == self.num_levels, ''
 
         preds = [m(feats[-1]) for m in self.fpns]
-        preds = [m(x, feats) for m, x in zip(self.dcns, preds)]
-
-        # preds = [m(x, preds) for m, x in zip(self.dcns_1, preds)]
+        preds = [m(x, feats) for m, x in zip(self.dcns_0, preds)]
+        preds = [m(x, feats) for m, x in zip(self.dcns_1, preds)]
+        preds = [m(x, feats) for m, x in zip(self.dcns_2, preds)]
 
         return preds
 
