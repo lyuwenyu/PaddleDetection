@@ -81,10 +81,8 @@ class MSDCN2D(nn.Layer):
                 dilation=1,
                 bias_attr=False) for k in kernels
         ])
-        self.norms = nn.LayerList([
-            nn.Sequential(nn.BatchNorm2D(out_c), nn.Silu())
-            for _ in range(kernels)
-        ])
+        self.norms = nn.LayerList(
+            [nn.Sequential(nn.BatchNorm2D(out_c), nn.Silu()) for _ in kernels])
 
         self.weights = nn.Embedding(len(kernels), 1)
         self.weights.weight.set_value(
