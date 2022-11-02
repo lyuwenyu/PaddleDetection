@@ -58,8 +58,8 @@ class MSDCN2D(nn.Layer):
         super().__init__()
         self.kernels = kernels
 
-        # kernel = sum([k**2 for k in kernels])
-        kernel = kernels[0]**2
+        kernel = sum([k**2 for k in kernels])
+        # kernel = kernels[0]**2
 
         self.offset_channel = 2 * kernel
         self.mask_channel = kernel
@@ -71,7 +71,7 @@ class MSDCN2D(nn.Layer):
             stride=1,
             padding=0, )
 
-        self.convs = nn.LayerList([
+        self.deconvs = nn.LayerList([
             DeformConv2D(
                 in_channels=in_c,
                 out_channels=out_c,
@@ -122,17 +122,12 @@ class MSDCN2D(nn.Layer):
             # print(masks[:, i:i+1].shape)
             # print('y ', y.shape)
 
-            out = self.convs[i](y, offsets,
-                                mask=masks)  # * self.weights.weight[i]
+            # out = self.deconvs[i](y, offsets,
+            #                       mask=masks) # * self.weights.weight[i]
+            out = self.deconvs[i](y,
+                                  offsets[:, offset_idx:_offset_idx],
+                                  mask=masks[:, mask_idx:_mask_idx])
             out = self.norms[i](out)
-
-            # out = self.convs[i](y,
-            #                     offsets[:, offset_idx:_offset_idx],
-            #                     mask=masks[:, mask_idx:_mask_idx])
-
-            # out = self.convs(y, 
-            #                 offsets[:, offset_idx:_offset_idx], 
-            #                 mask=masks[:, mask_idx:_mask_idx])
 
             outputs.append(out)
 
@@ -163,15 +158,36 @@ class MSDCNHead(nn.Layer):
         self.num_levels = len(kernels)
 
         self.fpns = nn.LayerList([
-            nn.Conv2DTranspose(
-                hidden_dim, hidden_dim, kernel_size=2, stride=2),
-            nn.Identity(),
+            nn.Sequential(
+                nn.Conv2DTranspose(
+                    hidden_dim, hidden_dim, kernel_size=2, stride=2),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(),
+                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(), ),
+            nn.Sequential(
+                nn.Identity(),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(),
+                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(), ),
+            nn.Sequential(
+                nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(),
+                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(), ),
             # nn.MaxPool2D(2, 2)
-            nn.Conv2D(hidden_dim, hidden_dim, 2, 2)
         ])
 
         self.dcns = nn.LayerList(
             [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+
+        # self.dcns_1 = nn.LayerList(
+        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
 
         # if use_pan:
         #     from ppdet.modeling.necks import YOLOCSPPAN
@@ -182,6 +198,8 @@ class MSDCNHead(nn.Layer):
 
         preds = [m(feats[-1]) for m in self.fpns]
         preds = [m(x, feats) for m, x in zip(self.dcns, preds)]
+
+        # preds = [m(x, preds) for m, x in zip(self.dcns_1, preds)]
 
         return preds
 
