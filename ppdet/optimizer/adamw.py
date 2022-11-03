@@ -207,7 +207,8 @@ def build_adamwdl(model,
                   num_layers=None,
                   filter_bias_and_bn=True,
                   skip_decay_names=None,
-                  set_param_lr_func='layerwise_lr_decay'):
+                  set_param_lr_func='layerwise_lr_decay',
+                  grad_clip=None):
 
     if skip_decay_names and filter_bias_and_bn:
         decay_dict = {
@@ -238,6 +239,7 @@ def build_adamwdl(model,
 
     opt_args['name_dict'] = name_dict
     opt_args['n_layers'] = num_layers
+    opt_args['grad_clip'] = grad_clip
 
     optimizer = AdamWDL(**opt_args)
 

@@ -56,6 +56,8 @@ class MSDCN2D(nn.Layer):
             kernels,
             stride=1, ):
         super().__init__()
+
+        # print(kernels)
         self.kernels = kernels
 
         kernel = sum([k**2 for k in kernels])
@@ -67,7 +69,7 @@ class MSDCN2D(nn.Layer):
         self.conv_offset = nn.Conv2D(
             in_channels=in_c,
             out_channels=self.offset_channel + self.mask_channel,
-            kernel_size=1,
+            kernel_size=1,  # 3  1  1
             stride=1,
             padding=0, )
 
@@ -96,6 +98,7 @@ class MSDCN2D(nn.Layer):
             nn.Conv2D(out_c, out_c, 3, 1, 1), nn.BatchNorm2D(out_c), nn.Silu())
 
     def forward(self, x, feats):
+        assert len(feats) == len(self.deconvs), ''
 
         offset_mask = self.conv_offset(x)
         offsets, masks = paddle.split(
@@ -155,7 +158,7 @@ class MSDCNHead(nn.Layer):
                      3,
                      3,
                  ],
-                 use_pan=False,
+                 num_stages=3,
                  num_layers=1):
         super().__init__()
 
@@ -179,14 +182,16 @@ class MSDCNHead(nn.Layer):
                 nn.BatchNorm2D(hidden_dim),
                 nn.Silu(), ),
             nn.Sequential(
-                nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(),
+                # nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
+                # nn.BatchNorm2D(hidden_dim),
+                # nn.Silu(),
+                nn.MaxPool2D(2, 2),
                 nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
                 nn.BatchNorm2D(hidden_dim),
                 nn.Silu(), ),
             # nn.MaxPool2D(2, 2)
         ])
+        assert len(self.fpns) == num_stages, ''
 
         self.dcns_0 = nn.LayerList(
             [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
@@ -199,7 +204,7 @@ class MSDCNHead(nn.Layer):
 
         # self.dcns = nn.LayerList([
         #     nn.LayerList(
-        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in range(num_stages)])
         #     for _ in range(num_layers)
         # ])
 
@@ -225,11 +230,88 @@ class MSDCNHead(nn.Layer):
         return preds
 
 
+class MSDCNHeadV1(nn.Layer):
+    def __init__(self,
+                 hidden_dim,
+                 kernels=[
+                     3,
+                     3,
+                     3,
+                 ],
+                 num_stages=3,
+                 num_layers=1):
+        super().__init__()
+
+        self.kernels = kernels
+        self.num_levels = len(kernels)
+
+        self.fpns = nn.LayerList([
+            nn.Sequential(
+                nn.Conv2DTranspose(
+                    hidden_dim, hidden_dim, kernel_size=2, stride=2),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(),
+                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(), ),
+            nn.Sequential(
+                nn.Identity(),
+                # nn.BatchNorm2D(hidden_dim),
+                # nn.Silu(),
+                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(), ),
+            nn.Sequential(
+                # nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
+                # nn.BatchNorm2D(hidden_dim),
+                # nn.Silu(),
+                nn.MaxPool2D(2, 2),
+                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(), ),
+            # nn.MaxPool2D(2, 2)
+        ])
+
+        self.dcns = nn.LayerList([
+            nn.LayerList([
+                MSDCN2D(hidden_dim, hidden_dim, kernels[i:])
+                for i in range(num_stages)
+            ])  # TODO
+            # [MSDCN2D(hidden_dim, hidden_dim, kernels) for i in range(num_stages)]) # TODO
+            for _ in range(num_layers)
+        ])
+
+        import ppdet.modeling.initializer as init
+        init.reset_initialized_parameter(self)
+
+    def forward(self, feats):
+        assert len(feats) == self.num_levels, ''
+
+        preds = [m(feats[-1]) for m in self.fpns]
+        # print([o.shape for o in preds])
+
+        for _, ms in enumerate(self.dcns):
+            preds = [
+                m(x, feats[i:]) for i, (m, x) in enumerate(zip(ms, preds))
+            ]  # TODO
+            # preds = [m(x, feats) for i, (m, x) in enumerate(zip(ms, preds))] # TODO
+
+        # preds = [m(x, feats) for m, x in zip(self.dcns_0, preds)]
+        # preds = [m(x, feats) for m, x in zip(self.dcns_1, preds)]
+        # preds = [m(x, feats) for m, x in zip(self.dcns_2, preds)]
+
+        return preds
+
+
 if __name__ == '__main__':
 
     feats = [paddle.rand([1, 5, s, s]) for s in [10, 10, 10, 10]]
-    m = MSDCNHead(5, [3, 3, 3, 3])
+    # m = MSDCNHead(5, [3, 3, 3, 3])
+    # print(m)
+    # print([o.shape for o in m(feats)])
 
-    print(m)
+    feats = [paddle.rand([1, 5, s, s]) for s in [10, 10, 10, 10]]
+    m1 = MSDCNHeadV1(5, [3, 3, 3, 3], num_layers=2)
+    print(m1)
 
-    print([o.shape for o in m(feats)])
+    print([o.shape for o in m1(feats)])

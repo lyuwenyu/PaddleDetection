@@ -300,7 +300,8 @@ class OptimizerBuilder():
         del optim_args['type']
 
         if optim_type == 'AdamWDL':
-            return build_adamwdl(model, lr=learning_rate, **optim_args)
+            return build_adamwdl(
+                model, lr=learning_rate, grad_clip=grad_clip, **optim_args)
 
         if optim_type != 'AdamW':
             optim_args['weight_decay'] = regularization
