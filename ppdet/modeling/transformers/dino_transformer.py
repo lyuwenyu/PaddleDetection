@@ -227,9 +227,14 @@ class DINOTransformerEncoder(nn.Layer):
         for i, (H, W) in enumerate(spatial_shapes):
             ref_y, ref_x = paddle.meshgrid(
                 paddle.arange(
-                    0.5, H + 0.5, 1, dtype='float32'),
+                    0.5,
+                    H + 0.5,
+                    1, ) + 0.5,  # dtype='float32'
                 paddle.arange(
-                    0.5, W + 0.5, 1, dtype='float32'), )
+                    0.5,
+                    W + 0.5,
+                    1, ) + 0.5, )
+
             ref_y = ref_y.flatten().unsqueeze(0) / (valid_ratios[:, :, i, 1] *
                                                     H)
             ref_x = ref_x.flatten().unsqueeze(0) / (valid_ratios[:, :, i, 0] *
