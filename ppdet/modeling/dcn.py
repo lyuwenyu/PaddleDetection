@@ -159,7 +159,7 @@ class MSDCNHead(nn.Layer):
                      3,
                  ],
                  num_stages=3,
-                 num_layers=1,
+                 num_layers=3,
                  use_pan=False):
         super().__init__()
 
@@ -194,20 +194,21 @@ class MSDCNHead(nn.Layer):
         ])
         assert len(self.fpns) == num_stages, ''
 
-        self.dcns_0 = nn.LayerList(
-            [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+        # self.dcns_0 = nn.LayerList(
+        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
 
-        self.dcns_1 = nn.LayerList(
-            [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+        # self.dcns_1 = nn.LayerList(
+        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
 
-        self.dcns_2 = nn.LayerList(
-            [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+        # self.dcns_2 = nn.LayerList(
+        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
 
-        # self.dcns = nn.LayerList([
-        #     nn.LayerList(
-        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in range(num_stages)])
-        #     for _ in range(num_layers)
-        # ])
+        self.dcns = nn.LayerList([
+            nn.LayerList([
+                MSDCN2D(hidden_dim, hidden_dim, kernels)
+                for _ in range(num_stages)
+            ]) for _ in range(num_layers)
+        ])
 
         if use_pan:
             from ppdet.modeling.necks import YOLOCSPPAN
@@ -221,12 +222,12 @@ class MSDCNHead(nn.Layer):
 
         preds = [m(feats[-1]) for m in self.fpns]
 
-        # for i, ms in enumerate(self.dcns):
-        #     preds = [m(x, feats) for m, x in zip(ms, preds)]
+        for i, ms in enumerate(self.dcns):
+            preds = [m(x, feats) for m, x in zip(ms, preds)]
 
-        preds = [m(x, feats) for m, x in zip(self.dcns_0, preds)]
-        preds = [m(x, feats) for m, x in zip(self.dcns_1, preds)]
-        preds = [m(x, feats) for m, x in zip(self.dcns_2, preds)]
+        # preds = [m(x, feats) for m, x in zip(self.dcns_0, preds)]
+        # preds = [m(x, feats) for m, x in zip(self.dcns_1, preds)]
+        # preds = [m(x, feats) for m, x in zip(self.dcns_2, preds)]
 
         return preds
 
