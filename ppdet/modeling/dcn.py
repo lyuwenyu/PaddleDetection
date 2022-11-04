@@ -150,6 +150,109 @@ class MSDCN2D(nn.Layer):
         return out
 
 
+class MSDCN2Dv1(nn.Layer):
+    def __init__(
+            self,
+            in_c,
+            out_c,
+            kernels,
+            stride=1, ):
+        super().__init__()
+
+        # print(kernels)
+        self.kernels = kernels
+
+        kernel = sum([k**2 for k in kernels])
+        # kernel = kernels[0]**2
+
+        self.offset_channel = 2 * kernel
+        self.mask_channel = kernel
+
+        self.conv_offset = nn.Conv2D(
+            in_channels=in_c,
+            out_channels=self.offset_channel,
+            kernel_size=1,  # 3  1  1
+            stride=1,
+            padding=0, )
+
+        self.deconvs = DeformConv2D(
+            in_channels=in_c,
+            out_channels=out_c,
+            kernel_size=kernels[0],
+            stride=stride,
+            padding=(kernels[0] - 1) // 2,
+            dilation=1,
+            groups=len(kernels),
+            deformable_groups=1,
+            bias_attr=False)
+
+        self.norms = nn.LayerList(
+            [nn.Sequential(nn.BatchNorm2D(out_c), nn.Silu()) for _ in kernels])
+
+        self.weights = nn.Embedding(len(kernels), 1)
+        self.weights.weight.set_value(
+            np.ones(
+                (len(kernels), 1), dtype='float32'))
+
+        self.out_proj = nn.Sequential(
+            nn.Conv2D(out_c * len(kernels), out_c, 1, 1, 0),
+            nn.BatchNorm2D(out_c),
+            nn.Silu(),
+            nn.Conv2D(out_c, out_c, 3, 1, 1), nn.BatchNorm2D(out_c), nn.Silu())
+
+    def forward(self, x, feats):
+        assert len(feats) == len(self.deconvs), ''
+
+        offset_mask = self.conv_offset(x)
+        offsets, masks = paddle.split(
+            offset_mask,
+            num_or_sections=[self.offset_channel, self.mask_channel],
+            axis=1)
+        masks = F.sigmoid(masks)
+
+        offset_idx = 0
+        mask_idx = 0
+
+        outputs = []
+        for i, y in enumerate(feats):
+            _offset_idx = offset_idx + self.kernels[i]**2 * 2
+            _mask_idx = mask_idx + self.kernels[i]**2
+
+            _, _, h, w = offsets.shape
+            y = F.interpolate(
+                y,
+                size=(h, w), )
+
+            # print(i, y.shape)
+            # print(f' {idx} : {_idx} ', offsets[:, idx:_idx].shape)
+            # print(masks[:, i:i+1].shape)
+            # print('y ', y.shape)
+
+            # out = self.deconvs[i](y, offsets,
+            #                       mask=masks) # * self.weights.weight[i]
+            out = self.deconvs[i](y,
+                                  offsets[:, offset_idx:_offset_idx],
+                                  mask=masks[:, mask_idx:_mask_idx])
+            out = self.norms[i](out)
+
+            outputs.append(out)
+
+            offset_idx = _offset_idx
+            mask_idx = _mask_idx
+
+        out = paddle.concat(outputs, axis=1)
+
+        # out = 0
+        # for i, o in enumerate(outputs):
+        #     out += o * self.weights.weight[i]
+
+        out = self.out_proj(out) + x
+
+        # out = sum(outputs)
+
+        return out
+
+
 class MSDCNHead(nn.Layer):
     def __init__(self,
                  hidden_dim,
