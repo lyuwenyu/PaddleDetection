@@ -96,7 +96,7 @@ def deformable_attention_core_func(value, value_spatial_shapes,
         # N_*M_, D_, Lq_, P_
         sampling_value_l_ = F.grid_sample(
             value_l_,
-            sampling_grid_l_,
+            paddle.cast(sampling_grid_l_, 'float32'),
             mode='bilinear',
             padding_mode='zeros',
             align_corners=False)
