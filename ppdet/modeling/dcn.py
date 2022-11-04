@@ -159,7 +159,8 @@ class MSDCNHead(nn.Layer):
                      3,
                  ],
                  num_stages=3,
-                 num_layers=1):
+                 num_layers=1,
+                 use_pan=False):
         super().__init__()
 
         self.kernels = kernels
@@ -208,9 +209,9 @@ class MSDCNHead(nn.Layer):
         #     for _ in range(num_layers)
         # ])
 
-        # if use_pan:
-        #     from ppdet.modeling.necks import YOLOCSPPAN
-        #     self.pan = YOLOCSPPAN([hidden_dim for _ in range(3)])
+        if use_pan:
+            from ppdet.modeling.necks import YOLOCSPPAN
+            self.pan = YOLOCSPPAN(in_channels=[hidden_dim for _ in range(3)])
 
         import ppdet.modeling.initializer as init
         init.reset_initialized_parameter(self)
@@ -239,7 +240,9 @@ class MSDCNHeadV1(nn.Layer):
                      3,
                  ],
                  num_stages=3,
-                 num_layers=1):
+                 num_layers=1,
+                 version='v1'):
+
         super().__init__()
 
         self.kernels = kernels
@@ -283,6 +286,9 @@ class MSDCNHeadV1(nn.Layer):
 
         import ppdet.modeling.initializer as init
         init.reset_initialized_parameter(self)
+        for m in self.sublayers():
+            if isinstance(m, nn.BatchNorm2D):
+                m._epsilon = 1e-6
 
     def forward(self, feats):
         assert len(feats) == self.num_levels, ''

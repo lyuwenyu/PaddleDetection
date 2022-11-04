@@ -73,7 +73,8 @@ class PPYOLOEHead(nn.Layer):
                  trt=False,
                  exclude_nms=False,
                  exclude_post_process=False,
-                 use_msdcn_head=False):
+                 use_msdcn_head=False,
+                 use_fpn=False):
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
         self.in_channels = in_channels
@@ -121,13 +122,21 @@ class PPYOLOEHead(nn.Layer):
 
         self.use_msdcn_head = use_msdcn_head
         if use_msdcn_head:
-            from ppdet.modeling.dcn import MSDCNHead
+            from ppdet.modeling.dcn import MSDCNHead, MSDCNHeadV1
+
             self.msdcn = MSDCNHead(
                 in_channels[-1], kernels=[3 for _ in in_channels])
 
-    # @classmethod
-    # def from_config(cls, cfg, input_shape):
-    #     return {'in_channels': [i.channels for i in input_shape], }
+            # self.msdcn = MSDCNHeadV1(
+            #     in_channels[-1], kernels=[3 for _ in in_channels], num_stages=3, num_layers=3)
+
+        # self.use_fpn = use_fpn
+        # if use_fpn:
+        #     self.fpn = None  
+
+        # @classmethod
+        # def from_config(cls, cfg, input_shape):
+        #     return {'in_channels': [i.channels for i in input_shape], }
 
     def _init_weights(self):
         bias_cls = bias_init_with_prob(0.01)
