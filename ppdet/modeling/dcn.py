@@ -216,6 +216,9 @@ class MSDCNHead(nn.Layer):
 
         import ppdet.modeling.initializer as init
         init.reset_initialized_parameter(self)
+        for m in self.sublayers():
+            if isinstance(m, nn.BatchNorm2D):
+                m._epsilon = 1e-6
 
     def forward(self, feats):
         assert len(feats) == self.num_levels, ''
