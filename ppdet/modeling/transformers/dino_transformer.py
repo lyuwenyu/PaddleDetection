@@ -67,7 +67,7 @@ class MSDeformableAttention(nn.Layer):
         self.value_proj = nn.Linear(embed_dim, embed_dim)
         self.output_proj = nn.Linear(embed_dim, embed_dim)
 
-        self._reset_parameters()
+        # self._reset_parameters()
 
     def _reset_parameters(self):
         # sampling_offsets
@@ -229,11 +229,11 @@ class DINOTransformerEncoder(nn.Layer):
                 paddle.arange(
                     0.5,
                     H + 0.5,
-                    1, ) + 0.5,  # dtype='float32'
+                    1, ),  # dtype='float32'
                 paddle.arange(
                     0.5,
                     W + 0.5,
-                    1, ) + 0.5, )
+                    1, ), )
 
             ref_y = ref_y.flatten().unsqueeze(0) / (valid_ratios[:, :, i, 1] *
                                                     H)
@@ -665,7 +665,7 @@ class DINOTransformer(nn.Layer):
         _, topk_ind = paddle.topk(
             enc_outputs_class.max(-1), self.num_queries, axis=1)
         # extract region proposal boxes
-        batch_ind = paddle.arange(end=bs, dtype=topk_ind.dtype)
+        batch_ind = paddle.arange(end=bs)
         batch_ind = batch_ind.unsqueeze(-1).tile([1, self.num_queries])
         topk_ind = paddle.stack([batch_ind, topk_ind], axis=-1)
         topk_coords_unact = paddle.gather_nd(enc_outputs_coord_unact,
