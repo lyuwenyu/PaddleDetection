@@ -313,6 +313,7 @@ class MSDCNHead(nn.Layer):
             ]) for _ in range(num_layers)
         ])
 
+        self.use_pan = use_pan
         if use_pan:
             from ppdet.modeling.necks import YOLOCSPPAN
             self.pan = YOLOCSPPAN(in_channels=[hidden_dim for _ in range(3)])
@@ -334,6 +335,8 @@ class MSDCNHead(nn.Layer):
         # preds = [m(x, feats) for m, x in zip(self.dcns_0, preds)]
         # preds = [m(x, feats) for m, x in zip(self.dcns_1, preds)]
         # preds = [m(x, feats) for m, x in zip(self.dcns_2, preds)]
+        if self.use_pan:
+            preds = self.pan(preds)
 
         return preds
 
