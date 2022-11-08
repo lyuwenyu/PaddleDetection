@@ -74,7 +74,8 @@ class PPYOLOEHead(nn.Layer):
                  exclude_nms=False,
                  exclude_post_process=False,
                  use_msdcn_head=False,
-                 use_fpn=False):
+                 use_fpn=False,
+                 aux_loss=False):
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
         self.in_channels = in_channels
@@ -126,6 +127,8 @@ class PPYOLOEHead(nn.Layer):
 
             self.msdcn = MSDCNHead(
                 in_channels[-1], kernels=[3 for _ in in_channels])
+
+            self.aux_loss = aux_loss
 
             # self.msdcn = MSDCNHeadV1(
             #     in_channels[-1], kernels=[3 for _ in in_channels], num_stages=3, num_layers=3)
@@ -230,15 +233,29 @@ class PPYOLOEHead(nn.Layer):
     def forward(self, feats, targets=None):
 
         if self.use_msdcn_head:
-            feats = self.msdcn(feats)
+            feats_list = self.msdcn(feats)
 
-        assert len(feats) == len(self.fpn_strides), \
+        assert len(feats_list[0]) == len(self.fpn_strides), \
             "The size of feats is not equal to size of fpn_strides"
 
         if self.training:
-            return self.forward_train(feats, targets)
+
+            if self.aux_loss:
+                loss = 0
+                loss_dict_all = {}
+                for i, feats in enumerate(feats_list):
+                    loss_dict = self.forward_train(feats, targets)
+                    loss += loss_dict['loss']
+                    loss_dict = {f'{k}_{i}': v for k, v in loss_dict.items()}
+                    loss_dict_all.update(loss_dict)
+                loss_dict_all['loss'] = loss
+                return loss_dict_all
+
+            else:
+                return self.forward_train(feats_list[-1])
+
         else:
-            return self.forward_eval(feats)
+            return self.forward_eval(feats_list[-1])
 
     @staticmethod
     def _focal_loss(score, label, alpha=0.25, gamma=2.0):

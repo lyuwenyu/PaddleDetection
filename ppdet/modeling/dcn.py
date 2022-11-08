@@ -150,6 +150,98 @@ class MSDCN2D(nn.Layer):
         return out
 
 
+class MSDCNHead(nn.Layer):
+    def __init__(self,
+                 hidden_dim,
+                 kernels=[
+                     3,
+                     3,
+                     3,
+                 ],
+                 num_stages=3,
+                 num_layers=3,
+                 use_pan=False):
+        super().__init__()
+
+        self.kernels = kernels
+        self.num_levels = len(kernels)
+
+        self.fpns = nn.LayerList([
+            nn.Sequential(
+                nn.Conv2DTranspose(
+                    hidden_dim, hidden_dim, kernel_size=2, stride=2),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(),
+                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(), ),
+            nn.Sequential(
+                nn.Identity(),
+                # nn.BatchNorm2D(hidden_dim),
+                # nn.Silu(),
+                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(), ),
+            nn.Sequential(
+                # nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
+                # nn.BatchNorm2D(hidden_dim),
+                # nn.Silu(),
+                nn.MaxPool2D(2, 2),
+                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                nn.BatchNorm2D(hidden_dim),
+                nn.Silu(), ),
+            # nn.MaxPool2D(2, 2)
+        ])
+        assert len(self.fpns) == num_stages, ''
+
+        # self.dcns_0 = nn.LayerList(
+        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+
+        # self.dcns_1 = nn.LayerList(
+        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+
+        # self.dcns_2 = nn.LayerList(
+        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
+
+        self.dcns = nn.LayerList([
+            nn.LayerList([
+                MSDCN2D(hidden_dim, hidden_dim, kernels)
+                for _ in range(num_stages)
+            ]) for _ in range(num_layers)
+        ])
+
+        self.use_pan = use_pan
+        if use_pan:
+            from ppdet.modeling.necks import YOLOCSPPAN
+            self.pan = YOLOCSPPAN(in_channels=[hidden_dim for _ in range(3)])
+
+        import ppdet.modeling.initializer as init
+        init.reset_initialized_parameter(self)
+        for m in self.sublayers():
+            if isinstance(m, nn.BatchNorm2D):
+                m._epsilon = 1e-6
+
+    def forward(self, feats):
+        assert len(feats) == self.num_levels, ''
+
+        preds = [m(feats[-1]) for m in self.fpns]
+
+        outputs = []
+        for i, ms in enumerate(self.dcns):
+            preds = [m(x, feats) for m, x in zip(ms, preds)]
+
+            outputs.append(preds)
+
+        # preds = [m(x, feats) for m, x in zip(self.dcns_0, preds)]
+        # preds = [m(x, feats) for m, x in zip(self.dcns_1, preds)]
+        # preds = [m(x, feats) for m, x in zip(self.dcns_2, preds)]
+
+        if self.use_pan:
+            preds = self.pan(preds)
+
+        return outputs
+
+
 class MSDCN2Dv1(nn.Layer):
     def __init__(
             self,
@@ -251,94 +343,6 @@ class MSDCN2Dv1(nn.Layer):
         # out = sum(outputs)
 
         return out
-
-
-class MSDCNHead(nn.Layer):
-    def __init__(self,
-                 hidden_dim,
-                 kernels=[
-                     3,
-                     3,
-                     3,
-                 ],
-                 num_stages=3,
-                 num_layers=3,
-                 use_pan=False):
-        super().__init__()
-
-        self.kernels = kernels
-        self.num_levels = len(kernels)
-
-        self.fpns = nn.LayerList([
-            nn.Sequential(
-                nn.Conv2DTranspose(
-                    hidden_dim, hidden_dim, kernel_size=2, stride=2),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(),
-                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(), ),
-            nn.Sequential(
-                nn.Identity(),
-                # nn.BatchNorm2D(hidden_dim),
-                # nn.Silu(),
-                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(), ),
-            nn.Sequential(
-                # nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
-                # nn.BatchNorm2D(hidden_dim),
-                # nn.Silu(),
-                nn.MaxPool2D(2, 2),
-                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(), ),
-            # nn.MaxPool2D(2, 2)
-        ])
-        assert len(self.fpns) == num_stages, ''
-
-        # self.dcns_0 = nn.LayerList(
-        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
-
-        # self.dcns_1 = nn.LayerList(
-        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
-
-        # self.dcns_2 = nn.LayerList(
-        #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
-
-        self.dcns = nn.LayerList([
-            nn.LayerList([
-                MSDCN2D(hidden_dim, hidden_dim, kernels)
-                for _ in range(num_stages)
-            ]) for _ in range(num_layers)
-        ])
-
-        self.use_pan = use_pan
-        if use_pan:
-            from ppdet.modeling.necks import YOLOCSPPAN
-            self.pan = YOLOCSPPAN(in_channels=[hidden_dim for _ in range(3)])
-
-        import ppdet.modeling.initializer as init
-        init.reset_initialized_parameter(self)
-        for m in self.sublayers():
-            if isinstance(m, nn.BatchNorm2D):
-                m._epsilon = 1e-6
-
-    def forward(self, feats):
-        assert len(feats) == self.num_levels, ''
-
-        preds = [m(feats[-1]) for m in self.fpns]
-
-        for i, ms in enumerate(self.dcns):
-            preds = [m(x, feats) for m, x in zip(ms, preds)]
-
-        # preds = [m(x, feats) for m, x in zip(self.dcns_0, preds)]
-        # preds = [m(x, feats) for m, x in zip(self.dcns_1, preds)]
-        # preds = [m(x, feats) for m, x in zip(self.dcns_2, preds)]
-        if self.use_pan:
-            preds = self.pan(preds)
-
-        return preds
 
 
 class MSDCNHeadV1(nn.Layer):
