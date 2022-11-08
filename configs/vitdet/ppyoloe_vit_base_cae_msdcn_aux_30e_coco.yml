@@ -66,6 +66,7 @@ PPYOLOEHead:
 
   use_msdcn_head: True
   aux_loss: True
+  reg_max: 16
 
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
