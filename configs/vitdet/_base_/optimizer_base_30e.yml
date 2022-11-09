@@ -1,10 +1,10 @@
-epoch: &epoch 30
+epoch: 30
 
 LearningRate:
   base_lr: 0.0001
   schedulers:
     - !CosineDecay
-      max_epochs: *epoch
+      max_epochs: 30
       min_lr_ratio: 0.01
       # last_plateau_epochs: 10
     - !LinearWarmup
