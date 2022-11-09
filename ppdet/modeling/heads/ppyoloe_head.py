@@ -252,7 +252,7 @@ class PPYOLOEHead(nn.Layer):
                 return loss_dict_all
 
             else:
-                return self.forward_train(feats_list[-1])
+                return self.forward_train(feats_list[-1], targets)
 
         else:
             return self.forward_eval(feats_list[-1])
