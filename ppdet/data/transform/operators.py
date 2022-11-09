@@ -475,7 +475,8 @@ class RandomDistort(BaseOperator):
                  brightness=[0.5, 1.5, 0.5],
                  random_apply=True,
                  count=4,
-                 random_channel=False):
+                 random_channel=False,
+                 p=1):
         super(RandomDistort, self).__init__()
         self.hue = hue
         self.saturation = saturation
@@ -484,6 +485,7 @@ class RandomDistort(BaseOperator):
         self.random_apply = random_apply
         self.count = count
         self.random_channel = random_channel
+        self.p = p
 
     def apply_hue(self, img):
         low, high, prob = self.hue
@@ -537,6 +539,10 @@ class RandomDistort(BaseOperator):
         return img
 
     def apply(self, sample, context=None):
+
+        if random.uniform(0, 1) > self.p:
+            return sample
+
         img = sample['image']
         if self.random_apply:
             functions = [
@@ -1303,7 +1309,8 @@ class RandomCrop(BaseOperator):
                  num_attempts=50,
                  allow_no_crop=True,
                  cover_all_box=False,
-                 is_mask_crop=False):
+                 is_mask_crop=False,
+                 p=1):
         super(RandomCrop, self).__init__()
         self.aspect_ratio = aspect_ratio
         self.thresholds = thresholds
@@ -1312,6 +1319,7 @@ class RandomCrop(BaseOperator):
         self.allow_no_crop = allow_no_crop
         self.cover_all_box = cover_all_box
         self.is_mask_crop = is_mask_crop
+        self.p = p
 
     def crop_segms(self, segms, valid_ids, crop, height, width):
         def _crop_poly(segm, crop):
@@ -1384,6 +1392,9 @@ class RandomCrop(BaseOperator):
 
     def apply(self, sample, context=None):
         if 'gt_bbox' in sample and len(sample['gt_bbox']) == 0:
+            return sample
+
+        if random.uniform(0, 1) > self.p:
             return sample
 
         h, w = sample['image'].shape[:2]
