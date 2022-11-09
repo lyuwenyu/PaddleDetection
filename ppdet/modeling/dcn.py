@@ -192,6 +192,19 @@ class MSDCNHead(nn.Layer):
                 nn.Silu(), ),
             # nn.MaxPool2D(2, 2)
         ])
+        assert num_stages in (3, 4), ''
+
+        if num_stages == 4:
+            self.fpns.append(
+                nn.Sequential(
+                    # nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
+                    # nn.BatchNorm2D(hidden_dim),
+                    # nn.Silu(),
+                    nn.MaxPool2D(4, 4),
+                    nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                    nn.BatchNorm2D(hidden_dim),
+                    nn.Silu(), ), )
+
         assert len(self.fpns) == num_stages, ''
 
         # self.dcns_0 = nn.LayerList(

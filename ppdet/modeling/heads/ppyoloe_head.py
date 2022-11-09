@@ -51,31 +51,35 @@ class PPYOLOEHead(nn.Layer):
     ]
     __inject__ = ['static_assigner', 'assigner', 'nms']
 
-    def __init__(self,
-                 in_channels=[1024, 512, 256],
-                 num_classes=80,
-                 act='swish',
-                 fpn_strides=(32, 16, 8),
-                 grid_cell_scale=5.0,
-                 grid_cell_offset=0.5,
-                 reg_max=16,
-                 static_assigner_epoch=4,
-                 use_varifocal_loss=True,
-                 static_assigner='ATSSAssigner',
-                 assigner='TaskAlignedAssigner',
-                 nms='MultiClassNMS',
-                 eval_size=None,
-                 loss_weight={
-                     'class': 1.0,
-                     'iou': 2.5,
-                     'dfl': 0.5,
-                 },
-                 trt=False,
-                 exclude_nms=False,
-                 exclude_post_process=False,
-                 use_msdcn_head=False,
-                 use_fpn=False,
-                 aux_loss=False):
+    def __init__(
+            self,
+            in_channels=[1024, 512, 256],
+            num_classes=80,
+            act='swish',
+            fpn_strides=(32, 16, 8),
+            grid_cell_scale=5.0,
+            grid_cell_offset=0.5,
+            reg_max=16,
+            static_assigner_epoch=4,
+            use_varifocal_loss=True,
+            static_assigner='ATSSAssigner',
+            assigner='TaskAlignedAssigner',
+            nms='MultiClassNMS',
+            eval_size=None,
+            loss_weight={
+                'class': 1.0,
+                'iou': 2.5,
+                'dfl': 0.5,
+            },
+            trt=False,
+            exclude_nms=False,
+            exclude_post_process=False,
+            use_msdcn_head=False,
+            use_fpn=False,
+            aux_loss=False,
+            num_stages=3,
+            num_layers=3, ):
+
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
         self.in_channels = in_channels
@@ -126,7 +130,10 @@ class PPYOLOEHead(nn.Layer):
             from ppdet.modeling.dcn import MSDCNHead, MSDCNHeadV1
 
             self.msdcn = MSDCNHead(
-                in_channels[-1], kernels=[3 for _ in in_channels])
+                in_channels[-1],
+                kernels=[3 for _ in in_channels],
+                num_stages=num_stages,
+                num_layers=num_layers)
 
             self.aux_loss = aux_loss
 
