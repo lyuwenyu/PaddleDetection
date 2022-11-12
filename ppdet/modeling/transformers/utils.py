@@ -83,6 +83,8 @@ def deformable_attention_core_func(value, value_spatial_shapes,
 
     value_list = value.split(
         value_spatial_shapes.prod(1).split(len(value_spatial_shapes)), axis=1)
+    # value_list = value.split([6400, 1600, 400, 100], axis=1)
+    # value_spatial_shapes = [(80, 80), (40, 40), (20, 20), (10, 10)]
 
     sampling_grids = 2 * sampling_locations - 1
     sampling_value_list = []

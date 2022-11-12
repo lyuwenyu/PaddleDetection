@@ -127,13 +127,14 @@ class MSDeformableAttention(nn.Layer):
         attention_weights = F.softmax(attention_weights).reshape(
             [bs, Len_q, self.num_heads, self.num_levels, self.num_points])
 
-        if reference_points.shape[-1] == 2:
+        k = reference_points.shape[-1]
+        if k == 2:
             offset_normalizer = value_spatial_shapes.flip([1]).reshape(
                 [1, 1, 1, self.num_levels, 1, 2])
             sampling_locations = reference_points.reshape([
                 bs, Len_q, 1, self.num_levels, 1, 2
             ]) + sampling_offsets / offset_normalizer
-        elif reference_points.shape[-1] == 4:
+        elif k == 4:
             sampling_locations = (
                 reference_points[:, :, None, :, None, :2] + sampling_offsets /
                 self.num_points * reference_points[:, :, None, :, None, 2:] *
@@ -224,16 +225,11 @@ class DINOTransformerEncoder(nn.Layer):
     def get_reference_points(spatial_shapes, valid_ratios):
         valid_ratios = valid_ratios.unsqueeze(1)
         reference_points = []
+        # spatial_shapes = [(80, 80), (40, 40), (20, 20), (10, 10)]
         for i, (H, W) in enumerate(spatial_shapes):
             ref_y, ref_x = paddle.meshgrid(
-                paddle.arange(
-                    0.5,
-                    H + 0.5,
-                    1, ),  # dtype='float32'
-                paddle.arange(
-                    0.5,
-                    W + 0.5,
-                    1, ), )
+                paddle.arange(H) + 0.5,  # dtype='float32'
+                paddle.arange(W) + 0.5)
 
             ref_y = ref_y.flatten().unsqueeze(0) / (valid_ratios[:, :, i, 1] *
                                                     H)
@@ -525,7 +521,12 @@ class DINOTransformer(nn.Layer):
 
     def _get_encoder_input(self, feats, pad_mask=None):
         # get projection features
-        proj_feats = [self.input_proj[i](feat) for i, feat in enumerate(feats)]
+
+        # proj_feats = [self.input_proj[i](feat) for i, feat in enumerate(feats)]
+        proj_feats = []
+        for i, feat in enumerate(feats):
+            proj_feats.append(self.input_proj[i](feat))
+
         if self.num_levels > len(proj_feats):
             len_srcs = len(proj_feats)
             for i in range(len_srcs, self.num_levels):
