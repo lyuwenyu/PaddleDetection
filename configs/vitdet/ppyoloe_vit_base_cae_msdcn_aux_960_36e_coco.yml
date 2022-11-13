@@ -3,7 +3,7 @@ _BASE_: [
   '../datasets/coco_detection.yml',
   '../runtime.yml',
   './_base_/ppyoloe_reader.yml',
-  './_base_/optimizer_base_30e.yml'
+  # './_base_/optimizer_base_30e.yml'
 ]
 
 weights: output/ppyoloe_vit_base_csppan_cae_30e_coco/model_final
@@ -68,6 +68,7 @@ PPYOLOEHead:
   aux_loss: False
   num_layers: 6
   num_stage: 4
+  offset_kernel: 3
 
   reg_max: 24 # 16
 
@@ -91,17 +92,26 @@ PPYOLOEHead:
     nms_threshold: 0.7
 
 
-epoch: 60
+epoch: 36
 LearningRate:
   base_lr: 0.0001
   schedulers:
     - !CosineDecay
-      max_epochs: 60
+      max_epochs: 36
       min_lr_ratio: 0.01
       # last_plateau_epochs: 10
     - !LinearWarmup
       start_factor: 0.
       epochs: 1
+
+
+
+
+worker_num: 4
+eval_height: &eval_height 960
+eval_width: &eval_width 960
+eval_size: &eval_size [*eval_height, *eval_width]
+
 
 TrainReader:
   sample_transforms:
@@ -121,3 +131,12 @@ TrainReader:
   drop_last: true
   use_shared_memory: true
   collate_batch: true
+
+
+EvalReader:
+  sample_transforms:
+    - Decode: {}
+    - Resize: {target_size: *eval_size, keep_ratio: False, interp: 2}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+  batch_size: 2

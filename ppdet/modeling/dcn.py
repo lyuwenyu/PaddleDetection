@@ -49,12 +49,7 @@ class DCN2D(nn.Layer):
 
 
 class MSDCN2D(nn.Layer):
-    def __init__(
-            self,
-            in_c,
-            out_c,
-            kernels,
-            stride=1, ):
+    def __init__(self, in_c, out_c, kernels, stride=1, offset_kernel=1):
         super().__init__()
 
         # print(kernels)
@@ -69,9 +64,9 @@ class MSDCN2D(nn.Layer):
         self.conv_offset = nn.Conv2D(
             in_channels=in_c,
             out_channels=self.offset_channel + self.mask_channel,
-            kernel_size=1,  # 3  1  1
+            kernel_size=offset_kernel,  # 3  1  1
             stride=1,
-            padding=0, )
+            padding=(offset_kernel - 1) // 2, )
 
         self.deconvs = nn.LayerList([
             DeformConv2D(
@@ -160,7 +155,8 @@ class MSDCNHead(nn.Layer):
                  ],
                  num_stages=3,
                  num_layers=3,
-                 use_pan=False):
+                 use_pan=False,
+                 offset_kernel=1):
         super().__init__()
 
         self.kernels = kernels
@@ -218,8 +214,11 @@ class MSDCNHead(nn.Layer):
 
         self.dcns = nn.LayerList([
             nn.LayerList([
-                MSDCN2D(hidden_dim, hidden_dim, kernels)
-                for _ in range(num_stages)
+                MSDCN2D(
+                    hidden_dim,
+                    hidden_dim,
+                    kernels,
+                    offset_kernel=offset_kernel) for _ in range(num_stages)
             ]) for _ in range(num_layers)
         ])
 
