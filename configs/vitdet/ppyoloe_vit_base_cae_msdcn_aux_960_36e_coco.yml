@@ -60,8 +60,8 @@ VisionTransformer:
 
 
 PPYOLOEHead:
-  fpn_strides: [8, 16, 32]
-  in_channels: [768, 768, 768]
+  fpn_strides: [8, 16, 32, 64]
+  in_channels: [768, 768, 768,768]
   static_assigner_epoch: -1
 
   use_msdcn_head: True
