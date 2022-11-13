@@ -10,14 +10,14 @@ weights: output/ppyoloe_vit_base_csppan_cae_30e_coco/model_final
 
 
 snapshot_epoch: 2
-log_iter: 100
+log_iter: 10
 
 
 use_ema: true
 ema_decay: 0.9999 # 0.9997
 ema_skip_names: ['yolo_head.proj_conv.weight', 'backbone.pos_embed']
 custom_black_list: ['reduce_mean']
-use_fused_allreduce_gradients: &use_checkpoint False
+use_fused_allreduce_gradients: &use_checkpoint True
 
 
 architecture: YOLOv3
