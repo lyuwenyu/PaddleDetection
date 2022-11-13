@@ -234,9 +234,8 @@ class MSDCNHead(nn.Layer):
                 m._epsilon = 1e-6
 
     def forward(self, feats):
-        assert len(feats) == self.num_levels, ''
-
         preds = [m(feats[-1]) for m in self.fpns]
+        assert len(preds) == self.num_levels, ''
 
         outputs = []
         for i, ms in enumerate(self.dcns):
