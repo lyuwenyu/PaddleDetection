@@ -67,7 +67,7 @@ PPYOLOEHead:
   use_msdcn_head: True
   aux_loss: False
   num_layers: 6
-  num_stage: 4
+  num_stages: 4
   offset_kernel: 3
 
   reg_max: 24 # 16
