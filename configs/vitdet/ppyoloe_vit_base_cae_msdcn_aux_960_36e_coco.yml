@@ -68,6 +68,7 @@ PPYOLOEHead:
   aux_loss: False
   num_layers: 6
   num_stages: 4
+  msdcn_kernels: [3, 3, 3]
   offset_kernel: 3
 
   reg_max: 24 # 16

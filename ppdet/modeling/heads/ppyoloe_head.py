@@ -78,6 +78,7 @@ class PPYOLOEHead(nn.Layer):
                  aux_loss=False,
                  num_stages=3,
                  num_layers=3,
+                 msdcn_kernels=[3, 3, 3],
                  offset_kernel=1):
 
         super(PPYOLOEHead, self).__init__()
@@ -131,7 +132,7 @@ class PPYOLOEHead(nn.Layer):
 
             self.msdcn = MSDCNHead(
                 in_channels[-1],
-                kernels=[3 for _ in in_channels],
+                kernels=msdcn_kernels,
                 num_stages=num_stages,
                 num_layers=num_layers,
                 offset_kernel=offset_kernel)
