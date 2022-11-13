@@ -93,7 +93,7 @@ class MSDCN2D(nn.Layer):
             nn.Conv2D(out_c, out_c, 3, 1, 1), nn.BatchNorm2D(out_c), nn.Silu())
 
     def forward(self, x, feats):
-        assert len(feats) == len(self.deconvs), ''
+        # assert len(feats) == len(self.deconvs), ''
 
         offset_mask = self.conv_offset(x)
         offsets, masks = paddle.split(
@@ -304,7 +304,7 @@ class MSDCN2Dv1(nn.Layer):
             nn.Conv2D(out_c, out_c, 3, 1, 1), nn.BatchNorm2D(out_c), nn.Silu())
 
     def forward(self, x, feats):
-        assert len(feats) == len(self.deconvs), ''
+        # assert len(feats) == len(self.deconvs), ''
 
         offset_mask = self.conv_offset(x)
         offsets, masks = paddle.split(
