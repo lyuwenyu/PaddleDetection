@@ -235,7 +235,8 @@ class MSDCNHead(nn.Layer):
 
     def forward(self, feats):
         preds = [m(feats[-1]) for m in self.fpns]
-        assert len(preds) == self.num_levels, ''
+        # assert len(preds) == self.num_levels, ''
+        assert len(self.dcns[0]) == len(preds), ''
 
         outputs = []
         for i, ms in enumerate(self.dcns):
