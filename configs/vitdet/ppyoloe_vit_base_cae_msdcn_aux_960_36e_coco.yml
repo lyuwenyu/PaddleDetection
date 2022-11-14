@@ -109,7 +109,7 @@ LearningRate:
       # last_plateau_epochs: 10
     - !LinearWarmup
       start_factor: 0.001
-      steps: 2000
+      steps: 5000
 
 
 worker_num: 4
