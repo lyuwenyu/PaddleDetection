@@ -431,6 +431,7 @@ class DINOTransformer(nn.Layer):
         self.num_classes = num_classes
         self.num_queries = num_queries
         self.eps = eps
+        self.num_encoder_layers = num_encoder_layers
 
         # backbone feature projection
         self._build_input_proj_layer(backbone_feat_channels)
@@ -579,9 +580,12 @@ class DINOTransformer(nn.Layer):
         (feat_flatten, spatial_shapes, mask_flatten, lvl_pos_embed_flatten,
          valid_ratios) = self._get_encoder_input(feats, pad_mask)
 
-        # encoder
-        memory = self.encoder(feat_flatten, spatial_shapes, mask_flatten,
-                              lvl_pos_embed_flatten, valid_ratios)
+        if self.num_encoder_layers == 0:
+            memory = feat_flatten
+        else:
+            # encoder
+            memory = self.encoder(feat_flatten, spatial_shapes, mask_flatten,
+                                  lvl_pos_embed_flatten, valid_ratios)
 
         # prepare denoising training
         if self.training:
