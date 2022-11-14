@@ -46,11 +46,13 @@ class ModelEMA(object):
                  decay=0.9998,
                  ema_decay_type='threshold',
                  cycle_epoch=-1,
-                 ema_black_list=None):
+                 ema_black_list=None,
+                 ema_exponential_steps=2000):
         self.step = 0
         self.epoch = 0
         self.decay = decay
         self.ema_decay_type = ema_decay_type
+        self.ema_exponential_steps = ema_exponential_steps
         self.cycle_epoch = cycle_epoch
         self.ema_black_list = self._match_ema_black_list(
             model.state_dict().keys(), ema_black_list)
@@ -88,7 +90,8 @@ class ModelEMA(object):
         if self.ema_decay_type == 'threshold':
             decay = min(self.decay, (1 + self.step) / (10 + self.step))
         elif self.ema_decay_type == 'exponential':
-            decay = self.decay * (1 - math.exp(-(self.step + 1) / 2000))
+            decay = self.decay * (
+                1 - math.exp(-(self.step + 1) / self.ema_exponential_steps))
         else:
             decay = self.decay
         self._decay = decay

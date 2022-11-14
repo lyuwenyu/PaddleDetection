@@ -173,6 +173,7 @@ class Trainer(object):
         if self.use_ema:
             ema_decay = self.cfg.get('ema_decay', 0.9998)
             ema_decay_type = self.cfg.get('ema_decay_type', 'threshold')
+            ema_exponential_steps = self.cfg.get('ema_exponential_steps', 2000)
             cycle_epoch = self.cfg.get('cycle_epoch', -1)
             ema_black_list = self.cfg.get('ema_black_list', None)
             self.ema = ModelEMA(
@@ -180,7 +181,8 @@ class Trainer(object):
                 decay=ema_decay,
                 ema_decay_type=ema_decay_type,
                 cycle_epoch=cycle_epoch,
-                ema_black_list=ema_black_list)
+                ema_black_list=ema_black_list,
+                ema_exponential_steps=ema_exponential_steps)
 
         self._nranks = dist.get_world_size()
         self._local_rank = dist.get_rank()
