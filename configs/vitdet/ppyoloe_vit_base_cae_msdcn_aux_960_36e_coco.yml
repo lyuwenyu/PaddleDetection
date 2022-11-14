@@ -2,7 +2,7 @@
 _BASE_: [
   '../datasets/coco_detection.yml',
   '../runtime.yml',
-  './_base_/ppyoloe_reader.yml',
+  # './_base_/ppyoloe_reader.yml',
   # './_base_/optimizer_base_30e.yml'
 ]
 
@@ -71,6 +71,7 @@ PPYOLOEHead:
   num_stages: 3 # msdcn output features
   msdcn_kernels: [3, 3, 3] # the number same as backbone output features
   offset_kernel: 3
+  norm_type: 'bn'
 
   # head
   fpn_strides: [8, 16, 32]
@@ -101,7 +102,7 @@ PPYOLOEHead:
 
 epoch: 36
 LearningRate:
-  base_lr: 0.0001
+  base_lr: 0.0001 # 0.00005
   schedulers:
     - !CosineDecay
       max_epochs: 36
@@ -116,7 +117,6 @@ worker_num: 4
 eval_height: &eval_height 960
 eval_width: &eval_width 960
 eval_size: &eval_size [*eval_height, *eval_width]
-
 
 TrainReader:
   sample_transforms:

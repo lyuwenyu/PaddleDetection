@@ -79,7 +79,8 @@ class PPYOLOEHead(nn.Layer):
                  num_stages=3,
                  num_layers=3,
                  msdcn_kernels=[3, 3, 3],
-                 offset_kernel=1):
+                 offset_kernel=1,
+                 norm_type='bn'):
 
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
@@ -149,6 +150,11 @@ class PPYOLOEHead(nn.Layer):
         # @classmethod
         # def from_config(cls, cfg, input_shape):
         #     return {'in_channels': [i.channels for i in input_shape], }
+
+        assert norm_type in ('bn', 'gn'), ''
+        if norm_type == 'gn':
+            from ppdet.modeling.reset import reset_model, replace_bn_gn
+            reset_model(self, nn.BatchNorm2D, reset_func=replace_bn_gn)
 
     def _init_weights(self):
         bias_cls = bias_init_with_prob(0.01)

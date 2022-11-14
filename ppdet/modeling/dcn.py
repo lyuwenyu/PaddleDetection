@@ -146,17 +146,18 @@ class MSDCN2D(nn.Layer):
 
 
 class MSDCNHead(nn.Layer):
-    def __init__(self,
-                 hidden_dim,
-                 kernels=[
-                     3,
-                     3,
-                     3,
-                 ],
-                 num_stages=3,
-                 num_layers=3,
-                 use_pan=False,
-                 offset_kernel=1):
+    def __init__(
+            self,
+            hidden_dim,
+            kernels=[
+                3,
+                3,
+                3,
+            ],
+            num_stages=3,
+            num_layers=3,
+            use_pan=False,
+            offset_kernel=1, ):
         super().__init__()
 
         self.kernels = kernels
@@ -357,6 +358,7 @@ class MSDCN2Dv1(nn.Layer):
         return out
 
 
+# ----------------
 class MSDCNHeadV1(nn.Layer):
     def __init__(self,
                  hidden_dim,
