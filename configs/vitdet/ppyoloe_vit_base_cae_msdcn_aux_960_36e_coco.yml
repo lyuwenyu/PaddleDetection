@@ -20,7 +20,7 @@ ema_exponential_steps: 2000
 
 ema_skip_names: ['yolo_head.proj_conv.weight', 'backbone.pos_embed']
 custom_black_list: ['reduce_mean']
-use_fused_allreduce_gradients: &use_checkpoint False
+use_fused_allreduce_gradients: &use_checkpoint True
 
 
 architecture: YOLOv3
@@ -67,18 +67,18 @@ PPYOLOEHead:
   # encoder
   use_msdcn_head: True
   aux_loss: False
-  num_layers: 3
-  num_stages: 3 # msdcn output features
+  num_layers: 4
+  num_stages: 4 # msdcn output features
   msdcn_kernels: [3, 3, 3] # the number same as backbone output features
   offset_kernel: 3
-  norm_type: 'gn'
+  norm_type: 'bn'
 
   # head
-  fpn_strides: [8, 16, 32]
-  in_channels: [768, 768, 768]
+  fpn_strides: [8, 16, 32, 64]
+  in_channels: [768, 768, 768, 768]
   static_assigner_epoch: -1
 
-  reg_max: 18 # 16
+  reg_max: 24 # 16
 
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
@@ -102,7 +102,7 @@ PPYOLOEHead:
 
 
 
-# ---------------
+# --------------------
 epoch: 36
 LearningRate:
   base_lr: 0.0001 # 0.00005
@@ -117,7 +117,7 @@ LearningRate:
 
 
 OptimizerBuilder:
-  clip_grad_by_norm: 0.1
+  # clip_grad_by_norm: 0.1
   optimizer:
     type: AdamWDL
     betas: [0.9, 0.999]
@@ -144,13 +144,13 @@ TrainReader:
     - RandomFlip: {}
   batch_transforms:
     # - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
-    - BatchRandomResize: {target_size: [800, 832, 864, 896, 928, 960, 960, 960, 960, 992, 1024, 1056, 1088, 1120], random_size: True, random_interp: True, keep_ratio: False}
-    # - BatchRandomResize: {target_size: [768, 832, 896, 960, 960, 1024, 1088, 1152], random_size: True, random_interp: True, keep_ratio: False}
+    # - BatchRandomResize: {target_size: [800, 832, 864, 896, 928, 960, 960, 960, 960, 992, 1024, 1056, 1088, 1120], random_size: True, random_interp: True, keep_ratio: False}
+    - BatchRandomResize: {target_size: [768, 832, 896, 960, 960, 1024, 1088, 1152], random_size: True, random_interp: True, keep_ratio: False}
 
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
     - PadGT: {}
-  batch_size: 1
+  batch_size: 2
   shuffle: true
   drop_last: true
   use_shared_memory: true
