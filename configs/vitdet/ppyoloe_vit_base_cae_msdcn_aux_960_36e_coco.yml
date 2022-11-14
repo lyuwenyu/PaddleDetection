@@ -71,14 +71,14 @@ PPYOLOEHead:
   num_stages: 3 # msdcn output features
   msdcn_kernels: [3, 3, 3] # the number same as backbone output features
   offset_kernel: 3
-  norm_type: 'bn'
+  norm_type: 'gn'
 
   # head
   fpn_strides: [8, 16, 32]
   in_channels: [768, 768, 768]
   static_assigner_epoch: -1
 
-  reg_max: 24 # 16
+  reg_max: 18 # 16
 
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
@@ -100,6 +100,9 @@ PPYOLOEHead:
     nms_threshold: 0.7
 
 
+
+
+#
 epoch: 36
 LearningRate:
   base_lr: 0.0001 # 0.00005
@@ -111,6 +114,20 @@ LearningRate:
     - !LinearWarmup
       start_factor: 0.001
       steps: 5000
+
+
+OptimizerBuilder:
+  clip_grad_by_norm: 0.1
+  optimizer:
+    type: AdamWDL
+    betas: [0.9, 0.999]
+    layer_decay: 0.75
+    weight_decay: 0.02 # 0.0001
+    num_layers: 12
+    filter_bias_and_bn: True
+    skip_decay_names: ['pos_embed', 'cls_token']
+    set_param_lr_func: 'layerwise_lr_decay'
+
 
 
 worker_num: 4
