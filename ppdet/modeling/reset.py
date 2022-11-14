@@ -20,12 +20,12 @@ def reset_model(model, old_type, new_type=None, reset_func=None, **kwargs):
     return model
 
 
-def replace_bn_gn(m):
+def replace_bn_gn(m, num_groups=8):
     '''replace_bn_gn
     '''
     assert isinstance(m, nn.BatchNorm2D), ''
     _m = nn.GroupNorm(
-        6,
+        num_groups,
         m._num_features,
         epsilon=1e-6,
         weight_attr=m._weight_attr,

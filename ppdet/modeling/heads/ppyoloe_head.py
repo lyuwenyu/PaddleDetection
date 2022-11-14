@@ -154,7 +154,12 @@ class PPYOLOEHead(nn.Layer):
         assert norm_type in ('bn', 'gn'), ''
         if norm_type == 'gn':
             from ppdet.modeling.reset import reset_model, replace_bn_gn
-            reset_model(self, nn.BatchNorm2D, reset_func=replace_bn_gn)
+            from functools import partial
+            reset_model(
+                self,
+                nn.BatchNorm2D,
+                reset_func=partial(
+                    replace_bn_gn, num_groups=768 // 64))
 
     def _init_weights(self):
         bias_cls = bias_init_with_prob(0.01)
