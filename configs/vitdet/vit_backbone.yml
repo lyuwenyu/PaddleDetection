@@ -1,0 +1,154 @@
+
+
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+]
+
+snapshot_epoch: 1
+
+# optimizer
+epoch: &epoch 60
+
+LearningRate:
+  base_lr: 0.0001
+  schedulers:
+    - !CosineDecay
+      max_epochs: *epoch
+      # min_lr_ratio: 0.1
+      # last_plateau_epochs: 10
+    - !LinearWarmup
+      start_factor: 0.
+      epochs: 1
+
+
+# LearningRate:
+#   base_lr: 0.0001
+#   schedulers:
+#   - !PiecewiseDecay
+#     gamma: 0.1
+#     milestones: [45, 55]
+#   - !LinearWarmup
+#     start_factor: 0.001
+#     epochs: 1
+
+
+# # DETR OPTIMIZER
+# OptimizerBuilder:
+#   clip_grad_by_norm: 0.1
+#   regularizer: false
+#   optimizer:
+#     type: AdamW
+#     weight_decay: 0.0001
+
+
+# SWIN OPTIMIZER
+OptimizerBuilder:
+  clip_grad_by_norm: 1.0
+  optimizer:
+    type: AdamW
+    weight_decay: 0.05
+    param_groups:
+        -
+          params: ['norm', 'cls_token', 'pos_embed', '.bias', 'bn.weight']
+          weight_decay: 0.
+
+
+# VIT OPTIMIZER
+# OptimizerBuilder:
+#   optimizer:
+#     type: AdamWDL
+#     betas: [0.9, 0.999]
+#     layer_decay: 0.75
+#     weight_decay: 0.05
+#     num_layers: 12
+#     filter_bias_and_bn: True
+#     skip_decay_names: ['pos_embed', 'cls_token']
+#     set_param_lr_func: 'layerwise_lr_decay'
+
+
+
+# model
+architecture: YOLOv3
+norm_type: sync_bn
+use_ema: true
+ema_decay: 0.9999
+ema_skip_names: ['yolo_head.proj_conv', 'backbone.pos_embed']
+
+# custom_black_list: ['reduce_mean']
+find_unused_parameters: True
+use_fused_allreduce_gradients: &use_checkpoint False
+
+
+YOLOv3:
+  backbone: VisionTransformer
+  neck: ~ # CustomCSPPAN
+  yolo_head: ~
+  post_process: ~
+
+
+VisionTransformer:
+  patch_size: 16
+  embed_dim: 768
+  depth: 12
+  num_heads: 12
+  mlp_ratio: 4
+  qkv_bias: True
+  drop_rate: 0.0
+  drop_path_rate: 0.2
+  init_values: 0.1 #
+  final_norm: False
+  use_rel_pos_bias: False
+  use_sincos_pos_emb: True
+  epsilon: 0.000001 # 1e-6
+  out_indices: [11, ]
+  with_fpn: True
+  use_checkpoint: *use_checkpoint
+  pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
+
+
+
+
+
+
+# PP-YOLOE READER
+worker_num: 4
+eval_height: &eval_height 640
+eval_width: &eval_width 640
+eval_size: &eval_size [*eval_height, *eval_width]
+
+TrainReader:
+  sample_transforms:
+    - Decode: {}
+    - RandomDistort: {}
+    - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
+    - RandomCrop: {}
+    - RandomFlip: {}
+  batch_transforms:
+    - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+    - PadGT: {}
+  batch_size: 2
+  shuffle: true
+  drop_last: true
+  use_shared_memory: true
+  collate_batch: true
+
+EvalReader:
+  sample_transforms:
+    - Decode: {}
+    - Resize: {target_size: [640, 640], keep_ratio: False, interp: 2}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+  batch_size: 8
+
+TestReader:
+  inputs_def:
+    image_shape: [3, 640, 640]
+  sample_transforms:
+    - Decode: {}
+    - Resize: {target_size: [640, 640], keep_ratio: False, interp: 2}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+  batch_size: 1
