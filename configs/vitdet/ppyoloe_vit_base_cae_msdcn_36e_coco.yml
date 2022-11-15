@@ -88,6 +88,7 @@ PPYOLOEHead:
   num_stages: 3 # msdcn output features
   msdcn_kernels: [3, 3, 3] # the number same as backbone output features
   norm_type: 'bn'
+  aux_loss: False
 
   grid_cell_scale: 5.0
   grid_cell_offset: 0.5
