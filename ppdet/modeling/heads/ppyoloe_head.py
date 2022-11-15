@@ -159,7 +159,7 @@ class PPYOLOEHead(nn.Layer):
                 self,
                 nn.BatchNorm2D,
                 reset_func=partial(
-                    replace_bn_gn, num_groups=768 // 64))
+                    replace_bn_gn, num_groups=in_channels[-1] // 64))
 
     def _init_weights(self):
         bias_cls = bias_init_with_prob(0.01)

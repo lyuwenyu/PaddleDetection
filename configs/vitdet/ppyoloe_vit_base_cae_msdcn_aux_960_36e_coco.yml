@@ -14,7 +14,7 @@ log_iter: 10
 
 
 use_ema: true
-ema_decay: 0.9999 # 0.9997
+ema_decay: 0.9999
 ema_decay_type: 'exponential'
 ema_exponential_steps: 2000
 
@@ -23,6 +23,72 @@ custom_black_list: ['reduce_mean']
 use_fused_allreduce_gradients: &use_checkpoint True
 
 
+
+# --------------------
+epoch: 36
+LearningRate:
+  base_lr: 0.0001 # 0.00005
+  schedulers:
+    - !CosineDecay
+      max_epochs: 36
+      min_lr_ratio: 0.01
+    - !LinearWarmup
+      start_factor: 0.001
+      steps: 5000
+      # start_factor: 0.
+      # epochs: 1
+
+
+OptimizerBuilder:
+  # clip_grad_by_norm: 0.1
+  optimizer:
+    type: AdamWDL
+    betas: [0.9, 0.999]
+    layer_decay: 0.75
+    weight_decay: 0.02 # 0.0001
+    num_layers: 12
+    filter_bias_and_bn: True
+    skip_decay_names: ['pos_embed', 'cls_token']
+    set_param_lr_func: 'layerwise_lr_decay'
+
+
+worker_num: 4
+eval_height: &eval_height 960
+eval_width: &eval_width 960
+eval_size: &eval_size [*eval_height, *eval_width]
+
+TrainReader:
+  sample_transforms:
+    - Decode: {}
+    - RandomDistort: {}
+    - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
+    - RandomCrop: {}
+    - RandomFlip: {}
+  batch_transforms:
+    # - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
+    # - BatchRandomResize: {target_size: [800, 832, 864, 896, 928, 960, 960, 960, 960, 992, 1024, 1056, 1088, 1120], random_size: True, random_interp: True, keep_ratio: False}
+    - BatchRandomResize: {target_size: [768, 832, 896, 960, 960, 1024, 1088, 1152], random_size: True, random_interp: True, keep_ratio: False}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+    - PadGT: {}
+  batch_size: 2
+  shuffle: true
+  drop_last: true
+  use_shared_memory: true
+  collate_batch: true
+
+
+EvalReader:
+  sample_transforms:
+    - Decode: {}
+    - Resize: {target_size: *eval_size, keep_ratio: False, interp: 2}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+  batch_size: 2
+
+
+
+# -----------------------
 architecture: YOLOv3
 norm_type: sync_bn
 
@@ -89,7 +155,7 @@ PPYOLOEHead:
     topk: 9
   assigner:
     name: TaskAlignedAssigner
-    topk: 13
+    topk: 13 # 13
     alpha: 1.0
     beta: 6.0
   nms:
@@ -98,69 +164,3 @@ PPYOLOEHead:
     keep_top_k: 300
     score_threshold: 0.01
     nms_threshold: 0.7
-
-
-
-
-# --------------------
-epoch: 36
-LearningRate:
-  base_lr: 0.0001 # 0.00005
-  schedulers:
-    - !CosineDecay
-      max_epochs: 36
-      min_lr_ratio: 0.01
-      # last_plateau_epochs: 10
-    - !LinearWarmup
-      start_factor: 0.001
-      steps: 5000
-
-
-OptimizerBuilder:
-  # clip_grad_by_norm: 0.1
-  optimizer:
-    type: AdamWDL
-    betas: [0.9, 0.999]
-    layer_decay: 0.75
-    weight_decay: 0.02 # 0.0001
-    num_layers: 12
-    filter_bias_and_bn: True
-    skip_decay_names: ['pos_embed', 'cls_token']
-    set_param_lr_func: 'layerwise_lr_decay'
-
-
-
-worker_num: 4
-eval_height: &eval_height 960
-eval_width: &eval_width 960
-eval_size: &eval_size [*eval_height, *eval_width]
-
-TrainReader:
-  sample_transforms:
-    - Decode: {}
-    - RandomDistort: {}
-    - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
-    - RandomCrop: {}
-    - RandomFlip: {}
-  batch_transforms:
-    # - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
-    # - BatchRandomResize: {target_size: [800, 832, 864, 896, 928, 960, 960, 960, 960, 992, 1024, 1056, 1088, 1120], random_size: True, random_interp: True, keep_ratio: False}
-    - BatchRandomResize: {target_size: [768, 832, 896, 960, 960, 1024, 1088, 1152], random_size: True, random_interp: True, keep_ratio: False}
-
-    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
-    - Permute: {}
-    - PadGT: {}
-  batch_size: 2
-  shuffle: true
-  drop_last: true
-  use_shared_memory: true
-  collate_batch: true
-
-
-EvalReader:
-  sample_transforms:
-    - Decode: {}
-    - Resize: {target_size: *eval_size, keep_ratio: False, interp: 2}
-    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
-    - Permute: {}
-  batch_size: 2
