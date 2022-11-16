@@ -12,3 +12,18 @@ onnxsim dino.onnx dino_new.onnx  --overwrite-input-shape im_shape:1,2 image:1,3,
 # python -m onnxoptimizer dino_new.onnx dino_new.onnx
 ../software/TensorRT-8.5.1.7/bin/trtexec --onnx=./dino_new.onnx --workspace=4096 --avgRuns=100  --fp16
 
+
+# python deploy/python/infer.py  --run_mode=trt_fp16 --device=GPU  --run_benchmark True --threshold=0.5 --output_dir=python_infer_output --image_file=./demo/car.jpg --model_dir=output_inference/dino_r50_1x_coco
+
+
+
+# cmake .. \
+#   -DWITH_MKL=ON \
+#   -DWITH_MKLDNN=ON \
+#   -DWITH_GPU=ON \
+#   -DWITH_TENSORRT=ON \
+#   -DCMAKE_BUILD_TYPE=Release \
+#   -DCUDA_ARCH_NAME=Auto
+
+#   -DWITH_DISTRIBUTE=ON \
+#   -DWITH_TESTING=ON \
