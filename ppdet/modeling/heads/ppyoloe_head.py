@@ -139,10 +139,10 @@ class PPYOLOEHead(nn.Layer):
         self.use_msdcn_head = use_msdcn_head
         if use_msdcn_head:
 
-            from ppdet.modeling.dcn import MSDCNHead, MSDCNHeadV1
-
+            from ppdet.modeling.dcn import MSDCNHead
+            hidden_dim = in_channels[-1] if project_dim is None else project_dim
             self.msdcn = MSDCNHead(
-                in_channels[-1],
+                hidden_dim,
                 kernels=msdcn_kernels,
                 num_stages=num_stages,
                 num_layers=num_layers,
