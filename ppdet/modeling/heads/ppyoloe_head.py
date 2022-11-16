@@ -74,13 +74,14 @@ class PPYOLOEHead(nn.Layer):
                  exclude_nms=False,
                  exclude_post_process=False,
                  use_msdcn_head=False,
-                 use_fpn=False,
+                 use_last_fpn=True,
                  aux_loss=False,
                  num_stages=3,
                  num_layers=3,
                  msdcn_kernels=[3, 3, 3],
                  offset_kernel=1,
-                 norm_type='bn'):
+                 norm_type='bn',
+                 project_dim=None):
 
         super(PPYOLOEHead, self).__init__()
         assert len(in_channels) > 0, "len(in_channels) should > 0"
@@ -127,8 +128,17 @@ class PPYOLOEHead(nn.Layer):
         self.proj_conv.skip_quant = True
         self._init_weights()
 
+        self.project_dim = project_dim
+        if project_dim is not None:
+            self.input_projects = nn.LayerList([
+                nn.Sequential(
+                    nn.Conv2D(c, project_dim, 1, 1),
+                    nn.BatchNorm2D(project_dim), nn.Silu()) for c in in_channels
+            ])
+
         self.use_msdcn_head = use_msdcn_head
         if use_msdcn_head:
+
             from ppdet.modeling.dcn import MSDCNHead, MSDCNHeadV1
 
             self.msdcn = MSDCNHead(
@@ -136,16 +146,13 @@ class PPYOLOEHead(nn.Layer):
                 kernels=msdcn_kernels,
                 num_stages=num_stages,
                 num_layers=num_layers,
-                offset_kernel=offset_kernel)
+                offset_kernel=offset_kernel,
+                use_last_fpn=use_last_fpn)
 
             self.aux_loss = aux_loss
 
             # self.msdcn = MSDCNHeadV1(
             #     in_channels[-1], kernels=[3 for _ in in_channels], num_stages=3, num_layers=3)
-
-        # self.use_fpn = use_fpn
-        # if use_fpn:
-        #     self.fpn = None  
 
         # @classmethod
         # def from_config(cls, cfg, input_shape):
@@ -251,6 +258,10 @@ class PPYOLOEHead(nn.Layer):
         return cls_score_list, reg_dist_list, anchor_points, stride_tensor
 
     def forward(self, feats, targets=None):
+
+        if self.project_dim is not None:
+            assert len(self.input_projects) == len(feats), ''
+            feats = [m(x) for m, x in zip(self.input_projects, feats)]
 
         if self.use_msdcn_head:
             feats_list = self.msdcn(feats)

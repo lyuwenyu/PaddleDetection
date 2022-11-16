@@ -146,63 +146,65 @@ class MSDCN2D(nn.Layer):
 
 
 class MSDCNHead(nn.Layer):
-    def __init__(
-            self,
-            hidden_dim,
-            kernels=[
-                3,
-                3,
-                3,
-            ],
-            num_stages=3,
-            num_layers=3,
-            use_pan=False,
-            offset_kernel=1, ):
+    def __init__(self,
+                 hidden_dim,
+                 kernels=[
+                     3,
+                     3,
+                     3,
+                 ],
+                 num_stages=3,
+                 num_layers=3,
+                 use_pan=False,
+                 offset_kernel=1,
+                 use_last_fpn=True):
         super().__init__()
 
         self.kernels = kernels
         self.num_levels = len(kernels)
+        self.use_last_fpn = use_last_fpn
 
-        self.fpns = nn.LayerList([
-            nn.Sequential(
-                nn.Conv2DTranspose(
-                    hidden_dim, hidden_dim, kernel_size=2, stride=2),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(),
-                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(), ),
-            nn.Sequential(
-                nn.Identity(),
-                # nn.BatchNorm2D(hidden_dim),
-                # nn.Silu(),
-                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(), ),
-            nn.Sequential(
-                # nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
-                # nn.BatchNorm2D(hidden_dim),
-                # nn.Silu(),
-                nn.MaxPool2D(2, 2),
-                nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
-                nn.BatchNorm2D(hidden_dim),
-                nn.Silu(), ),
-            # nn.MaxPool2D(2, 2)
-        ])
-        assert num_stages in (3, 4), ''
-
-        if num_stages == 4:
-            self.fpns.append(
+        if use_last_fpn:
+            self.fpns = nn.LayerList([
+                nn.Sequential(
+                    nn.Conv2DTranspose(
+                        hidden_dim, hidden_dim, kernel_size=2, stride=2),
+                    nn.BatchNorm2D(hidden_dim),
+                    nn.Silu(),
+                    nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                    nn.BatchNorm2D(hidden_dim),
+                    nn.Silu(), ),
+                nn.Sequential(
+                    nn.Identity(),
+                    # nn.BatchNorm2D(hidden_dim),
+                    # nn.Silu(),
+                    nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                    nn.BatchNorm2D(hidden_dim),
+                    nn.Silu(), ),
                 nn.Sequential(
                     # nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
                     # nn.BatchNorm2D(hidden_dim),
                     # nn.Silu(),
-                    nn.MaxPool2D(4, 4),
+                    nn.MaxPool2D(2, 2),
                     nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
                     nn.BatchNorm2D(hidden_dim),
-                    nn.Silu(), ), )
+                    nn.Silu(), ),
+                # nn.MaxPool2D(2, 2)
+            ])
+            assert num_stages in (3, 4), ''
 
-        assert len(self.fpns) == num_stages, ''
+            if num_stages == 4:
+                self.fpns.append(
+                    nn.Sequential(
+                        # nn.Conv2D(hidden_dim, hidden_dim, 2, 2),
+                        # nn.BatchNorm2D(hidden_dim),
+                        # nn.Silu(),
+                        nn.MaxPool2D(4, 4),
+                        nn.Conv2D(hidden_dim, hidden_dim, 1, 1),
+                        nn.BatchNorm2D(hidden_dim),
+                        nn.Silu(), ), )
+
+            assert len(self.fpns) == num_stages, ''
 
         # self.dcns_0 = nn.LayerList(
         #     [MSDCN2D(hidden_dim, hidden_dim, kernels) for _ in kernels])
@@ -235,7 +237,10 @@ class MSDCNHead(nn.Layer):
                 m._epsilon = 1e-6
 
     def forward(self, feats):
-        preds = [m(feats[-1]) for m in self.fpns]
+        if self.use_last_fpn:
+            preds = [m(feats[-1]) for m in self.fpns]
+        else:
+            preds = feats
         # assert len(preds) == self.num_levels, ''
         assert len(self.dcns[0]) == len(preds), ''
 

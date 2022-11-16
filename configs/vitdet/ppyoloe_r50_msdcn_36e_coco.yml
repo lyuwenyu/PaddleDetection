@@ -1,0 +1,101 @@
+
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  './_base_/ppyoloe_reader.yml',
+  './_base_/optimizer_base_36e.yml'
+]
+
+weights: output/ppyoloe_r50_msdcn_36e_coco/model_final
+
+TrainReader:
+  sample_transforms:
+    - Decode: {}
+    - RandomDistort: {}
+    - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
+    - RandomCrop: {}
+    - RandomFlip: {}
+  batch_transforms:
+    # - BatchRandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768], random_size: True, random_interp: True, keep_ratio: False}
+    - BatchRandomResize: {target_size: [416, 448, 480, 512, 544, 576, 608, 640, 640, 640, 640, 672, 704, 736, 768, 800], random_size: True, random_interp: True, keep_ratio: False}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+    - PadGT: {}
+  batch_size: 2
+  shuffle: true
+  drop_last: true
+  use_shared_memory: true
+  collate_batch: true
+
+
+snapshot_epoch: 2
+log_iter: 100
+
+use_ema: true
+ema_decay: 0.9999 # 0.9997
+ema_skip_names: ['yolo_head.proj_conv.weight', 'backbone.pos_embed']
+custom_black_list: ['reduce_mean']
+use_fused_allreduce_gradients: &use_checkpoint False
+
+
+architecture: YOLOv3
+norm_type: sync_bn
+
+YOLOv3:
+  backbone: ResNet
+  neck: ~
+  yolo_head: PPYOLOEHead
+  post_process: ~
+
+
+ResNet:
+  # index 0 stands for res2
+  depth: 50
+  norm_type: bn
+  freeze_at: 0
+  return_idx: [1, 2, 3]
+  lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+  num_stages: 4
+  # freeze_stem_only: true
+
+
+# YOLOCSPPAN:
+#   in_channels: [768, 768, 768]
+#   interpolate_mode: 'bilinear' # nearest bicubic
+#   use_dcn: False
+
+
+PPYOLOEHead:
+  fpn_strides: [8, 16, 32]
+  in_channels: [256, 512, 1024]
+  static_assigner_epoch: -1
+
+
+  use_msdcn_head: True
+  offset_kernel: 3
+  num_layers: 3
+  num_stages: 3 # msdcn output features
+  msdcn_kernels: [3, 3, 3] # the number same as backbone output features
+  norm_type: 'bn'
+  aux_loss: False
+  project_dim: 256
+  use_last_fpn: False
+
+  grid_cell_scale: 5.0
+  grid_cell_offset: 0.5
+  use_varifocal_loss: True
+  loss_weight: {class: 1.0, iou: 2.5, dfl: 0.5}
+  static_assigner:
+    name: ATSSAssigner
+    topk: 9
+  assigner:
+    name: TaskAlignedAssigner
+    topk: 13
+    alpha: 1.0
+    beta: 6.0
+  nms:
+    name: MultiClassNMS
+    nms_top_k: 1000
+    keep_top_k: 300
+    score_threshold: 0.01
+    nms_threshold: 0.7
