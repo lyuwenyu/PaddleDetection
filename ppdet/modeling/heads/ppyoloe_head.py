@@ -110,13 +110,20 @@ class PPYOLOEHead(nn.Layer):
         act = get_act_fn(
             act, trt=trt) if act is None or isinstance(act,
                                                        (str, dict)) else act
-        for in_c in self.in_channels:
+
+        out_channels = self.in_channels if project_dim is None else [
+            project_dim for _ in range(num_stages)
+        ]
+
+        # for in_c in self.in_channels:
+        for in_c in out_channels:
             self.stem_cls.append(ESEAttn(in_c, act=act))
             self.stem_reg.append(ESEAttn(in_c, act=act))
         # pred head
         self.pred_cls = nn.LayerList()
         self.pred_reg = nn.LayerList()
-        for in_c in self.in_channels:
+        # for in_c in self.in_channels:
+        for in_c in out_channels:
             self.pred_cls.append(
                 nn.Conv2D(
                     in_c, self.num_classes, 3, padding=1))
