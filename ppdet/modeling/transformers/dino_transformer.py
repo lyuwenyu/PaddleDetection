@@ -460,10 +460,14 @@ class DINOTransformer(nn.Layer):
         self._build_input_proj_layer(backbone_feat_channels)
 
         # Transformer module
-        encoder_layer = DINOTransformerEncoderLayer(
-            hidden_dim, nhead, dim_feedforward, dropout, activation, num_levels,
-            num_encoder_points)
-        self.encoder = DINOTransformerEncoder(encoder_layer, num_encoder_layers)
+        self.num_encoder_layers = num_encoder_layers
+        if num_encoder_layers > 0:
+            encoder_layer = DINOTransformerEncoderLayer(
+                hidden_dim, nhead, dim_feedforward, dropout, activation,
+                num_levels, num_encoder_points)
+            self.encoder = DINOTransformerEncoder(encoder_layer,
+                                                  num_encoder_layers)
+
         decoder_layer = DINOTransformerDecoderLayer(
             hidden_dim, nhead, dim_feedforward, dropout, activation, num_levels,
             num_decoder_points)
@@ -626,8 +630,11 @@ class DINOTransformer(nn.Layer):
          valid_ratios) = self._get_encoder_input(feats, pad_mask)
 
         # encoder
-        memory = self.encoder(feat_flatten, spatial_shapes, mask_flatten,
-                              lvl_pos_embed_flatten, valid_ratios)
+        if self.num_encoder_layers > 0:
+            memory = self.encoder(feat_flatten, spatial_shapes, mask_flatten,
+                                  lvl_pos_embed_flatten, valid_ratios)
+        else:
+            memory = feat_flatten
 
         # solve hang during distributed training
         memory = memory + self.denoising_class_embed.weight.sum() * 0.
