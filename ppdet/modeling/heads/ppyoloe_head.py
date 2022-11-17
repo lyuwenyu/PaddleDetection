@@ -144,6 +144,7 @@ class PPYOLOEHead(nn.Layer):
             ])
 
         self.use_msdcn_head = use_msdcn_head
+        self.aux_loss = aux_loss
         if use_msdcn_head:
 
             from ppdet.modeling.dcn import MSDCNHead
@@ -156,7 +157,7 @@ class PPYOLOEHead(nn.Layer):
                 offset_kernel=offset_kernel,
                 use_last_fpn=use_last_fpn)
 
-            self.aux_loss = aux_loss
+            # self.aux_loss = aux_loss
 
             # self.msdcn = MSDCNHeadV1(
             #     in_channels[-1], kernels=[3 for _ in in_channels], num_stages=3, num_layers=3)
