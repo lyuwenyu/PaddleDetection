@@ -6,7 +6,7 @@ _BASE_: [
   '_base_/dino_reader.yml',
 ]
 
-weights: output/dini_r50_4_1_6_coco/model_final
+weights: output/din0_r50_4_1_6_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 
@@ -24,5 +24,5 @@ ResNet:
 
 DINOTransformer:
   num_levels: 4
-  num_encoder_layers: 0
+  num_encoder_layers: 1
   num_decoder_layers: 6
