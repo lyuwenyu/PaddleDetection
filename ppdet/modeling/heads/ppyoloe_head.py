@@ -272,6 +272,9 @@ class PPYOLOEHead(nn.Layer):
 
         if self.use_msdcn_head:
             feats_list = self.msdcn(feats)
+        else:
+            feats_list = [feats]
+
 
         assert len(feats_list[0]) == len(self.fpn_strides), \
             "The size of feats is not equal to size of fpn_strides"
