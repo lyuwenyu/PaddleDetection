@@ -62,6 +62,7 @@ SwinTransformerV2:
 
 
 YOLOCSPPAN:
+  in_channels: [192, 384, 768]
   depthwise: False
 
 # 384, 768, 1536

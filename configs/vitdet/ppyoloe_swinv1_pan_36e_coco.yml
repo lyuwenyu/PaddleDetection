@@ -73,6 +73,7 @@ SwinTransformer:
 
 
 YOLOCSPPAN:
+  in_channels: [192, 384, 768]
   depthwise: False
 
 # 384, 768, 1536
@@ -97,7 +98,7 @@ YOLOCSPPAN:
 
 PPYOLOEHead:
   fpn_strides: [8, 16, 32]
-  in_channels: [384, 768, 1536]
+  in_channels: [192, 384, 768]
   static_assigner_epoch: -1
 
   use_msdcn_head: False
