@@ -66,7 +66,7 @@ class YOLOv3(BaseArch):
 
         if cfg['neck'] is not None:
             neck = create(cfg['neck'], **kwargs)
-            kwargs = {'input_shape': neck.out_shape}
+            # kwargs = {'input_shape': neck.out_shape}
         else:
             neck = None
         # head
