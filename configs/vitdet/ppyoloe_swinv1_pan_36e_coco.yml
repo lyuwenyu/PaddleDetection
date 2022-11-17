@@ -6,7 +6,7 @@ _BASE_: [
   # './_base_/optimizer_base_36e.yml'
 ]
 
-weights: output/ppyoloe_swinv2_pan_36e_coco/model_final
+weights: output/ppyoloe_swinv1_pan_36e_coco/model_final
 
 TrainReader:
   sample_transforms:
@@ -42,23 +42,34 @@ architecture: YOLOv3
 norm_type: sync_bn
 
 YOLOv3:
-  backbone: SwinTransformerV2
+  backbone: SwinTransformer
   neck: YOLOCSPPAN
   yolo_head: PPYOLOEHead
   post_process: ~
 
 
-SwinTransformerV2:
-  pretrain_img_size: 192
-  embed_dim: 128
-  depths: [ 2, 2, 18, 2 ]
-  num_heads: [ 4, 8, 16, 32 ]
-  window_size: 12
+# SwinTransformerV2:
+#   pretrain_img_size: 192
+#   embed_dim: 128
+#   depths: [ 2, 2, 18, 2 ]
+#   num_heads: [ 4, 8, 16, 32 ]
+#   window_size: 12
+#   ape: false
+#   drop_path_rate: 0.1
+#   patch_norm: true
+#   out_indices: [1, 2, 3]
+#   pretrained: https://bj.bcebos.com/v1/paddledet/models/swinv2_base_patch4_window12_192_22k.pdparams
+
+SwinTransformer:
+  embed_dim: 96
+  depths: [2, 2, 6, 2]
+  num_heads: [3, 6, 12, 24]
+  window_size: 7
   ape: false
   drop_path_rate: 0.1
   patch_norm: true
-  out_indices: [1, 2, 3]
-  pretrained: https://bj.bcebos.com/v1/paddledet/models/swinv2_base_patch4_window12_192_22k.pdparams
+  out_indices: [1,2,3]
+  pretrained: https://paddledet.bj.bcebos.com/models/pretrained/swin_tiny_patch4_window7_224.pdparams
 
 
 YOLOCSPPAN:
