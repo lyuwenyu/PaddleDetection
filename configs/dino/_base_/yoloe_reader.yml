@@ -10,12 +10,14 @@ TrainReader:
     - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
     - RandomCrop: {}
     - RandomFlip: {}
+
+    - NormalizeBox: {}
+    - BboxXYXY2XYWH: {}
+
   batch_transforms:
     - BatchRandomResize: {target_size: [480, 512, 544, 576, 608, 640, 640, 640, 672, 704, 736, 768, 800], random_size: True, random_interp: True, keep_ratio: False}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
-    - NormalizeBox: {}
-    - BboxXYXY2XYWH: {}
     - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
 
   batch_size: 2
