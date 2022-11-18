@@ -6,7 +6,7 @@ _BASE_: [
   '_base_/dino_reader.yml',
 ]
 
-weights: output/din0_r50_4_1_6_coco/model_final
+weights: output/dino_r50_4_1_6_1x_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 
