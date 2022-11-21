@@ -700,11 +700,17 @@ class DINOTransformer(nn.Layer):
             idx += h * w
 
         output_anchors = paddle.concat(output_anchors, 1)
-        valid_mask = ((output_anchors > self.eps) &
+        # valid_mask = ((output_anchors > self.eps) &
+        #               (output_anchors < 1 - self.eps)).all(-1, keepdim=True)
+        valid_mask = ((output_anchors > self.eps) *
                       (output_anchors < 1 - self.eps)).all(-1, keepdim=True)
+
         output_anchors = paddle.log(output_anchors / (1 - output_anchors))
+        # if memory_mask is not None:
+        #     valid_mask = (valid_mask & (memory_mask.unsqueeze(-1) > 0)) > 0
         if memory_mask is not None:
-            valid_mask = (valid_mask & (memory_mask.unsqueeze(-1) > 0)) > 0
+            valid_mask = (valid_mask * (memory_mask.unsqueeze(-1) > 0)) > 0
+
         output_anchors = paddle.where(valid_mask, output_anchors,
                                       paddle.to_tensor(float("inf")))
 
