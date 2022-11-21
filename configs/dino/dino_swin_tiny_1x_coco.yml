@@ -1,0 +1,40 @@
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  '_base_/optimizer_1x.yml',
+  '_base_/dino_r50.yml',
+  '_base_/dino_reader.yml',
+]
+
+weights: output/dino_r50_1x_coco/model_final
+find_unused_parameters: True
+log_iter: 100
+
+
+DETR:
+  backbone: SwinTransformer
+  transformer: DINOTransformer
+  detr_head: DINOHead
+  post_process: DETRBBoxPostProcess
+
+
+# ResNet:
+#   # index 0 stands for res2
+#   depth: 50
+#   norm_type: bn
+#   freeze_at: 0
+#   return_idx: [1, 2, 3]
+#   lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+#   num_stages: 4
+#   freeze_stem_only: true
+
+SwinTransformer:
+  embed_dim: 96
+  depths: [2, 2, 6, 2]
+  num_heads: [3, 6, 12, 24]
+  window_size: 7
+  ape: false
+  drop_path_rate: 0.1
+  patch_norm: true
+  out_indices: [1, 2, 3]
+  pretrained: https://paddledet.bj.bcebos.com/models/pretrained/swin_tiny_patch4_window7_224.pdparams
