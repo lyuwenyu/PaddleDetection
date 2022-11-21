@@ -3255,7 +3255,9 @@ class Mosaic(BaseOperator):
         sample0['im_shape'][0] = sample0['h']
         sample0['im_shape'][1] = sample0['w']
         sample0['gt_bbox'] = mosaic_labels[:, :4].astype(np.float32)
-        sample0['gt_class'] = mosaic_labels[:, 4:5].astype(np.float32)
+        # fix TODO
+        sample0['gt_class'] = mosaic_labels[:, 4:5].astype(np.int32)
+
         if 'is_crowd' in sample[0]:
             sample0['is_crowd'] = mosaic_labels[:, 5:6].astype(np.float32)
         if 'difficult' in sample[0]:
