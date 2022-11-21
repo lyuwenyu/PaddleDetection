@@ -16,6 +16,7 @@ TrainReader:
     - PadResize: {target_size: 640}
     - RandomFlip: {}
 
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - NormalizeBox: {}
     - BboxXYXY2XYWH: {}
     - Permute: {}
@@ -35,6 +36,7 @@ EvalReader:
     - Decode: {}
     - Resize: {target_size: [640, 640], keep_ratio: True, interp: 1}
     - Pad: {size: [640, 640], fill_value: [114., 114., 114.]}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
   batch_size: 4
 
