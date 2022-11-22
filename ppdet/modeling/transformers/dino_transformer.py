@@ -61,9 +61,11 @@ class MSDeformableAttention(nn.Layer):
 
         self.sampling_offsets = nn.Linear(
             embed_dim,
-            self.total_points * 2,
-            weight_attr=ParamAttr(learning_rate=lr_mult),
-            bias_attr=ParamAttr(learning_rate=lr_mult))
+            self.total_points * 2, )
+
+        # weight_attr=ParamAttr(learning_rate=lr_mult),
+        # bias_attr=ParamAttr(learning_rate=lr_mult))
+
         self.attention_weights = nn.Linear(embed_dim, self.total_points)
         self.value_proj = nn.Linear(embed_dim, embed_dim)
         self.output_proj = nn.Linear(embed_dim, embed_dim)
@@ -167,10 +169,11 @@ class DINOTransformerEncoderLayer(nn.Layer):
         self.self_attn = MSDeformableAttention(d_model, n_head, n_levels,
                                                n_points)
         self.dropout1 = nn.Dropout(dropout)
-        self.norm1 = nn.LayerNorm(
-            d_model,
-            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+        self.norm1 = nn.LayerNorm(d_model, )
+
+        # weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+        # bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+
         # ffn
         self.linear1 = nn.Linear(d_model, dim_feedforward, weight_attr,
                                  bias_attr)
@@ -179,10 +182,10 @@ class DINOTransformerEncoderLayer(nn.Layer):
         self.linear2 = nn.Linear(dim_feedforward, d_model, weight_attr,
                                  bias_attr)
         self.dropout3 = nn.Dropout(dropout)
-        self.norm2 = nn.LayerNorm(
-            d_model,
-            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+        self.norm2 = nn.LayerNorm(d_model, )
+
+        # weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+        # bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
         self._reset_parameters()
 
     def _reset_parameters(self):
@@ -284,19 +287,18 @@ class DINOTransformerDecoderLayer(nn.Layer):
         # self attention
         self.self_attn = MultiHeadAttention(d_model, n_head, dropout=dropout)
         self.dropout1 = nn.Dropout(dropout)
-        self.norm1 = nn.LayerNorm(
-            d_model,
-            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+        self.norm1 = nn.LayerNorm(d_model, )
+
+        # weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+        # bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
 
         # cross attention
         self.cross_attn = MSDeformableAttention(d_model, n_head, n_levels,
                                                 n_points)
         self.dropout2 = nn.Dropout(dropout)
-        self.norm2 = nn.LayerNorm(
-            d_model,
-            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+        self.norm2 = nn.LayerNorm(d_model, )
+        # weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+        # bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
 
         # ffn
         self.linear1 = nn.Linear(d_model, dim_feedforward, weight_attr,
@@ -306,10 +308,9 @@ class DINOTransformerDecoderLayer(nn.Layer):
         self.linear2 = nn.Linear(dim_feedforward, d_model, weight_attr,
                                  bias_attr)
         self.dropout4 = nn.Dropout(dropout)
-        self.norm3 = nn.LayerNorm(
-            d_model,
-            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+        self.norm3 = nn.LayerNorm(d_model, )
+        # weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+        # bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
         self._reset_parameters()
 
     def _reset_parameters(self):
@@ -367,10 +368,9 @@ class DINOTransformerDecoder(nn.Layer):
         self.num_layers = num_layers
         self.return_intermediate = return_intermediate
 
-        self.norm = nn.LayerNorm(
-            hidden_dim,
-            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+        self.norm = nn.LayerNorm(hidden_dim, )
+        # weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+        # bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
 
     def forward(self,
                 tgt,
@@ -507,10 +507,10 @@ class DINOTransformer(nn.Layer):
         # encoder head
         self.enc_output = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
-            nn.LayerNorm(
-                hidden_dim,
-                weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-                bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
+            nn.LayerNorm(hidden_dim, )
+            # weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+            # bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+        )
         self.enc_score_head = nn.Linear(hidden_dim, num_classes)
         self.enc_bbox_head = MLP(hidden_dim, hidden_dim, 4, num_layers=3)
         # decoder head
@@ -560,11 +560,14 @@ class DINOTransformer(nn.Layer):
                 nn.Sequential(
                     ('conv', nn.Conv2D(
                         in_channels, self.hidden_dim, kernel_size=1)),
-                    ('norm', nn.GroupNorm(
-                        32,
-                        self.hidden_dim,
-                        weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-                        bias_attr=ParamAttr(regularizer=L2Decay(0.0))))))
+                    (
+                        'norm',
+                        nn.GroupNorm(
+                            32,
+                            self.hidden_dim,
+                            # weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+                            # bias_attr=ParamAttr(regularizer=L2Decay(0.0))
+                        ))))
         in_channels = backbone_feat_channels[-1]
         for _ in range(self.num_levels - len(backbone_feat_channels)):
             self.input_proj.append(
@@ -574,11 +577,15 @@ class DINOTransformer(nn.Layer):
                         self.hidden_dim,
                         kernel_size=3,
                         stride=2,
-                        padding=1)), ('norm', nn.GroupNorm(
+                        padding=1)),
+                    (
+                        'norm',
+                        nn.GroupNorm(
                             32,
                             self.hidden_dim,
-                            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-                            bias_attr=ParamAttr(regularizer=L2Decay(0.0))))))
+                            # weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+                            # bias_attr=ParamAttr(regularizer=L2Decay(0.0))
+                        ))))
             in_channels = self.hidden_dim
 
     def _get_encoder_input(self, feats, pad_mask=None):
