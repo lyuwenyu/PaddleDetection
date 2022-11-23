@@ -1,0 +1,54 @@
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  '_base_/optimizer_1x.yml',
+  '_base_/dino_r50.yml',
+  '_base_/dino_reader.yml',
+]
+
+weights: output/dino_r50_1x_coco/model_final
+find_unused_parameters: True
+log_iter: 100
+
+
+DETR:
+  backbone: VisionTransformer
+  transformer: DINOTransformer
+  detr_head: DINOHead
+  post_process: DETRBBoxPostProcess
+
+
+# small / tiny
+VisionTransformer:
+  patch_size: 16
+  embed_dim: 768
+  depth: 12
+  num_heads: 12
+  mlp_ratio: 4
+  qkv_bias: True
+  drop_rate: 0.0
+  drop_path_rate: 0.2
+  init_values: 0.1
+  final_norm: False
+  use_rel_pos_bias: False
+  use_sincos_pos_emb: True
+  epsilon: 0.000001 # 1e-6
+  out_indices: [3, 5, 7, 11]
+  with_fpn: True
+  pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
+
+
+DINOTransformer:
+  num_queries: 900
+  position_embed_type: sine
+  num_levels: 4
+  nhead: 8
+  num_encoder_layers: 0
+  num_decoder_layers: 6
+  dim_feedforward: 2048
+  dropout: 0.0
+  activation: relu
+  num_denoising: 100
+  label_noise_ratio: 0.5
+  box_noise_scale: 1.0
+  learnt_init_query: True
