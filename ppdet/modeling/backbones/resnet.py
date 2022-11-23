@@ -567,6 +567,12 @@ class ResNet(nn.Layer):
         for p in m.parameters():
             p.stop_gradient = True
 
+    def _freeze_norm(self, m: nn.Layer):
+        for _m in m.sublayers(True):
+            if isinstance(_m, nn.BatchNorm2D):
+                _m.weight.stop_gradient = True
+                _m.bias.stop_gradient = True
+
     @property
     def out_shape(self):
         return [

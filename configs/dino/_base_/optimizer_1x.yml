@@ -17,5 +17,5 @@ OptimizerBuilder:
 
     # param_groups:
     #     -
-    #       params: ['absolute_pos_embed', 'relative_position_bias_table', 'norm', 'bn']
+    #       params: ['bias', 'embed', 'norm', 'bn']
     #       weight_decay: 0.
