@@ -11,6 +11,9 @@ weights: output/dino_r50_640_pan_4_0_6_60e_yoloe_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 
+TrainReader:
+  batch_size: 8
+
 DETR:
   backbone: ResNet
   neck: YOLOCSPPAN
