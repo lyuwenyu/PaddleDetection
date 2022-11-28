@@ -1,21 +1,22 @@
 _BASE_: [
   '../datasets/coco_detection.yml',
   '../runtime.yml',
-  '_base_/optimizer_1x.yml',
+  '_base_/optimizer_3x.yml',
   '_base_/dino_r50.yml',
   '_base_/dino_reader.yml',
 ]
 
-weights: output/dino_r50_640_1x_coco/model_final
+weights: output/dino_r50_640_fpn_4_0_6_3x_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 
 DETR:
   backbone: ResNet
-  neck: YOLOCSPPAN
+  neck: FPN
   transformer: DINOTransformer
   detr_head: DINOHead
   post_process: DETRBBoxPostProcess
+
 
 
 ResNet:
@@ -29,14 +30,9 @@ ResNet:
   freeze_stem_only: true
 
 
+FPN:
+  out_channel: 256
 
-
-YOLOCSPPAN:
-  depthwise: False
-  # act: 'relu'
-
-# FPN:
-#   out_channel: 256
 
 DINOTransformer:
   num_queries: 900
@@ -73,7 +69,7 @@ TrainReader:
   - Permute: {}
   batch_transforms:
   - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
-  batch_size: 4
+  batch_size: 2
   shuffle: true
   drop_last: true
   collate_batch: false
