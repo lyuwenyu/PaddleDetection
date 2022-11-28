@@ -3,11 +3,11 @@ _BASE_: [
   '../runtime.yml',
   '_base_/optimizer_60e.yml',
   '_base_/dino_r50.yml',
-  '_base_/dino_640_reader.yml',
-  # '_base_/yoloe_reader.yml',
+  # '_base_/dino_640_reader.yml',
+  '_base_/yoloe_reader.yml',
 ]
 
-weights: output/dino_r50_640_pan_4_0_6_60e_coco/model_final
+weights: output/dino_r50_640_pan_4_0_6_60e_yoloe_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 
