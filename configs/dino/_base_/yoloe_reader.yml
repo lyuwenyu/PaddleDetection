@@ -6,9 +6,9 @@ eval_size: &eval_size [*eval_height, *eval_width]
 TrainReader:
   sample_transforms:
     - Decode: {}
-    - RandomDistort: {}
-    - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
-    - RandomCrop: {}
+    - RandomDistort: {p: 0.9}
+    - RandomExpand: {fill_value: [123.675, 116.28, 103.53], prob: 0.5}
+    - RandomCrop: {p: 0.9}
     - RandomFlip: {}
     - Resize: {target_size: 640, keep_ratio: False}
 
