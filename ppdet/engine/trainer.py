@@ -197,6 +197,8 @@ class Trainer(object):
         self._init_metrics()
         self._reset_metrics()
 
+        print(self.model)
+
     def _init_callbacks(self):
         if self.mode == 'train':
             self._callbacks = [LogPrinter(self), Checkpointer(self)]
