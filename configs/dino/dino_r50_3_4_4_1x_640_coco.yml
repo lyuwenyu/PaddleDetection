@@ -23,7 +23,7 @@ ResNet:
 
 
 DINOTransformer:
-  num_queries: 900
+  num_queries: 300 # 900
   num_levels: 3
   num_encoder_layers: 4
   num_decoder_layers: 4
