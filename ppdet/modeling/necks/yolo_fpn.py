@@ -1068,17 +1068,18 @@ class YOLOCSPPAN(nn.Layer):
                 feat_heigh)
             inner_outs[0] = feat_heigh
 
-            # upsample_feat = F.interpolate(
-            #     feat_heigh,
-            #     scale_factor=2.,
-            #     mode="nearest",
-            #     data_format=self.data_format)
-
-            upsample_feat = F.interpolate(
-                feat_heigh,
-                size=feat_low.shape[2:],
-                mode="nearest",
-                data_format=self.data_format)
+            if self.training:
+                upsample_feat = F.interpolate(
+                    feat_heigh,
+                    size=feat_low.shape[2:],
+                    mode="nearest",
+                    data_format=self.data_format)
+            else:
+                upsample_feat = F.interpolate(
+                    feat_heigh,
+                    scale_factor=2.,
+                    mode="nearest",
+                    data_format=self.data_format)
 
             inner_out = self.fpn_blocks[len(self.in_channels) - 1 - idx](
                 paddle.concat(

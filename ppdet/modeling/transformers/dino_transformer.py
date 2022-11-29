@@ -732,13 +732,13 @@ class DINOTransformer(nn.Layer):
         enc_outputs_coord_unact = self.enc_bbox_head(
             output_memory) + output_anchors
 
-        # _, topk_ind = paddle.topk(
-        #     enc_outputs_class.max(-1), self.num_queries, axis=1)
-
         _, topk_ind = paddle.topk(
-            enc_outputs_class.max(-1),
-            min(self.num_queries, memory.shape[1]),
-            axis=1)
+            enc_outputs_class.max(-1), self.num_queries, axis=1)
+
+        # _, topk_ind = paddle.topk(
+        #     enc_outputs_class.max(-1),
+        #     min(self.num_queries, memory.shape[1]),
+        #     axis=1)
 
         # extract region proposal boxes
         batch_ind = paddle.arange(end=bs, dtype=topk_ind.dtype)
