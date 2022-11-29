@@ -2,14 +2,21 @@ _BASE_: [
   '../datasets/coco_detection.yml',
   '../runtime.yml',
   '_base_/optimizer_1x.yml',
-  '_base_/dino_r50.yml',
-  '_base_/dino_reader.yml',
+  # '_base_/dino_r50.yml',
+  '_base_/dino_640_reader.yml',
 ]
 
 weights: output/dino_r50_1x_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 
+TrainReader:
+  batch_size: 2
+
+
+architecture: DETR
+hidden_dim: 256
+use_focal_loss: True
 
 DETR:
   backbone: VisionTransformer
@@ -33,8 +40,15 @@ VisionTransformer:
   use_rel_pos_bias: False
   use_sincos_pos_emb: True
   epsilon: 0.000001 # 1e-6
-  out_indices: [3, 5, 7, 11]
+
+  # out_indices: [3, 5, 7, 11]
+  # with_fpn: True
+
+  out_indices: [11, ]
   with_fpn: True
+  num_fpn_levels: 3
+  out_with_norm: False
+
   pretrained: https://bj.bcebos.com/v1/paddledet/models/pretrained/vit_base_cae_pretrained.pdparams
 
 
