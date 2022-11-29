@@ -11,38 +11,41 @@ weights: output/dino_r50_640_pan_4_0_6_60e_yoloe_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 
-pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vd_ssld_v2_pretrained.pdparams
+# pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vd_ssld_v2_pretrained.pdparams
 
 TrainReader:
   batch_size: 4
 
 DETR:
-  backbone: ResNet
+  backbone: CSPDarkNet
   neck: YOLOCSPPAN
   transformer: DINOTransformer
   detr_head: DINOHead
   post_process: DETRBBoxPostProcess
 
 
-ResNet:
-  # index 0 stands for res2
-  depth: 50
-  norm_type: bn
-  freeze_at: 0
-  return_idx: [1, 2, 3]
-  lr_mult_list: [0.1, 0.1, 0.1, 0.1]
-  num_stages: 4
-  freeze_stem_only: true
-  variant: d
+# ResNet:
+#   # index 0 stands for res2
+#   depth: 50
+#   norm_type: bn
+#   freeze_at: 0
+#   return_idx: [1, 2, 3]
+#   lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+#   num_stages: 4
+#   freeze_stem_only: true
+#   # variant: d
 
+
+CSPDarkNet:
+  arch: "X"
+  return_idx: [2, 3, 4]
+  depthwise: False
 
 
 YOLOCSPPAN:
   depthwise: False
-  # act: 'relu'
 
-# FPN:
-#   out_channel: 256
+
 
 DINOTransformer:
   num_queries: 300
