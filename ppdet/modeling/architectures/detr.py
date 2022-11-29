@@ -58,7 +58,7 @@ class DETR(BaseArch):
             kwargs = {'input_shape': backbone.out_shape}
 
         # transformer
-        kwargs = {'input_shape': backbone.out_shape}
+        # kwargs = {'input_shape': backbone.out_shape}
         transformer = create(cfg['transformer'], **kwargs)
         # head
         kwargs = {

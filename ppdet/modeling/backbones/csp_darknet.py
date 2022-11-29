@@ -49,6 +49,12 @@ class BaseConv(nn.Layer):
             weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
             bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
 
+        from typing import Callable
+        if isinstance(act, Callable):
+            self.act = act
+        else:
+            self.act = getattr(F, act)
+
         self._init_weights()
 
     def _init_weights(self):
@@ -57,7 +63,9 @@ class BaseConv(nn.Layer):
     def forward(self, x):
         # use 'x * F.sigmoid(x)' replace 'silu'
         x = self.bn(self.conv(x))
-        y = x * F.sigmoid(x)
+        # y = x * F.sigmoid(x)
+        y = self.act(x)
+
         return y
 
 
@@ -231,7 +239,7 @@ class CSPLayer(nn.Layer):
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
         self.conv2 = BaseConv(
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        self.bottlenecks = nn.Sequential(* [
+        self.bottlenecks = nn.Sequential(*[
             BottleNeck(
                 hidden_channels,
                 hidden_channels,
