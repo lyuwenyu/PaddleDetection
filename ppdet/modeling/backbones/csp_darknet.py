@@ -53,7 +53,12 @@ class BaseConv(nn.Layer):
         if isinstance(act, Callable):
             self.act = act
         else:
-            self.act = getattr(F, act)
+            if act == 'silu' or act == 'swish':
+                self.act = lambda x: x * F.sigmoid(x)
+            else:
+                self.act = getattr(F, act)
+
+        # print(self.act)
 
         self._init_weights()
 

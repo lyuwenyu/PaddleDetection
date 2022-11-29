@@ -49,6 +49,8 @@ YOLOCSPPAN:
 
 DINOTransformer:
   num_queries: 300
+  # backbone_feat_channels: [256, 512, 1024]
+
   position_embed_type: sine
   num_levels: 4
   nhead: 8
