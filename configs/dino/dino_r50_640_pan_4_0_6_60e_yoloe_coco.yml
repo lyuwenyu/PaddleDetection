@@ -11,8 +11,10 @@ weights: output/dino_r50_640_pan_4_0_6_60e_yoloe_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 
+# pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vd_ssld_v2_pretrained.pdparams
+
 TrainReader:
-  batch_size: 8
+  batch_size: 4
 
 DETR:
   backbone: ResNet
@@ -31,6 +33,8 @@ ResNet:
   lr_mult_list: [0.1, 0.1, 0.1, 0.1]
   num_stages: 4
   freeze_stem_only: true
+  # variant: d
+
 
 
 
