@@ -7,11 +7,19 @@ _BASE_: [
   '_base_/yoloe_reader.yml',
 ]
 
-weights: output/dino_r50_640_pan_4_0_6_60e_yoloe_coco/model_final
+# pretrain_weights: https://paddledet.bj.bcebos.com/models/yolox_l_300e_coco.pdparams
+
+weights: output/dino_cspdarknet_pan_4_0_6_coco_60e/model_final
 find_unused_parameters: True
 log_iter: 100
 
-# pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vd_ssld_v2_pretrained.pdparams
+
+norm_type: sync_bn
+use_ema: True
+ema_decay: 0.9999
+ema_decay_type: "exponential"
+
+
 
 TrainReader:
   batch_size: 4
@@ -36,6 +44,10 @@ DETR:
 #   # variant: d
 
 
+depth_mult: 1.0
+width_mult: 1.0
+
+
 CSPDarkNet:
   arch: "X"
   return_idx: [2, 3, 4]
@@ -58,7 +70,7 @@ DINOTransformer:
   num_decoder_layers: 6
   dim_feedforward: 2048
   dropout: 0.0
-  activation: relu
+  activation: gelu # relu
   num_denoising: 100
   label_noise_ratio: 0.5
   box_noise_scale: 1.0

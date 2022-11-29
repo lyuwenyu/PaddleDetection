@@ -11,6 +11,14 @@ weights: output/dino_r50_640_1x_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 
+
+# pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vd_ssld_v2_pretrained.pdparams
+# norm_type: sync_bn
+# use_ema: True
+# ema_decay: 0.9999
+# ema_decay_type: "exponential"
+
+
 DETR:
   backbone: ResNet
   neck: YOLOCSPPAN
@@ -28,7 +36,7 @@ ResNet:
   lr_mult_list: [0.1, 0.1, 0.1, 0.1]
   num_stages: 4
   freeze_stem_only: true
-
+  # variant: d
 
 
 
