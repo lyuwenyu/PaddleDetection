@@ -14,7 +14,7 @@ LearningRate:
   schedulers:
     - !CosineDecay
       max_epochs: 60
-      min_lr_ratio: 0.01
+      min_lr_ratio: 0.01 # 0.1
     - !LinearWarmup
       start_factor: 0.001
       epochs: 1
