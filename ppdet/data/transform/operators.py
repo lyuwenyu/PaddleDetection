@@ -3410,3 +3410,37 @@ class PadResize(BaseOperator):
         sample['gt_bbox'] = bboxes
         sample['gt_class'] = labels
         return sample
+
+
+@register_op
+class RandomSelects(BaseOperator):
+    """
+    Randomly choose a transformation between transforms1 and transforms2,
+    and the probability of choosing transforms1 is p.
+
+    The code is based on https://github.com/facebookresearch/detr/blob/main/datasets/transforms.py
+
+    """
+
+    def __init__(self,
+                 transforms1,
+                 transforms2,
+                 transforms3,
+                 select_type='uniform'):
+        super(RandomSelects, self).__init__()
+        t1 = Compose(transforms1)
+        t2 = Compose(transforms2)
+        t3 = Compose(transforms3)
+
+        self.transforms = [t1, t2, t3]
+        self.select_type = select_type
+
+    def apply(self, sample, context=None):
+        if self.select_type == 'uniform':
+            # w = [1 for _ in self.transforms]
+            # t = random.choices(self.transforms, weights=w)
+            t = random.choice(self.transforms)
+        else:
+            raise RuntimeError('RandomSelects')
+
+        return t(sample)
