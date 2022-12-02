@@ -40,7 +40,7 @@ YOLOCSPPAN:
 #   out_channel: 256
 
 DINOTransformer:
-  num_queries: 900
+  num_queries: 300 # 900
   position_embed_type: sine
   num_levels: 4
   nhead: 8

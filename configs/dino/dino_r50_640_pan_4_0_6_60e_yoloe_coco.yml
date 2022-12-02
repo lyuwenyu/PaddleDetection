@@ -31,17 +31,30 @@ DETR:
   post_process: DETRBBoxPostProcess
 
 
+# ResNet:
+#   # index 0 stands for res2
+#   depth: 50
+#   norm_type: bn
+#   freeze_at: 0
+#   return_idx: [1, 2, 3]
+#   lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+#   num_stages: 4
+#   freeze_stem_only: true
+#   variant: d
+
 ResNet:
   # index 0 stands for res2
   depth: 50
-  norm_type: bn
-  freeze_at: 0
-  return_idx: [1, 2, 3]
-  lr_mult_list: [0.1, 0.1, 0.1, 0.1]
-  num_stages: 4
-  freeze_stem_only: true
   variant: d
-
+  norm_type: bn
+  freeze_at: -1
+  return_idx: [1, 2, 3]
+  # lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+  # lr_mult_list: [0.2, 0.2, 0.2, 0.2]
+  num_stages: 4
+  # freeze_stem_only: true
+  freeze_norm: false
+  norm_decay: 0.
 
 
 YOLOCSPPAN:
@@ -60,7 +73,7 @@ DINOTransformer:
   num_decoder_layers: 6
   dim_feedforward: 2048
   dropout: 0.0
-  activation: gelu
+  activation: relu
   num_denoising: 100
   label_noise_ratio: 0.5
   box_noise_scale: 1.0

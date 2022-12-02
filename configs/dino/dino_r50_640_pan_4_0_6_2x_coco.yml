@@ -40,6 +40,7 @@ ResNet:
   freeze_at: 0
   return_idx: [1, 2, 3]
   lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+  # lr_mult_list: [0.2, 0.2, 0.2, 0.2]
   num_stages: 4
   freeze_stem_only: true
   # freeze_norm: false
