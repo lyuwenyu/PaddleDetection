@@ -17,9 +17,9 @@ TrainReader:
                         RandomDistort: {p: 0.8},
                         RandomExpand: {fill_value: [123.675, 116.28, 103.53], prob: 0.5},
                         RandomCrop: {p: 0.8},
-                        RandomResize: {target_size: [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800], random_size: True, random_interp: True, keep_ratio: True},
+                        # RandomResize: {target_size: [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800], random_size: True, random_interp: True, keep_ratio: True},
                         # andomCrop: {p: 1.0},
-                        # RandomResize: {target_size: [480, 512, 544, 576, 608, 640], random_size: True, random_interp: True, keep_ratio: True},
+                        RandomResize: {target_size: [480, 512, 544, 576, 608, 640], random_size: True, random_interp: True, keep_ratio: True},
                       ],
   }
 
