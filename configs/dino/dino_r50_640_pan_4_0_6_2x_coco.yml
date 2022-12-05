@@ -58,7 +58,7 @@ YOLOCSPPAN:
 DINOTransformer:
   num_queries: 300
   position_embed_type: sine
-  num_levels: 3 # 4
+  num_levels: 4
   nhead: 8
   num_encoder_layers: 0
   num_decoder_layers: 6

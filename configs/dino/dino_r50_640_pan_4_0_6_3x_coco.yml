@@ -55,13 +55,13 @@ YOLOCSPPAN:
 DINOTransformer:
   num_queries: 300
   position_embed_type: sine
-  num_levels: 3
+  num_levels: 4 # 3
   nhead: 8
   num_encoder_layers: 0
   num_decoder_layers: 6
   dim_feedforward: 2048
   dropout: 0.0
-  activation: relu # relu
+  activation: relu # gelu
   num_denoising: 100
   label_noise_ratio: 0.5
   box_noise_scale: 1.0
