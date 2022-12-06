@@ -68,7 +68,11 @@ class DETR(BaseArch):
         body_feats = self.backbone(self.inputs)
 
         # Transformer
-        pad_mask = self.inputs['pad_mask'] if self.training else None
+        if self.training or self.inputs['image'].shape[0] > 1:
+            pad_mask = self.inputs['pad_mask']
+        else:
+            pad_mask = None
+
         out_transformer = self.transformer(body_feats, pad_mask, self.inputs)
 
         # DETR Head
