@@ -1074,6 +1074,12 @@ class YOLOCSPPAN(nn.Layer):
                 mode="nearest",
                 data_format=self.data_format)
 
+            # upsample_feat = F.interpolate(
+            #     feat_heigh,
+            #     scale_factor=2.,
+            #     mode="nearest",
+            #     data_format=self.data_format)
+
             # if self.training:
             #     upsample_feat = F.interpolate(
             #         feat_heigh,
