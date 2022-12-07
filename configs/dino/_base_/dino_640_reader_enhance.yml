@@ -18,8 +18,8 @@ TrainReader:
                         RandomExpand: {fill_value: [123.675, 116.28, 103.53], prob: 0.5},
                         RandomCrop: {p: 0.8},
                         # RandomResize: {target_size: [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800], random_size: True, random_interp: True, keep_ratio: True}, # 49.4
-                        # RandomResize: {target_size: [480, 512, 544, 576, 608, 640], random_size: True, random_interp: True, keep_ratio: True}, # 49.7
-                        RandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640], random_size: True, random_interp: True, keep_ratio: True},
+                        RandomResize: {target_size: [480, 512, 544, 576, 608, 640], random_size: True, random_interp: True, keep_ratio: True}, # 49.7
+                        # RandomResize: {target_size: [320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640], random_size: True, random_interp: True, keep_ratio: True},
                         # RandomResize: {target_size: [320, 336, 352, 368, 384, 400, 416, 432, 448, 464, 480, 496, 512, 528, 544, 560, 576, 592, 608, 624, 640], random_size: True, random_interp: True, keep_ratio: True},
                       ],
   }
@@ -29,8 +29,8 @@ TrainReader:
   - BboxXYXY2XYWH: {}
   - Permute: {}
   batch_transforms:
-  - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
-  # - PadMaskBatch: {pad_to_stride: 32, return_pad_mask: true}
+  # - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
+  - PadMaskBatch: {pad_to_size: 32, return_pad_mask: true}
   batch_size: 4
   shuffle: true
   drop_last: true
@@ -45,9 +45,10 @@ EvalReader:
   - NormalizeImage: {is_scale: true, mean: [0.485,0.456,0.406], std: [0.229, 0.224,0.225]}
   - Permute: {}
   batch_transforms:
-  - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
-  # - PadMaskBatch: {pad_to_stride: 32, return_pad_mask: true}
-  batch_size: 1
+  # - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
+  - PadMaskBatch: {pad_to_size: 32, return_pad_mask: true}
+  # batch_size: 1
+  batch_size: 4
   shuffle: false
   drop_last: false
 
