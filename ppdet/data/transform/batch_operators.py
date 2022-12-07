@@ -944,7 +944,7 @@ class PadMaskBatch(BaseOperator):
 
         if pad_to_size is not None:
             self.pad_to_size = list(pad_to_size) if isinstance(pad_to_size, (
-                list, tuple)) else (pad_to_size, pad_to_size)
+                list, tuple)) else [pad_to_size, pad_to_size]
             assert (len(self.pad_to_size) == 2), ''
         else:
             self.pad_to_size = None
@@ -956,7 +956,7 @@ class PadMaskBatch(BaseOperator):
         """
 
         if self.pad_to_size is not None:
-            max_shape = [1] + self.pad_to_size
+            max_shape = [1] + list(self.pad_to_size)
         else:
             coarsest_stride = self.pad_to_stride
 
