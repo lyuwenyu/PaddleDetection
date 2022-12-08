@@ -143,6 +143,7 @@ class DETR(BaseArch):
             })
             return out_transformer, losses
 
+    @paddle.no_grad()
     def forward_teacher(self, data, exclude_post_process=True, return_aux=True):
 
         body_feats = self.backbone(data)
@@ -159,6 +160,7 @@ class DETR(BaseArch):
 
         if exclude_post_process:
             bboxes, logits, masks = preds
+
             return out_transformer, (bboxes, logits)
 
         # else:
