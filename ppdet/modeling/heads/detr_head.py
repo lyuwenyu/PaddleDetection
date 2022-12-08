@@ -24,7 +24,7 @@ import pycocotools.mask as mask_util
 from ..initializer import linear_init_, constant_
 from ..transformers.utils import inverse_sigmoid
 
-__all__ = ['DETRHead', 'DeformableDETRHead', 'DINOHead']
+__all__ = ['DETRHead', 'DeformableDETRHead', 'DINOHead', 'DistillDINOHead']
 
 
 class MLP(nn.Layer):
@@ -416,18 +416,23 @@ class DistillDINOHead(nn.Layer):
     __inject__ = ['loss', ]
     __shared__ = ['use_focal_loss']
 
-    def __init__(
-            self,
-            loss='DINOLoss',
-            use_focal_loss=True, ):
-        super(DINOHead, self).__init__()
+    def __init__(self, loss='DINOLoss', use_focal_loss=True, select_topk=None):
+        super(DistillDINOHead, self).__init__()
         self.loss = loss
         self.size = (640, 640)
         self.use_focal_loss = use_focal_loss
+        self.select_topk = select_topk
+        self.num_classes = 80
 
-    def forward(self, out_transformer, inputs=None):
+    def forward(self,
+                student_out_transformer,
+                teacher_out_transformer=None,
+                teacher_preds=None):
         (dec_out_bboxes, dec_out_logits, enc_topk_bboxes, enc_topk_logits,
-         dn_meta) = out_transformer
+         dn_meta) = student_out_transformer
+
+        # (dec_out_bboxes, dec_out_logits, enc_topk_bboxes, enc_topk_logits,
+        #  dn_meta) = teacher_out_transformer
 
         if self.training:
             # assert inputs is not None
@@ -451,10 +456,18 @@ class DistillDINOHead(nn.Layer):
             # out_logits = paddle.concat(
             #     [enc_topk_logits.unsqueeze(0), dec_out_logits])
 
-            bboxes, logits = inputs
+            bboxes, logits = teacher_preds
+            N = bboxes.shape[1]
+
+            # [6, 2, 300, 4]
+            # [6, 2, 300, 80]
 
             losses = {}
-            for i, (bboxes, logits) in zip(inputs):
+            # for i, (bboxes, logits) in zip(preds):
+            for i in range(len(bboxes)):
+
+                _bboxes = bboxes[i]
+                _logits = logits[i]
 
                 # bbox_pred = bbox_cxcywh_to_xyxy(bboxes)
                 # origin_shape = paddle.floor(im_shape / scale_factor + 0.5)
@@ -463,20 +476,75 @@ class DistillDINOHead(nn.Layer):
                 #     [img_w, img_h, img_w, img_h], axis=-1).reshape([-1, 1, 4])
                 # bbox_pred *= origin_shape
 
-                bbox_pred = bboxes
+                # if self.select_topk is not None:
+                labels_pred, scores_pred, bbox_pred = self.select(_logits,
+                                                                  _bboxes)
+                bbox_pred = [_x.squeeze(0) for _x in bbox_pred.split(N, axis=0)]
+                clss_pred = [
+                    _x.squeeze(0).unsqueeze(-1)
+                    for _x in labels_pred.split(
+                        N, axis=0)
+                ]
 
-                scores = F.sigmoid(
-                    logits) if self.use_focal_loss else F.softmax(
-                        logits)[:, :, :-1]
+                # else:
+                #     bbox_pred = [_x.squeeze(0) for _x in _bboxes.split(N, axis=0)]
+                #     clss_pred = [_x.squeeze(0) for _x in _logits.argmax(axis=-1, keepdim=True).split(N, axis=0)]
+
+                # print(type(bbox_pred), bbox_pred[0].shape)
+                # print(type(clss_pred), clss_pred[0].shape)
+
+                # scores = F.sigmoid(
+                #     _logits) if self.use_focal_loss else F.softmax(
+                #         _logits)[:, :, :-1]
+
+                # print('out_bboxes', out_bboxes.shape)
+                # print('out_logits', out_logits.shape)
 
                 loss = self.loss(
-                    out_bboxes[i],
-                    out_logits[i],
-                    bbox_pred,  # inputs['gt_bbox'],
-                    inputs['gt_class'],
+                    out_bboxes[i][None],
+                    out_logits[i][None],
+                    bbox_pred,
+                    clss_pred,
                     dn_out_bboxes=dn_out_bboxes,
                     dn_out_logits=dn_out_logits,
-                    dn_meta=dn_meta)
+                    dn_meta=dn_meta, )
+                # loss = {f'{k}_disill_{i}': v for k, v in loss.items()}
+                # losses.update(loss)
+                losses = {
+                    f'{k}_disill': losses.get(f'{k}_disill', 0) + v
+                    for k, v in loss.items()
+                }
+
+            losses['loss_distill'] = sum(losses.values())
+
+            return losses
+
+    def select(self, logits, bbox_pred):
+
+        scores = F.sigmoid(logits) if self.use_focal_loss else F.softmax(
+            logits)[:, :, :-1]
+
+        if not self.use_focal_loss:
+            scores, labels = scores.max(-1), scores.argmax(-1)
+            if scores.shape[1] > self.select_topk:
+                scores, index = paddle.topk(scores, self.select_topk, axis=-1)
+                batch_ind = paddle.arange(
+                    end=scores.shape[0]).unsqueeze(-1).tile(
+                        [1, self.select_topk])
+                index = paddle.stack([batch_ind, index], axis=-1)
+                labels = paddle.gather_nd(labels, index)
+                bbox_pred = paddle.gather_nd(bbox_pred, index)
+        else:
+            scores, index = paddle.topk(
+                scores.flatten(1), self.select_topk, axis=-1)
+            labels = index % self.num_classes
+            index = index // self.num_classes
+            batch_ind = paddle.arange(end=scores.shape[0]).unsqueeze(-1).tile(
+                [1, self.select_topk])
+            index = paddle.stack([batch_ind, index], axis=-1)
+            bbox_pred = paddle.gather_nd(bbox_pred, index)
+
+        return labels, scores, bbox_pred
 
 
 def bbox_cxcywh_to_xyxy(x):

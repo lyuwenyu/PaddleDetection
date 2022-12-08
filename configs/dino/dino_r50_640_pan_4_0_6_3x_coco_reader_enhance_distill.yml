@@ -4,7 +4,7 @@ _BASE_: [
   '_base_/optimizer_3x.yml',
   # '_base_/dino_r50.yml',
   # '_base_/dino_640_reader.yml',
-  '_base_/dino_640_reader_enhance.yml',
+  '_base_/dino_640_reader_enhance_distill.yml',
 ]
 
 weights: output/dino_r50_640_pan_4_0_6_3x_coco_reader_enhance_distill/model_final
@@ -19,13 +19,14 @@ teacher:
 
 
 DistillDINOHead:
-loss:
-  name: DINOLoss
-  loss_coeff: {class: 1, bbox: 5, giou: 2}
-  aux_loss: True
-  matcher:
-    name: HungarianMatcher
-    matcher_coeff: {class: 2, bbox: 5, giou: 2}
+  select_topk: ~
+  loss:
+    name: DINOLoss
+    loss_coeff: {class: 1, bbox: 5, giou: 2}
+    aux_loss: False
+    matcher:
+      name: HungarianMatcher
+      matcher_coeff: {class: 2, bbox: 5, giou: 2}
 
 
 # ----

@@ -119,27 +119,50 @@ class DETR(BaseArch):
         }
         return output
 
-    def forward_teacher(self, exclude_post_process=True, return_aux=True):
-
-        body_feats = self.backbone(self.inputs)
+    def forward_student(
+            self,
+            data, ):
+        body_feats = self.backbone(data)
 
         if self.neck is not None:
             body_feats = self.neck(body_feats)
 
-        pad_mask = self.inputs[
-            'pad_mask'] if 'pad_mask' in self.inputs else None
+        # Transformer
+        # pad_mask = self.inputs['pad_mask'] if self.training else None
 
-        out_transformer = self.transformer(body_feats, pad_mask, self.inputs)
+        pad_mask = data['pad_mask'] if 'pad_mask' in data else None
+
+        out_transformer = self.transformer(body_feats, pad_mask, data)
+
+        # DETR Head
+        if self.training:
+            losses = self.detr_head(out_transformer, body_feats, data)
+            losses.update({
+                'loss':
+                paddle.add_n([v for k, v in losses.items() if 'log' not in k])
+            })
+            return out_transformer, losses
+
+    def forward_teacher(self, data, exclude_post_process=True, return_aux=True):
+
+        body_feats = self.backbone(data)
+
+        if self.neck is not None:
+            body_feats = self.neck(body_feats)
+
+        pad_mask = data['pad_mask'] if 'pad_mask' in data else None
+
+        out_transformer = self.transformer(body_feats, pad_mask, data)
 
         preds = self.detr_head(
             out_transformer, body_feats, return_aux=return_aux)
 
         if exclude_post_process:
             bboxes, logits, masks = preds
-            return out_transformer, bboxes, logits
+            return out_transformer, (bboxes, logits)
 
-        else:
-            bbox, bbox_num = self.post_process(preds, self.inputs['im_shape'],
-                                               self.inputs['scale_factor'])
+        # else:
+        #     bbox, bbox_num = self.post_process(preds, data['im_shape'],
+        #                                        data['scale_factor'])
 
-        return bbox, bbox_num
+        # return bbox, bbox_num

@@ -10,6 +10,7 @@ cfg = load_config(
 # print(cfg.teacher['architecture'])
 
 teacher = create(cfg.teacher['architecture'])
+head = create(cfg.teacher['head'])
 
 print(cfg.teacher)
 

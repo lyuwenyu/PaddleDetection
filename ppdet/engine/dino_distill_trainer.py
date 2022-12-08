@@ -178,11 +178,9 @@ class DINODistillTrainer(object):
         self.teacher = create(cfg.teacher['architecture'])
         self.teacher_distill_head = create(cfg.teacher['head'])
 
-        # print(cfg.teacher)
-        if 'pretrain_weights' in cfg.teacher:
-            state = paddle.load(cfg.teacher['pretrain_weights'])
-            self.teacher.set_state_dict(state)
-            self.teacher.eval()
+        state = paddle.load(cfg.teacher['pretrain_weights'])
+        self.teacher.set_state_dict(state)
+        self.teacher.eval()
 
     def _init_callbacks(self):
         if self.mode == 'train':
@@ -405,13 +403,19 @@ class DINODistillTrainer(object):
                             list(model.parameters()), None)
                     else:
                         # model forward
-                        outputs = model(data)
-                        loss = outputs['loss']
-
-                        out_transformer, bboxes, logits = self.teacher.forward_teacher(
+                        # outputs = model(data)
+                        # loss = outputs['loss']
+                        s_out_transformer, outputs = self.model.forward_student(
                             data)
-                        self.teacher_distill_head(out_transformer,
-                                                  (bboxes, logits))
+                        t_out_transformer, preds = self.teacher.forward_teacher(
+                            data)
+                        distill_losses = self.teacher_distill_head(
+                            s_out_transformer,
+                            t_out_transformer,
+                            teacher_preds=preds)
+                        outputs.update(distill_losses)
+
+                        loss = outputs['loss_distill'] + outputs['loss']
 
                         # model backward
                         loss.backward()
