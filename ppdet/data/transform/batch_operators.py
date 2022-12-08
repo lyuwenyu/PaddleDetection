@@ -954,19 +954,18 @@ class PadMaskBatch(BaseOperator):
         Args:
             samples (list): a batch of sample, each is dict.
         """
+        coarsest_stride = self.pad_to_stride
+
+        max_shape = np.array([data['image'].shape for data in samples]).max(
+            axis=0)
+        if coarsest_stride > 0:
+            max_shape[1] = int(
+                np.ceil(max_shape[1] / coarsest_stride) * coarsest_stride)
+            max_shape[2] = int(
+                np.ceil(max_shape[2] / coarsest_stride) * coarsest_stride)
 
         if self.pad_to_size is not None:
-            max_shape = [1] + list(self.pad_to_size)
-        else:
-            coarsest_stride = self.pad_to_stride
-
-            max_shape = np.array([data['image'].shape for data in samples]).max(
-                axis=0)
-            if coarsest_stride > 0:
-                max_shape[1] = int(
-                    np.ceil(max_shape[1] / coarsest_stride) * coarsest_stride)
-                max_shape[2] = int(
-                    np.ceil(max_shape[2] / coarsest_stride) * coarsest_stride)
+            max_shape = [max_shape[0], ] + list(self.pad_to_size)
 
         for data in samples:
             im = data['image']
