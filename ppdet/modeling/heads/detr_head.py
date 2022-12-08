@@ -414,15 +414,21 @@ class DINOHead(nn.Layer):
 @register
 class DistillDINOHead(nn.Layer):
     __inject__ = ['loss', ]
-    __shared__ = ['use_focal_loss']
+    __shared__ = ['use_focal_loss', 'num_classes']
 
-    def __init__(self, loss='DINOLoss', use_focal_loss=True, select_topk=None):
+    def __init__(self,
+                 loss='DINOLoss',
+                 use_focal_loss=True,
+                 select_topk=None,
+                 num_classes=80,
+                 loss_coeff=1.0):
         super(DistillDINOHead, self).__init__()
         self.loss = loss
         self.size = (640, 640)
         self.use_focal_loss = use_focal_loss
         self.select_topk = select_topk
-        self.num_classes = 80
+        self.num_classes = num_classes
+        self.loss_coeff = loss_coeff
 
     def forward(self,
                 student_out_transformer,
@@ -508,14 +514,16 @@ class DistillDINOHead(nn.Layer):
                     dn_out_bboxes=dn_out_bboxes,
                     dn_out_logits=dn_out_logits,
                     dn_meta=dn_meta, )
+
                 # loss = {f'{k}_disill_{i}': v for k, v in loss.items()}
                 # losses.update(loss)
+
                 losses = {
                     f'{k}_disill': losses.get(f'{k}_disill', 0) + v
                     for k, v in loss.items()
                 }
 
-            losses['loss_distill'] = sum(losses.values())
+            losses['loss_distill'] = sum(losses.values()) * self.loss_coeff
 
             return losses
 

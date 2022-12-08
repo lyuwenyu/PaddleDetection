@@ -19,7 +19,9 @@ teacher:
 
 
 DistillDINOHead:
-  select_topk: ~
+  select_topk: 100
+  loss_coeff: 0.5
+
   loss:
     name: DINOLoss
     loss_coeff: {class: 1, bbox: 5, giou: 2}
