@@ -372,7 +372,11 @@ class DINOHead(nn.Layer):
         super(DINOHead, self).__init__()
         self.loss = loss
 
-    def forward(self, out_transformer, body_feats, inputs=None):
+    def forward(self,
+                out_transformer,
+                body_feats,
+                inputs=None,
+                return_aux=False):
         (dec_out_bboxes, dec_out_logits, enc_topk_bboxes, enc_topk_logits,
          dn_meta) = out_transformer
         if self.training:
@@ -401,4 +405,80 @@ class DINOHead(nn.Layer):
                 dn_out_logits=dn_out_logits,
                 dn_meta=dn_meta)
         else:
-            return (dec_out_bboxes[-1], dec_out_logits[-1], None)
+            if return_aux:
+                return (dec_out_bboxes, dec_out_logits, None)
+            else:
+                return (dec_out_bboxes[-1], dec_out_logits[-1], None)
+
+
+@register
+class DistillDINOHead(nn.Layer):
+    __inject__ = ['loss', ]
+    __shared__ = ['use_focal_loss']
+
+    def __init__(
+            self,
+            loss='DINOLoss',
+            use_focal_loss=True, ):
+        super(DINOHead, self).__init__()
+        self.loss = loss
+        self.size = (640, 640)
+        self.use_focal_loss = use_focal_loss
+
+    def forward(self, out_transformer, inputs=None):
+        (dec_out_bboxes, dec_out_logits, enc_topk_bboxes, enc_topk_logits,
+         dn_meta) = out_transformer
+
+        if self.training:
+            # assert inputs is not None
+            # assert 'gt_bbox' in inputs and 'gt_class' in inputs
+
+            # if dn_meta is not None:
+            #     dn_out_bboxes, dec_out_bboxes = paddle.split(
+            #         dec_out_bboxes, dn_meta['dn_num_split'], axis=2)
+            #     dn_out_logits, dec_out_logits = paddle.split(
+            #         dec_out_logits, dn_meta['dn_num_split'], axis=2)
+            # else:
+
+            dn_out_bboxes, dn_out_logits = None, None
+            dn_meta = None
+
+            out_bboxes = dec_out_bboxes
+            out_logits = dec_out_logits
+
+            # out_bboxes = paddle.concat(
+            #     [enc_topk_bboxes.unsqueeze(0), dec_out_bboxes])
+            # out_logits = paddle.concat(
+            #     [enc_topk_logits.unsqueeze(0), dec_out_logits])
+
+            bboxes, logits = inputs
+
+            losses = {}
+            for i, (bboxes, logits) in zip(inputs):
+
+                # bbox_pred = bbox_cxcywh_to_xyxy(bboxes)
+                # origin_shape = paddle.floor(im_shape / scale_factor + 0.5)
+                # img_h, img_w = self.size
+                # origin_shape = paddle.concat(
+                #     [img_w, img_h, img_w, img_h], axis=-1).reshape([-1, 1, 4])
+                # bbox_pred *= origin_shape
+
+                bbox_pred = bboxes
+
+                scores = F.sigmoid(
+                    logits) if self.use_focal_loss else F.softmax(
+                        logits)[:, :, :-1]
+
+                loss = self.loss(
+                    out_bboxes[i],
+                    out_logits[i],
+                    bbox_pred,  # inputs['gt_bbox'],
+                    inputs['gt_class'],
+                    dn_out_bboxes=dn_out_bboxes,
+                    dn_out_logits=dn_out_logits,
+                    dn_meta=dn_meta)
+
+
+def bbox_cxcywh_to_xyxy(x):
+    cxcy, wh = paddle.split(x, 2, axis=-1)
+    return paddle.concat([cxcy - 0.5 * wh, cxcy + 0.5 * wh], axis=-1)
