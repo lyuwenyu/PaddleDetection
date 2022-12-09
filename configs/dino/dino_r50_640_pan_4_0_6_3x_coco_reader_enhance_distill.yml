@@ -19,16 +19,20 @@ teacher:
 
 
 DistillDINOHead:
+  num_queries: 300
   select_topk: 100
   loss_coeff: 0.5
-
+  matcher:
+    name: DistillHungarianMatcher
+    matcher_coeff: {class: 2, bbox: 5, giou: 2}
+    use_kl_div_loss: True
   loss:
     name: DETRLoss
     aux_loss: False
     loss_coeff: {class: 1, bbox: 5, giou: 2}
-    matcher:
-      name: HungarianMatcher
-      matcher_coeff: {class: 2, bbox: 5, giou: 2}
+    # matcher:
+    #   name: HungarianMatcher
+    #   matcher_coeff: {class: 2, bbox: 5, giou: 2}
 
 
 # ----

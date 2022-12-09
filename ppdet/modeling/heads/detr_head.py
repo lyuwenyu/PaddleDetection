@@ -413,22 +413,29 @@ class DINOHead(nn.Layer):
 
 @register
 class DistillDINOHead(nn.Layer):
-    __inject__ = ['loss', ]
-    __shared__ = ['use_focal_loss', 'num_classes']
+    __inject__ = ['loss', 'matcher']
+    __shared__ = [
+        'use_focal_loss',
+        'num_classes',
+    ]
 
     def __init__(self,
                  loss='DINOLoss',
                  use_focal_loss=True,
                  select_topk=None,
                  num_classes=80,
-                 loss_coeff=1.0):
+                 loss_coeff=1.0,
+                 matcher='',
+                 num_queries=300):
         super(DistillDINOHead, self).__init__()
         self.loss = loss
-        self.size = (640, 640)
+        # self.size = (640, 640)
         self.use_focal_loss = use_focal_loss
         self.select_topk = select_topk
         self.num_classes = num_classes
         self.loss_coeff = loss_coeff
+        self.matcher = matcher
+        self.num_queries = num_queries
 
     def forward(self,
                 student_out_transformer,
@@ -454,8 +461,9 @@ class DistillDINOHead(nn.Layer):
             dn_out_bboxes, dn_out_logits = None, None
             dn_meta = None
 
-            out_bboxes = dec_out_bboxes
-            out_logits = dec_out_logits
+            # [6, 4, 498, 4] [6, 4, 498, 80]
+            out_bboxes = dec_out_bboxes[:, :, -self.num_queries:, :]
+            out_logits = dec_out_logits[:, :, -self.num_queries:, :]
 
             # out_bboxes = paddle.concat(
             #     [enc_topk_bboxes.unsqueeze(0), dec_out_bboxes])
@@ -495,6 +503,13 @@ class DistillDINOHead(nn.Layer):
                     for _x in labels_pred.split(
                         N, axis=0)
                 ]
+                logits_teach = _logits
+
+                score_teach = [
+                    _x.squeeze(0).unsqueeze(-1)
+                    for _x in scores_pred.split(
+                        N, axis=0)
+                ]
 
                 # else:
                 #     bbox_pred = [_x.squeeze(0) for _x in _bboxes.split(N, axis=0)]
@@ -510,11 +525,19 @@ class DistillDINOHead(nn.Layer):
                 # print('out_bboxes', out_bboxes.shape)
                 # print('out_logits', out_logits.shape)
 
+                bbox_student = out_bboxes[i][None]
+                logit_student = out_logits[i][None]
+
+                match_indices = self.matcher(
+                    bbox_student[-1].detach(), logit_student[-1].detach(),
+                    bbox_teach, clss_teach, score_teach, logits_teach)
+
                 loss = self.loss(
-                    out_bboxes[i][None],
-                    out_logits[i][None],
+                    bbox_student,
+                    logit_student,
                     bbox_teach,
-                    clss_teach, )
+                    clss_teach,
+                    match_indices=match_indices)
 
                 # loss = {f'{k}_disill_{i}': v for k, v in loss.items()}
                 # losses.update(loss)

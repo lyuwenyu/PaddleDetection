@@ -181,6 +181,7 @@ class DINODistillTrainer(object):
         state = paddle.load(cfg.teacher['pretrain_weights'])
         self.teacher.set_state_dict(state)
         self.teacher.eval()
+        print(self.teacher_distill_head)
 
     def _init_callbacks(self):
         if self.mode == 'train':
