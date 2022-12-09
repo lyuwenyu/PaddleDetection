@@ -447,53 +447,47 @@ class DistillDINOHead(nn.Layer):
         # (dec_out_bboxes, dec_out_logits, enc_topk_bboxes, enc_topk_logits,
         #  dn_meta) = teacher_out_transformer
 
-        if self.training:
-            # assert inputs is not None
-            # assert 'gt_bbox' in inputs and 'gt_class' in inputs
+        # if self.training:
+        #     # assert inputs is not None
+        #     # assert 'gt_bbox' in inputs and 'gt_class' in inputs
 
-            # if dn_meta is not None:
-            #     dn_out_bboxes, dec_out_bboxes = paddle.split(
-            #         dec_out_bboxes, dn_meta['dn_num_split'], axis=2)
-            #     dn_out_logits, dec_out_logits = paddle.split(
-            #         dec_out_logits, dn_meta['dn_num_split'], axis=2)
-            # else:
+        #     # if dn_meta is not None:
+        #     #     dn_out_bboxes, dec_out_bboxes = paddle.split(
+        #     #         dec_out_bboxes, dn_meta['dn_num_split'], axis=2)
+        #     #     dn_out_logits, dec_out_logits = paddle.split(
+        #     #         dec_out_logits, dn_meta['dn_num_split'], axis=2)
+        #     # else:
 
-            dn_out_bboxes, dn_out_logits = None, None
-            dn_meta = None
+        # dn_out_bboxes, dn_out_logits = None, None
+        # dn_meta = None
 
-            # [6, 4, 498, 4] [6, 4, 498, 80]
-            out_bboxes = dec_out_bboxes[:, :, -self.num_queries:, :]
-            out_logits = dec_out_logits[:, :, -self.num_queries:, :]
+        # [6, 4, 498, 4] [6, 4, 498, 80]
+        out_bboxes = dec_out_bboxes[:, :, -self.num_queries:, :]
+        out_logits = dec_out_logits[:, :, -self.num_queries:, :]
 
-            # out_bboxes = paddle.concat(
-            #     [enc_topk_bboxes.unsqueeze(0), dec_out_bboxes])
-            # out_logits = paddle.concat(
-            #     [enc_topk_logits.unsqueeze(0), dec_out_logits])
+        # out_bboxes = paddle.concat(
+        #     [enc_topk_bboxes.unsqueeze(0), dec_out_bboxes])
+        # out_logits = paddle.concat(
+        #     [enc_topk_logits.unsqueeze(0), dec_out_logits])
 
-            bboxes, logits = teacher_preds
-            bboxes, logits = bboxes.detach(), logits.detach()
-            N = bboxes.shape[1]
+        bboxes, logits = teacher_preds
+        bboxes, logits = bboxes.detach(), logits.detach()
+        N = bboxes.shape[1]
 
-            # [6, 2, 300, 4]
-            # [6, 2, 300, 80]
+        # [6, 2, 300, 4]
+        # [6, 2, 300, 80]
 
-            losses = {}
-            # for i, (bboxes, logits) in zip(preds):
-            for i in range(len(bboxes)):
+        losses = {}
+        # for i, (bboxes, logits) in zip(preds):
+        for i in range(len(bboxes)):
 
-                _bboxes = bboxes[i]
-                _logits = logits[i]
+            _bboxes = bboxes[i]
+            _logits = logits[i]
 
-                # bbox_pred = bbox_cxcywh_to_xyxy(bboxes)
-                # origin_shape = paddle.floor(im_shape / scale_factor + 0.5)
-                # img_h, img_w = self.size
-                # origin_shape = paddle.concat(
-                #     [img_w, img_h, img_w, img_h], axis=-1).reshape([-1, 1, 4])
-                # bbox_pred *= origin_shape
+            if self.select_topk is not None:
+                labels_pred, scores_pred, bbox_pred, logits_pred = self.select(
+                    _logits, _bboxes)
 
-                # if self.select_topk is not None:
-                labels_pred, scores_pred, bbox_pred = self.select(_logits,
-                                                                  _bboxes)
                 bbox_teach = [
                     _x.squeeze(0) for _x in bbox_pred.split(
                         N, axis=0)
@@ -503,7 +497,6 @@ class DistillDINOHead(nn.Layer):
                     for _x in labels_pred.split(
                         N, axis=0)
                 ]
-                logits_teach = _logits
 
                 score_teach = [
                     _x.squeeze(0).unsqueeze(-1)
@@ -511,45 +504,46 @@ class DistillDINOHead(nn.Layer):
                         N, axis=0)
                 ]
 
-                # else:
-                #     bbox_pred = [_x.squeeze(0) for _x in _bboxes.split(N, axis=0)]
-                #     clss_pred = [_x.squeeze(0) for _x in _logits.argmax(axis=-1, keepdim=True).split(N, axis=0)]
+                logits_teach = logits_pred
 
-                # print(type(bbox_pred), bbox_pred[0].shape)
-                # print(type(clss_pred), clss_pred[0].shape)
+            else:
+                bbox_teach = [_x.squeeze(0) for _x in _bboxes.split(N, axis=0)]
+                clss_teach = [
+                    _x.squeeze(0)
+                    for _x in _logits.argmax(
+                        axis=-1, keepdim=True).split(
+                            N, axis=0)
+                ]
+                score_teach = F.sigmoid(
+                    _logits) if self.use_focal_loss else F.softmax(
+                        _logits)[:, :, :-1]
+                logits_teach = _logits
 
-                # scores = F.sigmoid(
-                #     _logits) if self.use_focal_loss else F.softmax(
-                #         _logits)[:, :, :-1]
+            bbox_student = out_bboxes[i][None]
+            logit_student = out_logits[i][None]
 
-                # print('out_bboxes', out_bboxes.shape)
-                # print('out_logits', out_logits.shape)
+            match_indices = self.matcher(bbox_student[-1].detach(),
+                                         logit_student[-1].detach(), bbox_teach,
+                                         clss_teach, score_teach, logits_teach)
 
-                bbox_student = out_bboxes[i][None]
-                logit_student = out_logits[i][None]
+            loss = self.loss(
+                bbox_student,
+                logit_student,
+                bbox_teach,
+                clss_teach,
+                match_indices=match_indices)
 
-                match_indices = self.matcher(
-                    bbox_student[-1].detach(), logit_student[-1].detach(),
-                    bbox_teach, clss_teach, score_teach, logits_teach)
+            # loss = {f'{k}_disill_{i}': v for k, v in loss.items()}
+            # losses.update(loss)
 
-                loss = self.loss(
-                    bbox_student,
-                    logit_student,
-                    bbox_teach,
-                    clss_teach,
-                    match_indices=match_indices)
+            losses = {
+                f'{k}_disill': losses.get(f'{k}_disill', 0) + v
+                for k, v in loss.items()
+            }
 
-                # loss = {f'{k}_disill_{i}': v for k, v in loss.items()}
-                # losses.update(loss)
+        losses['loss_distill'] = sum(losses.values()) * self.loss_coeff
 
-                losses = {
-                    f'{k}_disill': losses.get(f'{k}_disill', 0) + v
-                    for k, v in loss.items()
-                }
-
-            losses['loss_distill'] = sum(losses.values()) * self.loss_coeff
-
-            return losses
+        return losses
 
     def select(self, logits, bbox_pred):
 
@@ -566,6 +560,8 @@ class DistillDINOHead(nn.Layer):
                 index = paddle.stack([batch_ind, index], axis=-1)
                 labels = paddle.gather_nd(labels, index)
                 bbox_pred = paddle.gather_nd(bbox_pred, index)
+                logits_pred = paddle.gather_nd(logits, index)
+
         else:
             scores, index = paddle.topk(
                 scores.flatten(1), self.select_topk, axis=-1)
@@ -575,10 +571,10 @@ class DistillDINOHead(nn.Layer):
                 [1, self.select_topk])
             index = paddle.stack([batch_ind, index], axis=-1)
             bbox_pred = paddle.gather_nd(bbox_pred, index)
+            logits_pred = paddle.gather_nd(logits, index)
 
-        return labels, scores, bbox_pred
+        return labels, scores, bbox_pred, logits_pred
 
-
-def bbox_cxcywh_to_xyxy(x):
-    cxcy, wh = paddle.split(x, 2, axis=-1)
-    return paddle.concat([cxcy - 0.5 * wh, cxcy + 0.5 * wh], axis=-1)
+    def bbox_cxcywh_to_xyxy(self, x):
+        cxcy, wh = paddle.split(x, 2, axis=-1)
+        return paddle.concat([cxcy - 0.5 * wh, cxcy + 0.5 * wh], axis=-1)

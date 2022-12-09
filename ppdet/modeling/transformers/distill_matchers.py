@@ -34,7 +34,7 @@ __all__ = ['DistillHungarianMatcher']
 @register
 @serializable
 class DistillHungarianMatcher(nn.Layer):
-    # __shared__ = ['use_focal_loss']
+    __shared__ = ['use_focal_loss']
 
     def __init__(self,
                  matcher_coeff={'class': 1,
@@ -56,6 +56,9 @@ class DistillHungarianMatcher(nn.Layer):
         self.use_kl_div_loss = use_kl_div_loss
 
         self.giou_loss = GIoULoss()
+
+    def extra_repr(self, ):
+        return f'use_focal_loss={self.use_focal_loss}, use_kl_div_loss={self.use_kl_div_loss}'
 
     def forward(self,
                 boxes,
@@ -100,7 +103,20 @@ class DistillHungarianMatcher(nn.Layer):
         tgt_bbox = paddle.concat(gt_bbox)
 
         # Compute the classification cost
-        if self.use_focal_loss:
+        if self.use_kl_div_loss:
+            # out_prob (b * q1) * 80
+            # gt_logits (b * q2) * 80
+            gt_prob = F.sigmoid(gt_logits.flatten(
+                0, 1)) if self.use_focal_loss else F.softmax(
+                    gt_logits.flatten(0, 1))
+            out_prob_log = (out_prob + 1e-8).log().unsqueeze(1).tile(
+                [1, gt_prob.shape[0], 1])
+            gt_prob = gt_prob.unsqueeze(0).tile([out_prob.shape[0], 1, 1])
+
+            cost_class = F.kl_div(
+                out_prob_log, gt_prob, reduction='none').sum(axis=-1)
+
+        elif self.use_focal_loss:
             neg_cost_class = (1 - self.alpha) * (out_prob**self.gamma) * (-(
                 1 - out_prob + 1e-8).log())
             pos_cost_class = self.alpha * (
@@ -108,10 +124,7 @@ class DistillHungarianMatcher(nn.Layer):
             cost_class = paddle.gather(
                 pos_cost_class, tgt_ids, axis=1) - paddle.gather(
                     neg_cost_class, tgt_ids, axis=1)
-            # [1200, 400]  4 300, 4 100  bs=4
-
-        elif self.use_kl_div_loss:
-            pass
+            # [1200, 400]  4 300, 4 100,  bs=4
 
         else:
             cost_class = -paddle.gather(out_prob, tgt_ids, axis=1)
