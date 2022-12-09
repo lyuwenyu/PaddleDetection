@@ -463,6 +463,7 @@ class DistillDINOHead(nn.Layer):
             #     [enc_topk_logits.unsqueeze(0), dec_out_logits])
 
             bboxes, logits = teacher_preds
+            bboxes, logits = bboxes.detach(), logits.detach()
             N = bboxes.shape[1]
 
             # [6, 2, 300, 4]
@@ -485,8 +486,11 @@ class DistillDINOHead(nn.Layer):
                 # if self.select_topk is not None:
                 labels_pred, scores_pred, bbox_pred = self.select(_logits,
                                                                   _bboxes)
-                bbox_pred = [_x.squeeze(0) for _x in bbox_pred.split(N, axis=0)]
-                clss_pred = [
+                bbox_teach = [
+                    _x.squeeze(0) for _x in bbox_pred.split(
+                        N, axis=0)
+                ]
+                clss_teach = [
                     _x.squeeze(0).unsqueeze(-1)
                     for _x in labels_pred.split(
                         N, axis=0)
@@ -509,11 +513,8 @@ class DistillDINOHead(nn.Layer):
                 loss = self.loss(
                     out_bboxes[i][None],
                     out_logits[i][None],
-                    bbox_pred,
-                    clss_pred,
-                    dn_out_bboxes=dn_out_bboxes,
-                    dn_out_logits=dn_out_logits,
-                    dn_meta=dn_meta, )
+                    bbox_teach,
+                    clss_teach, )
 
                 # loss = {f'{k}_disill_{i}': v for k, v in loss.items()}
                 # losses.update(loss)

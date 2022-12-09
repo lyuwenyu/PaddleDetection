@@ -6,9 +6,9 @@
 # ../software/TensorRT-8.5.1.7/bin/trtexec --onnx=./dino_new.onnx --workspace=4096 --avgRuns=100  --fp16
 
 
-fleetrun --gpus 0,1,2,3 tools/train.py -c ./configs/dino/dino_r50_1x_coco.yml --eval &>dino_r50_1x_coco.txt 2>&1 &
+fleetrun --gpus 0,1,2,3 tools/train.py -c ./configs/dino/dino_r50_1x_coco.yml --eval --fleet &>dino_r50_1x_coco.txt 2>&1 &
 
-fleetrun --gpus 0,1,2,3 tools/train.py -c ./configs/dino/dino_r50_yoloe_reader_1x_coco.yml --eval &>dino_r50_yoloe_reader_1x_coco.txt 2>&1 &
+fleetrun --gpus 0,1,2,3 tools/train.py -c ./configs/dino/dino_r50_yoloe_reader_1x_coco.yml --eval --fleet &>dino_r50_yoloe_reader_1x_coco.txt 2>&1 &
 
 
 

@@ -23,9 +23,9 @@ DistillDINOHead:
   loss_coeff: 0.5
 
   loss:
-    name: DINOLoss
-    loss_coeff: {class: 1, bbox: 5, giou: 2}
+    name: DETRLoss
     aux_loss: False
+    loss_coeff: {class: 1, bbox: 5, giou: 2}
     matcher:
       name: HungarianMatcher
       matcher_coeff: {class: 2, bbox: 5, giou: 2}
