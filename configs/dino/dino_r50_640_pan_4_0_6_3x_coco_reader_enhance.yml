@@ -4,6 +4,7 @@ _BASE_: [
   '_base_/optimizer_3x.yml',
   '_base_/dino_r50.yml',
   # '_base_/dino_640_reader.yml',
+  # '_base_/yolox_reader.yml',
   '_base_/dino_640_reader_enhance.yml',
 ]
 
