@@ -472,14 +472,15 @@ class DistillDINOHead(nn.Layer):
 
         bboxes, logits = teacher_preds
         bboxes, logits = bboxes.detach(), logits.detach()
-        N = bboxes.shape[1]
+
+        L, N, _, _ = bboxes.shape
 
         # [6, 2, 300, 4]
         # [6, 2, 300, 80]
 
         losses = {}
         # for i, (bboxes, logits) in zip(preds):
-        for i in range(len(bboxes)):
+        for i in range(L):
 
             _bboxes = bboxes[i]
             _logits = logits[i]

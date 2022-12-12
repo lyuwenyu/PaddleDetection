@@ -9,7 +9,7 @@ TrainReader:
         scale: [0.1, 2.0]
         shear: [-2, 2]
         translate: [-0.1, 0.1]
-        enable_mixup: True
+        enable_mixup: False
         mixup_prob: 1.0
         mixup_scale: [0.5, 1.5]
     - AugmentHSV: {is_bgr: False, hgain: 5, sgain: 30, vgain: 30}
@@ -24,11 +24,11 @@ TrainReader:
   batch_transforms:
     - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
 
-  batch_size: 2
+  batch_size: 4
   shuffle: True
   drop_last: True
   collate_batch: False
-  mosaic_epoch: 11
+  mosaic_epoch: 33
 
 
 EvalReader:
