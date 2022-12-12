@@ -38,6 +38,8 @@ EvalReader:
     - Pad: {size: [640, 640], fill_value: [114., 114., 114.]}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
+  batch_transforms:
+    - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
   batch_size: 4
 
 
