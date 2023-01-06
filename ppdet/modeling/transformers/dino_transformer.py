@@ -391,36 +391,98 @@ class DINOTransformerDecoder(nn.Layer):
         intermediate = []
         dec_out_bboxes = []
         dec_out_logits = []
+
+        dec_out_bboxes_list = []
+        dec_out_logits_list = []
+
+        from collections import defaultdict
+        dec_query_set = defaultdict(list)
+        dec_query_set[0].append((reference_points, reference_points, None))
+
+        ks = [1, 2, 3, 5, 8, 13]
+
         for i, layer in enumerate(self.layers):
-            reference_points_input = reference_points.detach().unsqueeze(
-                2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
-            query_pos_embed = get_sine_pos_embed(
-                reference_points_input[..., 0, :], self.hidden_dim // 2)
-            query_pos_embed = query_pos_head(query_pos_embed)
 
-            output = layer(output, reference_points_input, memory,
-                           memory_spatial_shapes, attn_mask, memory_mask,
-                           query_pos_embed)
+            for j, (_iboxes, _boxes, _logits) in enumerate(dec_query_set[i]):
+                reference_points = _iboxes
 
-            inter_ref_points = F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
-                reference_points.detach()))
-            dec_logit = score_head[i](output)
+                reference_points_input = reference_points.detach().unsqueeze(
+                    2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
 
-            if self.return_intermediate:
-                intermediate.append(self.norm(output))
-                if i == 0:
-                    dec_out_bboxes.append(inter_ref_points)
-                else:
-                    dec_out_bboxes.append(
-                        F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
-                            reference_points)))
-                dec_out_logits.append(dec_logit)
+                query_pos_embed = get_sine_pos_embed(
+                    reference_points_input[..., 0, :], self.hidden_dim // 2)
 
-            reference_points = inter_ref_points
+                query_pos_embed = query_pos_head(query_pos_embed)
 
+                output = layer(output, reference_points_input, memory,
+                               memory_spatial_shapes, attn_mask, memory_mask,
+                               query_pos_embed)
+
+                inter_ref_points = F.sigmoid(bbox_head[i](
+                    output) + inverse_sigmoid(reference_points.detach()))
+
+                dec_logit = score_head[i](output)
+
+                if self.return_intermediate:
+                    intermediate.append(self.norm(output))
+                    if i == 0:
+                        dec_out_bboxes.append(inter_ref_points)
+                    else:
+                        dec_out_bboxes.append(
+                            F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
+                                reference_points)))
+
+                    dec_out_logits.append(dec_logit)
+
+                    dec_query_set[i + 1].append(
+                        (inter_ref_points, dec_out_bboxes[-1],
+                         dec_out_logits[-1]))
+
+            for _, (_iboxes, _boxes,
+                    _logits) in enumerate(dec_query_set[i + 1][::-1]):
+                dec_out_bboxes_list.append(_boxes)
+                dec_out_logits_list.append(_logits)
+
+            _k = ks[i + 1] - len(dec_query_set[i + 1])
+            dec_query_set[i + 1].extend(dec_query_set[i][:_k])
+
+            print(i, len(dec_query_set[i + 1]))
+
+            # reference_points = inter_ref_points
+
+        # for i, layer in enumerate(self.layers):
+        #     reference_points_input = reference_points.detach().unsqueeze(
+        #         2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
+        #     query_pos_embed = get_sine_pos_embed(
+        #         reference_points_input[..., 0, :], self.hidden_dim // 2)
+        #     query_pos_embed = query_pos_head(query_pos_embed)
+
+        #     output = layer(output, reference_points_input, memory,
+        #                    memory_spatial_shapes, attn_mask, memory_mask,
+        #                    query_pos_embed)
+
+        #     inter_ref_points = F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
+        #         reference_points.detach()))
+        #     dec_logit = score_head[i](output)
+
+        #     if self.return_intermediate:
+        #         intermediate.append(self.norm(output))
+        #         if i == 0:
+        #             dec_out_bboxes.append(inter_ref_points)
+        #         else:
+        #             dec_out_bboxes.append(
+        #                 F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
+        #                     reference_points)))
+        #         dec_out_logits.append(dec_logit)
+
+        #     reference_points = inter_ref_points
+
+        # if self.return_intermediate:
+        #     return paddle.stack(intermediate), paddle.stack(
+        #         dec_out_bboxes), paddle.stack(dec_out_logits)
         if self.return_intermediate:
-            return paddle.stack(intermediate), paddle.stack(
-                dec_out_bboxes), paddle.stack(dec_out_logits)
+            return None, paddle.stack(dec_out_bboxes_list), paddle.stack(
+                dec_out_logits_list)
 
         return output, reference_points, dec_logit
 
