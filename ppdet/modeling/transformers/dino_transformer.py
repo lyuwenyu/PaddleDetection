@@ -360,12 +360,14 @@ class DINOTransformerDecoder(nn.Layer):
                  hidden_dim,
                  decoder_layer,
                  num_layers,
-                 return_intermediate=True):
+                 return_intermediate=True,
+                 look_forward_twice=True):
         super(DINOTransformerDecoder, self).__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.return_intermediate = return_intermediate
+        self.look_forward_twice = look_forward_twice
 
         self.norm = nn.LayerNorm(
             hidden_dim,
@@ -398,9 +400,6 @@ class DINOTransformerDecoder(nn.Layer):
         from collections import defaultdict
         dec_query_set = defaultdict(list)
         dec_query_set[0].append(('0', reference_points, reference_points, None))
-
-        final_dec_out_bboxes = None
-        final_dec_out_logits = None
 
         ks = [1, 2, 3, 5, 8, 13, 21]
 
@@ -451,7 +450,6 @@ class DINOTransformerDecoder(nn.Layer):
             dec_query_set[i + 1].extend(dec_query_set[i][:_k])
 
             # print(i, len(dec_query_set[i + 1]))
-
             # reference_points = inter_ref_points
 
         # for i, layer in enumerate(self.layers):
@@ -485,7 +483,7 @@ class DINOTransformerDecoder(nn.Layer):
         #     return paddle.stack(intermediate), paddle.stack(
         #         dec_out_bboxes), paddle.stack(dec_out_logits)
 
-        if self.return_intermediate and self.training:
+        if self.return_intermediate:
             return None, paddle.stack(dec_out_bboxes_list), paddle.stack(
                 dec_out_logits_list)
 
