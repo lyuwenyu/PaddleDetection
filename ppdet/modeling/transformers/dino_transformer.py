@@ -427,12 +427,16 @@ class DINOTransformerDecoder(nn.Layer):
 
                 if self.return_intermediate:
                     intermediate.append(self.norm(output))
-                    if i == 0:
-                        dec_out_bboxes.append(inter_ref_points)
+
+                    if self.look_forward_twice:
+                        if i == 0:
+                            dec_out_bboxes.append(inter_ref_points)
+                        else:
+                            dec_out_bboxes.append(
+                                F.sigmoid(bbox_head[i](output) +
+                                          inverse_sigmoid(reference_points)))
                     else:
-                        dec_out_bboxes.append(
-                            F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
-                                reference_points)))
+                        dec_out_bboxes.append(inter_ref_points)
 
                     dec_out_logits.append(dec_logit)
 
@@ -514,7 +518,8 @@ class DINOTransformer(nn.Layer):
                  label_noise_ratio=0.5,
                  box_noise_scale=1.0,
                  learnt_init_query=True,
-                 eps=1e-2):
+                 eps=1e-2,
+                 look_forward_twice=True):
         super(DINOTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -542,9 +547,12 @@ class DINOTransformer(nn.Layer):
         decoder_layer = DINOTransformerDecoderLayer(
             hidden_dim, nhead, dim_feedforward, dropout, activation, num_levels,
             num_decoder_points)
-        self.decoder = DINOTransformerDecoder(hidden_dim, decoder_layer,
-                                              num_decoder_layers,
-                                              return_intermediate_dec)
+        self.decoder = DINOTransformerDecoder(
+            hidden_dim,
+            decoder_layer,
+            num_decoder_layers,
+            return_intermediate_dec,
+            look_forward_twice=look_forward_twice)
 
         # denoising part
         self.denoising_class_embed = nn.Embedding(
