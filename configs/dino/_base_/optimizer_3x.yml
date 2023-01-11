@@ -9,6 +9,10 @@ LearningRate:
     milestones: [100]
     use_warmup: false
 
+  # - !LinearWarmup
+  #   start_factor: 0.001
+  #   steps: 2000
+
 OptimizerBuilder:
   clip_grad_by_norm: 0.1
   regularizer: false

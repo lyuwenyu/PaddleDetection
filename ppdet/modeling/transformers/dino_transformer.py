@@ -448,10 +448,13 @@ class DINOTransformerDecoder(nn.Layer):
                     _logits) in enumerate(dec_query_set[i + 1][::-1]):
                 dec_out_bboxes_list.append(_boxes)
                 dec_out_logits_list.append(_logits)
-                # print(i, _n)
+                # print(i + 1, _n)
 
             _k = ks[i + 1] - len(dec_query_set[i + 1])
             dec_query_set[i + 1].extend(dec_query_set[i][:_k])
+
+            # for _n, _, _, _ in dec_query_set[i + 1]:
+            #     print(i + 1, _n)
 
             # print(i, len(dec_query_set[i + 1]))
             # reference_points = inter_ref_points
