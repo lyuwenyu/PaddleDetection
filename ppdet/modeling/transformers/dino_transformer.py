@@ -544,10 +544,8 @@ class DINOTransformer(nn.Layer):
         xavier_uniform_(self.tgt_embed.weight)
         xavier_uniform_(self.query_pos_head.layers[0].weight)
         xavier_uniform_(self.query_pos_head.layers[1].weight)
-        normal_(self.denoising_class_embed.weight)
         for l in self.input_proj:
             xavier_uniform_(l[0].weight)
-            constant_(l[0].bias)
 
     @classmethod
     def from_config(cls, cfg, input_shape):
