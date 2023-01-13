@@ -559,12 +559,13 @@ class DINOTransformer(nn.Layer):
             self.input_proj.append(
                 nn.Sequential(
                     ('conv', nn.Conv2D(
-                        in_channels, self.hidden_dim, kernel_size=1)),
-                    ('norm', nn.GroupNorm(
-                        32,
+                        in_channels,
                         self.hidden_dim,
-                        weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
-                        bias_attr=ParamAttr(regularizer=L2Decay(0.0))))))
+                        kernel_size=1,
+                        bias_attr=False)), ('norm', nn.BatchNorm2D(
+                            self.hidden_dim,
+                            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+                            bias_attr=ParamAttr(regularizer=L2Decay(0.0))))))
         in_channels = backbone_feat_channels[-1]
         for _ in range(self.num_levels - len(backbone_feat_channels)):
             self.input_proj.append(
@@ -574,8 +575,8 @@ class DINOTransformer(nn.Layer):
                         self.hidden_dim,
                         kernel_size=3,
                         stride=2,
-                        padding=1)), ('norm', nn.GroupNorm(
-                            32,
+                        padding=1,
+                        bias_attr=False)), ('norm', nn.BatchNorm2D(
                             self.hidden_dim,
                             weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
                             bias_attr=ParamAttr(regularizer=L2Decay(0.0))))))

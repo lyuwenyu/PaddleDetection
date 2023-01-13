@@ -43,9 +43,11 @@ DINOHead:
     name: DINOLoss
     loss_coeff: {class: 1, bbox: 5, giou: 2}
     aux_loss: True
+    use_vfl: True
     matcher:
       name: HungarianMatcher
       matcher_coeff: {class: 2, bbox: 5, giou: 2}
+      use_pos_only: True
 
 
 DETRBBoxPostProcess:
