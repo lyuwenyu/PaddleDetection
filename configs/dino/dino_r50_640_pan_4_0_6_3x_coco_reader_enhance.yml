@@ -4,7 +4,7 @@ _BASE_: [
   '_base_/optimizer_3x.yml',
   '_base_/dino_r50.yml',
   # '_base_/dino_640_reader.yml',
-  '_base_/dino_640_reader_enhance.yml',
+  '_base_/yoloe_reader.yml',
 ]
 
 weights: output/dino_r50_640_pan_4_0_6_3x_coco_reader_enhance/model_final
