@@ -402,7 +402,7 @@ class DINOHead(nn.Layer):
                 dn_out_logits=dn_out_logits,
                 dn_meta=dn_meta)
         else:
-            if self.eval_idx >= 0:
+            if self.eval_idx is not None:
                 return (dec_out_bboxes[self.eval_idx],
                         dec_out_logits[self.eval_idx], None)
             else:
