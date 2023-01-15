@@ -20,7 +20,6 @@ from __future__ import division
 from __future__ import print_function
 
 import math
-from aem import con
 from numpy import random
 import paddle
 import paddle.nn as nn
