@@ -20,6 +20,8 @@ from __future__ import division
 from __future__ import print_function
 
 import math
+from aem import con
+from numpy import random
 import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
@@ -360,12 +362,19 @@ class DINOTransformerDecoder(nn.Layer):
                  hidden_dim,
                  decoder_layer,
                  num_layers,
-                 return_intermediate=True):
+                 return_intermediate=True,
+                 path_type='base',
+                 drop_p=0.2):
         super(DINOTransformerDecoder, self).__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.return_intermediate = return_intermediate
+
+        self.path_type = path_type
+        self.drop_p = drop_p
+
+        assert path_type in ('base', 'drop_v1', 'drop_v2', 'drop_v2'), ''
 
         self.norm = nn.LayerNorm(
             hidden_dim,
@@ -391,7 +400,39 @@ class DINOTransformerDecoder(nn.Layer):
         intermediate = []
         dec_out_bboxes = []
         dec_out_logits = []
+
+        drop_i = random.randint(1, self.num_layers - 1)
+        drop_d = random.randint(3, self.num_layers)
+        dynamic_k = 0
+
+        reference_points_input_list = [reference_points, ]
+
         for i, layer in enumerate(self.layers):
+
+            # drop block
+            if self.training and self.path_type == 'drop_v1' and i == drop_i and random.uniform(
+                    0., 1.) < self.drop_p:
+                continue
+
+            # drop path
+            elif self.training and self.path_type == 'drop_v2' and i == drop_i and random.uniform(
+                    0., 1.) < self.drop_p:
+                # reference_points_input_list = reference_points_input_list[:-1]
+                reference_points = reference_points_input_list[-2]
+
+            # dynamic layers
+            elif self.training and self.path_type == 'drop_v3':
+                if i > drop_d:
+                    continue
+
+            elif self.training and self.path_type == 'dynamic':
+                _k = random.randint(dynamic_k, len(reference_points_input_list))
+                reference_points = reference_points_input_list[_k]
+                dynamic_k = _k
+
+            else:
+                pass
+
             reference_points_input = reference_points.detach().unsqueeze(
                 2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
             query_pos_embed = get_sine_pos_embed(
@@ -401,6 +442,10 @@ class DINOTransformerDecoder(nn.Layer):
             output = layer(output, reference_points_input, memory,
                            memory_spatial_shapes, attn_mask, memory_mask,
                            query_pos_embed)
+
+            if not self.training and self.path_type == 'drop_v1' and i in list(
+                    range(1, self.num_layers - 1)):
+                output *= 1. / (1 - 1. / (self.num_layers - 2) * self.drop_p)
 
             inter_ref_points = F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
                 reference_points.detach()))
@@ -417,6 +462,8 @@ class DINOTransformerDecoder(nn.Layer):
                 dec_out_logits.append(dec_logit)
 
             reference_points = inter_ref_points
+
+            reference_points_input_list.append(reference_points)
 
         if self.return_intermediate:
             return paddle.stack(intermediate), paddle.stack(
@@ -449,7 +496,9 @@ class DINOTransformer(nn.Layer):
                  label_noise_ratio=0.5,
                  box_noise_scale=1.0,
                  learnt_init_query=True,
-                 eps=1e-2):
+                 eps=1e-2,
+                 path_type='base',
+                 drop_p=0.2):
         super(DINOTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -477,9 +526,13 @@ class DINOTransformer(nn.Layer):
         decoder_layer = DINOTransformerDecoderLayer(
             hidden_dim, nhead, dim_feedforward, dropout, activation, num_levels,
             num_decoder_points)
-        self.decoder = DINOTransformerDecoder(hidden_dim, decoder_layer,
-                                              num_decoder_layers,
-                                              return_intermediate_dec)
+        self.decoder = DINOTransformerDecoder(
+            hidden_dim,
+            decoder_layer,
+            num_decoder_layers,
+            return_intermediate_dec,
+            path_type=path_type,
+            drop_p=drop_p)
 
         # denoising part
         self.denoising_class_embed = nn.Embedding(

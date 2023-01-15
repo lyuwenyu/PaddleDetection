@@ -9,7 +9,7 @@ TrainReader:
     - RandomDistort: {p: 0.8}
     - RandomExpand: {fill_value: [123.675, 116.28, 103.53], prob: 0.5}
     - RandomCrop: {p: 0.8}
-    - RandomFlip: {}
+    - RandomFlip: {prob: 0.5}
     # - Resize: {target_size: 640, keep_ratio: False}
     # - NormalizeBox: {}
     # - BboxXYXY2XYWH: {}
