@@ -67,7 +67,7 @@ DINOTransformer:
   num_decoder_layers: 6
   dim_feedforward: 2048
   dropout: 0.0
-  activation: relu
+  activation: relu # gelu
   num_denoising: 100
   label_noise_ratio: 0.5
   box_noise_scale: 1.0
