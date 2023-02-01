@@ -593,7 +593,8 @@ class DINOTransformer(nn.Layer):
         linear_init_(self.enc_output[0])
         xavier_uniform_(self.enc_output[0].weight)
         normal_(self.level_embed.weight)
-        xavier_uniform_(self.tgt_embed.weight)
+        if self.learnt_init_query:
+            xavier_uniform_(self.tgt_embed.weight)
         xavier_uniform_(self.query_pos_head.layers[0].weight)
         xavier_uniform_(self.query_pos_head.layers[1].weight)
         for l in self.input_proj:
