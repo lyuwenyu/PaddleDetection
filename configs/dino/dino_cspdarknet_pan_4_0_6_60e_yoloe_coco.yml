@@ -34,17 +34,6 @@ DETR:
   post_process: DETRBBoxPostProcess
 
 
-# ResNet:
-#   # index 0 stands for res2
-#   depth: 50
-#   norm_type: bn
-#   freeze_at: 0
-#   return_idx: [1, 2, 3]
-#   lr_mult_list: [0.1, 0.1, 0.1, 0.1]
-#   num_stages: 4
-#   freeze_stem_only: true
-#   # variant: d
-
 
 depth_mult: 1.0
 width_mult: 1.0

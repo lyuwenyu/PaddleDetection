@@ -46,7 +46,9 @@ class ModelEMA(object):
                  decay=0.9998,
                  ema_decay_type='threshold',
                  cycle_epoch=-1,
-                 ema_black_list=None):
+                 ema_black_list=None,
+                 ema_filter_no_grads=False,
+                 ema_filter_bn_states=False):
         self.step = 0
         self.epoch = 0
         self.decay = decay
@@ -54,6 +56,17 @@ class ModelEMA(object):
         self.cycle_epoch = cycle_epoch
         self.ema_black_list = self._match_ema_black_list(
             model.state_dict().keys(), ema_black_list)
+
+        if ema_filter_no_grads:
+            for n, p in self.model.named_parameters():
+                if p.stop_gradient == True and '_mean' not in p and '_variance' not in p:
+                    self.ema_black_list.append(n)
+
+        if ema_filter_bn_states:
+            for n, p in self.model.named_parameters():
+                if '_mean' in p or '_variance' in p:
+                    self.ema_black_list.append(n)
+
         self.state_dict = dict()
         for k, v in model.state_dict().items():
             if k in self.ema_black_list:
