@@ -59,13 +59,14 @@ class ModelEMA(object):
 
         if ema_filter_no_grads:
             for n, p in model.named_parameters():
-                if p.stop_gradient == True and '_mean' not in p and '_variance' not in p:
-                    self.ema_black_list.append(n)
+                if (p.stop_gradient == True) and ('_mean' not in n) and (
+                        '_variance' not in n):
+                    self.ema_black_list.add(n)
 
         if ema_filter_bn_states:
             for n, p in model.named_parameters():
-                if '_mean' in p or '_variance' in p:
-                    self.ema_black_list.append(n)
+                if ('_mean' in n) or ('_variance' in n):
+                    self.ema_black_list.add(n)
 
         self.state_dict = dict()
         for k, v in model.state_dict().items():
