@@ -20,7 +20,7 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 from ppdet.core.workspace import register
-from .iou_loss import GIoULoss
+from .iou_loss import GIoULoss, SIoULoss, SIoULossL
 from ..transformers import bbox_cxcywh_to_xyxy, sigmoid_focal_loss, varifocal_loss_with_logits
 from ..bbox_utils import bbox_iou
 
@@ -45,7 +45,8 @@ class DETRLoss(nn.Layer):
                  },
                  aux_loss=True,
                  use_focal_loss=False,
-                 use_vfl=False):
+                 use_vfl=False,
+                 iou_type='giou'):
         r"""
         Args:
             num_classes (int): The number of classes.
@@ -68,7 +69,19 @@ class DETRLoss(nn.Layer):
             self.loss_coeff['class'] = paddle.full([num_classes + 1],
                                                    loss_coeff['class'])
             self.loss_coeff['class'][-1] = loss_coeff['no_object']
-        self.giou_loss = GIoULoss()
+
+        self.iou_type = iou_type
+
+        if iou_type == 'giou':
+            self.giou_loss = GIoULoss()
+
+        elif iou_type == 'siou':
+            self.giou_loss = SIoULoss()
+
+        elif iou_type == 'siou_l':
+            self.giou_loss = SIoULossL()
+        else:
+            raise RuntimeError()
 
     def _get_loss_class(self,
                         logits,

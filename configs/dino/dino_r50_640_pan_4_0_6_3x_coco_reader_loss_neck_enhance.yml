@@ -80,6 +80,7 @@ DINOHead:
     loss_coeff: {class: 1, bbox: 5, giou: 2}
     aux_loss: True
     use_vfl: True
+    iou_type: 'giou' # siou_l
     matcher:
       name: HungarianMatcher
       matcher_coeff: {class: 2, bbox: 5, giou: 2}

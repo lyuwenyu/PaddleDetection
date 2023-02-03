@@ -23,7 +23,7 @@ import paddle
 from ppdet.core.workspace import register, serializable
 from ..bbox_utils import bbox_iou
 
-__all__ = ['IouLoss', 'GIoULoss', 'DIouLoss', 'SIoULoss']
+__all__ = ['IouLoss', 'GIoULoss', 'DIouLoss', 'SIoULoss', 'SIoULossL']
 
 
 @register
@@ -293,3 +293,100 @@ class SIoULoss(GIoULoss):
             siou_loss = paddle.sum(siou_loss)
 
         return siou_loss * self.loss_weight
+
+
+@register
+@serializable
+class SIoULossL(object):
+    def __init__(self, loss_weight=1., eps=1e-10, reduction='none'):
+        self.loss_weight = loss_weight
+        self.eps = eps
+        assert reduction in ('none', 'mean', 'sum')
+        self.reduction = reduction
+
+    def bbox_overlap(self, box1, box2, eps=1e-10):
+        """calculate the iou of box1 and box2
+        Args:
+            box1 (Tensor): box1 with the shape (..., 4)
+            box2 (Tensor): box1 with the shape (..., 4)
+            eps (float): epsilon to avoid divide by zero
+        Return:
+            iou (Tensor): iou of box1 and box2
+            overlap (Tensor): overlap of box1 and box2
+            union (Tensor): union of box1 and box2
+        """
+        x1, y1, x2, y2 = box1
+        x1g, y1g, x2g, y2g = box2
+
+        xkis1 = paddle.maximum(x1, x1g)
+        ykis1 = paddle.maximum(y1, y1g)
+        xkis2 = paddle.minimum(x2, x2g)
+        ykis2 = paddle.minimum(y2, y2g)
+        w_inter = (xkis2 - xkis1).clip(0)
+        h_inter = (ykis2 - ykis1).clip(0)
+        overlap = w_inter * h_inter
+
+        area1 = (x2 - x1) * (y2 - y1)
+        area2 = (x2g - x1g) * (y2g - y1g)
+        union = area1 + area2 - overlap + eps
+        iou = overlap / union
+
+        return iou, overlap, union
+
+    def __call__(self, pbox, gbox, iou_weight=1., loc_reweight=None):
+        b1_x1, b1_y1, b1_x2, b1_y2 = paddle.split(
+            pbox, num_or_sections=4, axis=-1)
+        b2_x1, b2_y1, b2_x2, b2_y2 = paddle.split(
+            gbox, num_or_sections=4, axis=-1)
+        box1 = [b1_x1, b1_y1, b1_x2, b1_y2]
+        box2 = [b2_x1, b2_y1, b2_x2, b2_y2]
+
+        iou, overlap, union = self.bbox_overlap(box1, box2, self.eps)
+
+        w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1 + self.eps
+        w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1 + self.eps
+
+        cw = paddle.maximum(b1_x2, b2_x2) - paddle.minimum(
+            b1_x1, b2_x1)  # convex width
+        ch = paddle.maximum(b1_y2, b2_y2) - paddle.minimum(
+            b1_y1, b2_y1)  # convex height
+
+        # SIoU Loss https://arxiv.org/pdf/2205.12740.pdf
+
+        s_cw = (b2_x1 + b2_x2 - b1_x1 - b1_x2) * 0.5 + self.eps
+        s_ch = (b2_y1 + b2_y2 - b1_y1 - b1_y2) * 0.5 + self.eps
+
+        sigma = paddle.pow(s_cw**2 + s_ch**2, 0.5)
+
+        sin_alpha_1 = paddle.abs(s_cw) / sigma
+        sin_alpha_2 = paddle.abs(s_ch) / sigma
+
+        threshold = math.pow(2, 0.5) / 2
+
+        sin_alpha = paddle.where(sin_alpha_1 > threshold, sin_alpha_2,
+                                 sin_alpha_1)
+
+        angle_cost = paddle.cos(paddle.arcsin(sin_alpha) * 2 - math.pi / 2)
+
+        rho_x = (s_cw / cw)**2
+        rho_y = (s_ch / ch)**2
+        gamma = angle_cost - 2
+        distance_cost = 2 - paddle.exp(gamma * rho_x) - paddle.exp(gamma *
+                                                                   rho_y)
+
+        omiga_w = paddle.abs(w1 - w2) / paddle.maximum(w1, w2)
+        omiga_h = paddle.abs(h1 - h2) / paddle.maximum(h1, h2)
+        shape_cost = paddle.pow(1 - paddle.exp(-1 * omiga_w), 4) + paddle.pow(
+            1 - paddle.exp(-1 * omiga_h), 4)
+        iou = iou - 0.5 * (distance_cost + shape_cost)
+
+        loss = 1 - iou
+
+        if self.reduction == 'none':
+            pass
+        elif self.reduction == 'sum':
+            loss = paddle.sum(loss * iou_weight)
+        else:
+            loss = paddle.mean(loss * iou_weight)
+
+        return loss * self.loss_weight
