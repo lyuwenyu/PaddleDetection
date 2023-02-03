@@ -25,7 +25,7 @@ import paddle.nn.functional as F
 from scipy.optimize import linear_sum_assignment
 
 from ppdet.core.workspace import register, serializable
-from ..losses.iou_loss import GIoULoss
+from ..losses.iou_loss import GIoULoss, SIoULossL
 from .utils import bbox_cxcywh_to_xyxy
 
 __all__ = ['HungarianMatcher']
@@ -43,7 +43,8 @@ class HungarianMatcher(nn.Layer):
                  use_focal_loss=False,
                  use_pos_only=False,
                  alpha=0.25,
-                 gamma=2.0):
+                 gamma=2.0,
+                 iou_type='giou'):
         r"""
         Args:
             matcher_coeff (dict): The coefficient of hungarian matcher cost.
@@ -55,7 +56,12 @@ class HungarianMatcher(nn.Layer):
         self.alpha = alpha
         self.gamma = gamma
 
-        self.giou_loss = GIoULoss()
+        if iou_type == 'giou':
+            self.giou_loss = GIoULoss()
+        elif iou_type == 'siou_l':
+            self.giou_loss = SIoULossL()
+        else:
+            raise RuntimeError('')
 
     def forward(self, boxes, logits, gt_bbox, gt_class):
         r"""

@@ -85,6 +85,7 @@ DINOHead:
       name: HungarianMatcher
       matcher_coeff: {class: 2, bbox: 5, giou: 2}
       use_pos_only: True
+      iou_type: 'giou' # siou_l
 
 
 DETRBBoxPostProcess:
