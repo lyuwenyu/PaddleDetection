@@ -366,7 +366,7 @@ class SIoULossL(object):
         sin_alpha = paddle.where(sin_alpha_1 > threshold, sin_alpha_2,
                                  sin_alpha_1)
 
-        angle_cost = paddle.cos(paddle.arcsin(sin_alpha) * 2 - math.pi / 2)
+        angle_cost = paddle.cos(paddle.asin(sin_alpha) * 2 - math.pi / 2)
 
         rho_x = (s_cw / cw)**2
         rho_y = (s_ch / ch)**2
