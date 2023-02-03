@@ -17,7 +17,7 @@ norm_type: sync_bn
 use_ema: True
 ema_decay: 0.9999
 ema_decay_type: "exponential"
-ema_filter_no_grads: False
+ema_filter_no_grads: False # True
 ema_filter_bn_states: False
 
 DETR:
@@ -71,7 +71,7 @@ DINOTransformer:
   num_denoising: 100
   label_noise_ratio: 0.5
   box_noise_scale: 1.0
-  learnt_init_query: True
+  learnt_init_query: True # False
 
 
 DINOHead:
