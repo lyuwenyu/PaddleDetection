@@ -497,7 +497,8 @@ class DINOTransformer(nn.Layer):
                  learnt_init_query=True,
                  eps=1e-2,
                  path_type='base',
-                 drop_p=0.2):
+                 drop_p=0.2,
+                 dn_epoch=-1):
         super(DINOTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -509,6 +510,7 @@ class DINOTransformer(nn.Layer):
         self.num_classes = num_classes
         self.num_queries = num_queries
         self.eps = eps
+        self.dn_epoch = dn_epoch
 
         # backbone feature projection
         self._build_input_proj_layer(backbone_feat_channels)
@@ -698,7 +700,7 @@ class DINOTransformer(nn.Layer):
         memory = memory + self.denoising_class_embed.weight.sum() * 0.
 
         # prepare denoising training
-        if self.training:
+        if self.training and gt_meta['epoch_id'] < self.dn_epoch:
             denoising_class, denoising_bbox, attn_mask, dn_meta = \
                 get_contrastive_denoising_training_group(gt_meta,
                                             self.num_classes,
