@@ -17,7 +17,7 @@ norm_type: sync_bn
 use_ema: True
 ema_decay: 0.9999
 ema_decay_type: "exponential"
-ema_filter_no_grads: False # True
+ema_filter_no_grads: True # True
 ema_filter_bn_states: False
 
 DETR:
