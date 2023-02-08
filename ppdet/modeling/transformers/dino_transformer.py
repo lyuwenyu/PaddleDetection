@@ -498,7 +498,10 @@ class DINOTransformer(nn.Layer):
                  eps=1e-2,
                  path_type='base',
                  drop_p=0.2,
-                 dn_epoch=-1):
+                 dn_epoch=-1,
+                 mlp_activation='relu',
+                 num_bbox_head_layers=3,
+                 num_query_pos_head_layers=2):
         super(DINOTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -556,7 +559,8 @@ class DINOTransformer(nn.Layer):
         self.query_pos_head = MLP(2 * hidden_dim,
                                   hidden_dim,
                                   hidden_dim,
-                                  num_layers=2)
+                                  num_layers=num_query_pos_head_layers,
+                                  activation=mlp_activation)
 
         # encoder head
         self.enc_output = nn.Sequential(
@@ -566,15 +570,22 @@ class DINOTransformer(nn.Layer):
                 weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
                 bias_attr=ParamAttr(regularizer=L2Decay(0.0))))
         self.enc_score_head = nn.Linear(hidden_dim, num_classes)
-        self.enc_bbox_head = MLP(hidden_dim, hidden_dim, 4, num_layers=3)
+        self.enc_bbox_head = MLP(hidden_dim,
+                                 hidden_dim,
+                                 4,
+                                 num_layers=num_bbox_head_layers,
+                                 activation=mlp_activation)
         # decoder head
         self.dec_score_head = nn.LayerList([
             nn.Linear(hidden_dim, num_classes)
             for _ in range(num_decoder_layers)
         ])
         self.dec_bbox_head = nn.LayerList([
-            MLP(hidden_dim, hidden_dim, 4, num_layers=3)
-            for _ in range(num_decoder_layers)
+            MLP(hidden_dim,
+                hidden_dim,
+                4,
+                num_layers=num_bbox_head_layers,
+                activation=mlp_activation) for _ in range(num_decoder_layers)
         ])
 
         self._reset_parameters()

@@ -19,6 +19,7 @@ from __future__ import print_function
 import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
+from ppdet.core.config.yaml_helpers import Callable
 from ppdet.core.workspace import register
 import pycocotools.mask as mask_util
 from ..initializer import linear_init_, constant_
@@ -32,12 +33,23 @@ class MLP(nn.Layer):
         https://github.com/facebookresearch/detr/blob/main/models/detr.py
     """
 
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+    def __init__(self,
+                 input_dim,
+                 hidden_dim,
+                 output_dim,
+                 num_layers,
+                 activation='relu'):
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
         self.layers = nn.LayerList(
             nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
+
+        if isinstance(activation, str):
+            self.act = getattr(F, activation)
+        else:
+            assert isinstance(activation, Callable), ''
+            self.act = activation
 
         self._reset_parameters()
 
@@ -47,7 +59,8 @@ class MLP(nn.Layer):
 
     def forward(self, x):
         for i, layer in enumerate(self.layers):
-            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+            # x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+            x = self.act(layer(x)) if i < self.num_layers - 1 else layer(x)
         return x
 
 
