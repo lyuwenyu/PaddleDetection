@@ -317,12 +317,29 @@ class OptimizerBuilder():
                 assert isinstance(group,
                                   dict) and 'params' in group and isinstance(
                                       group['params'], list), ''
-                _params = {
-                    n: p
-                    for n, p in model.named_parameters()
-                    if any([k in n
-                            for k in group['params']]) and p.trainable is True
-                }
+                # _params = {
+                #     n: p
+                #     for n, p in model.named_parameters()
+                #     if any([k in n
+                #             for k in group['params']]) and p.trainable is True
+                # }
+
+                # TODO just for weight_decay == 0
+                if 'weight_decay' in group and group['weight_decay'] == 0.:
+                    _params = {
+                        n: p
+                        for n, p in model.named_parameters()
+                        if (any([k in n for k in group['params']]) or len(
+                            p.shape) == 1) and p.trainable is True
+                    }
+                else:
+                    _params = {
+                        n: p
+                        for n, p in model.named_parameters()
+                        if any([k in n for k in group['params']]) and
+                        p.trainable is True
+                    }
+
                 _group = group.copy()
                 _group.update({'params': list(_params.values())})
 

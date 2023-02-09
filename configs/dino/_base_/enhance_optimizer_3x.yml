@@ -20,5 +20,5 @@ OptimizerBuilder:
 
     param_groups:
         -
-          params: ['.bias', 'norm.', 'bn.']
+          params: ['.bias', '.norm', '.bn']
           weight_decay: 0.
