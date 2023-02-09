@@ -25,6 +25,9 @@ import pycocotools.mask as mask_util
 from ..initializer import linear_init_, constant_
 from ..transformers.utils import inverse_sigmoid
 
+from paddle import ParamAttr
+from paddle.regularizer import L2Decay
+
 __all__ = ['DETRHead', 'DeformableDETRHead', 'DINOHead']
 
 
@@ -38,12 +41,18 @@ class MLP(nn.Layer):
                  hidden_dim,
                  output_dim,
                  num_layers,
-                 activation='relu'):
+                 activation='relu',
+                 keep_bias_weight_decay=True):
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
+        # self.layers = nn.LayerList(
+        #     nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
+
         self.layers = nn.LayerList(
-            nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
+            nn.Linear(n, k) if keep_bias_weight_decay else nn.Linear(
+                n, k, bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+            for n, k in zip([input_dim] + h, h + [output_dim]))
 
         if isinstance(activation, str):
             self.act = getattr(F, activation)
