@@ -1,0 +1,53 @@
+worker_num: 4
+eval_height: &eval_height 640
+eval_width: &eval_width 640
+eval_size: &eval_size [*eval_height, *eval_width]
+
+TrainReader:
+  sample_transforms:
+    - Decode: {}
+    - RandomDistort: {p: 0.8}
+    - RandomExpand: {fill_value: [123.675, 116.28, 103.53], prob: 0.5}
+    - RandomCrop: {p: 0.8}
+    - RandomFlip: {prob: 0.5}
+    # - Resize: {target_size: 640, keep_ratio: False}
+    # - NormalizeBox: {}
+    # - BboxXYXY2XYWH: {}
+
+  batch_transforms:
+    - BatchRandomResize: {target_size: [480, 512, 544, 576, 608, 640, 640, 640, 672, 704, 736, 768, 800], random_size: True, random_interp: True, keep_ratio: False}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+
+    - NormalizeBox: {}
+    - BboxXYXY2XYWH: {}
+
+    - Permute: {}
+    - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
+
+  batch_size: 4
+  shuffle: true
+  drop_last: true
+  collate_batch: false
+  use_shared_memory: false
+
+
+
+EvalReader:
+  sample_transforms:
+    - Decode: {}
+    - Resize: {target_size: *eval_size, keep_ratio: False, interp: 2}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+  batch_transforms:
+    - Permute: {}
+    - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
+  batch_size: 4
+
+TestReader:
+  inputs_def:
+    image_shape: [3, *eval_height, *eval_width]
+  sample_transforms:
+    - Decode: {}
+    - Resize: {target_size: *eval_size, keep_ratio: False, interp: 2}
+    - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+    - Permute: {}
+  batch_size: 1
