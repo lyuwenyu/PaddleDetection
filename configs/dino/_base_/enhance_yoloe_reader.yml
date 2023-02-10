@@ -7,12 +7,13 @@ TrainReader:
   sample_transforms:
     - Decode: {}
     - RandomDistort: {p: 0.8}
-    - RandomExpand: {fill_value: [123.675, 116.28, 103.53], prob: 0.5}
+    # - RandomExpand: {fill_value: [123.675, 116.28, 103.53], prob: 0.5}
+    - RandomExpand: {fill_value: [114., 114., 114.], prob: 0.5}
     - RandomCrop: {p: 0.8}
+
+    - PadResize: {target_size: 640, fill_value: 114.}
+
     - RandomFlip: {prob: 0.5}
-    # - Resize: {target_size: 640, keep_ratio: False}
-    # - NormalizeBox: {}
-    # - BboxXYXY2XYWH: {}
 
   batch_transforms:
     - BatchRandomResize: {target_size: [480, 512, 544, 576, 608, 640, 640, 640, 672, 704, 736, 768, 800], random_size: True, random_interp: True, keep_ratio: False}
@@ -35,12 +36,24 @@ TrainReader:
 EvalReader:
   sample_transforms:
     - Decode: {}
-    - Resize: {target_size: *eval_size, keep_ratio: False, interp: 2}
+    - Resize: {target_size: [640, 640], keep_ratio: True, interp: 1}
+    - Pad: {size: [640, 640], fill_value: [114., 114., 114.]}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
-  batch_transforms:
     - Permute: {}
-    - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
   batch_size: 4
+
+
+# EvalReader:
+#   sample_transforms:
+#     - Decode: {}
+#     - Resize: {target_size: *eval_size, keep_ratio: False, interp: 2}
+#     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
+#   batch_transforms:
+#     - Permute: {}
+#     - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
+#   batch_size: 4
+
+
 
 TestReader:
   inputs_def:

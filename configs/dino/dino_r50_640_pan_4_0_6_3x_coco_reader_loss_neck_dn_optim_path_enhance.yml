@@ -5,7 +5,8 @@ _BASE_: [
 
   '_base_/optimizer_3x.yml',
   # '_base_/enhance_optimizer_3x.yml',
-  '_base_/enhance_yoloe_reader.yml',
+  '_base_/yoloe_reader.yml',
+  # '_base_/enhance_yoloe_reader.yml',
 ]
 
 weights: output/dino_r50_640_pan_4_0_6_3x_coco_reader_loss_neck_dn_optim_enhance/model_final
@@ -74,11 +75,13 @@ DINOTransformer:
   box_noise_scale: 1.0
   learnt_init_query: True # False
 
-  keep_mlp_bias_weight_decay: True # False
   mlp_activation: relu
-  dn_epoch: 10000 # 33
+  keep_mlp_bias_weight_decay: True # False
+
   num_bbox_head_layers: 3
   num_query_pos_head_layers: 2
+
+  dn_epoch: 10000 # 33
 
   path_type: 'base' # sqr
 
@@ -90,7 +93,7 @@ DINOHead:
     aux_loss: True
     use_vfl: True
     iou_type: 'giou' # siou_l
-    matched_once: True
+    matched_once: True # False
     matcher:
       name: HungarianMatcher
       matcher_coeff: {class: 2, bbox: 5, giou: 2}
