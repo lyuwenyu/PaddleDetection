@@ -46,7 +46,8 @@ class DETRLoss(nn.Layer):
                  aux_loss=True,
                  use_focal_loss=False,
                  use_vfl=False,
-                 iou_type='giou'):
+                 iou_type='giou',
+                 matched_once=False):
         r"""
         Args:
             num_classes (int): The number of classes.
@@ -64,6 +65,7 @@ class DETRLoss(nn.Layer):
         self.aux_loss = aux_loss
         self.use_focal_loss = use_focal_loss
         self.use_vfl = use_vfl
+        self.matched_once = matched_once
 
         if not self.use_focal_loss:
             self.loss_coeff['class'] = paddle.full([num_classes + 1],
@@ -203,10 +205,10 @@ class DETRLoss(nn.Layer):
         loss_class = []
         loss_bbox = []
         loss_giou = []
-        FIRST_FLAG = match_indices is None
+        ONCE_FLAG = (match_indices is None) and (not self.matched_once)
 
         for aux_boxes, aux_logits in zip(boxes, logits):
-            if match_indices is None or FIRST_FLAG:
+            if match_indices is None or ONCE_FLAG:
                 match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
                                              gt_class)
             if self.use_vfl:

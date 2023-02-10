@@ -356,14 +356,18 @@ class DINOTransformerDecoderLayer(nn.Layer):
         return tgt
 
 
+from collections import defaultdict
+
+
 class DINOTransformerDecoder(nn.Layer):
-    def __init__(self,
-                 hidden_dim,
-                 decoder_layer,
-                 num_layers,
-                 return_intermediate=True,
-                 path_type='base',
-                 drop_p=0.2):
+    def __init__(
+            self,
+            hidden_dim,
+            decoder_layer,
+            num_layers,
+            return_intermediate=True,
+            path_type='base',
+            drop_p=0.2, ):
         super(DINOTransformerDecoder, self).__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.hidden_dim = hidden_dim
@@ -373,7 +377,7 @@ class DINOTransformerDecoder(nn.Layer):
         self.path_type = path_type
         self.drop_p = drop_p
 
-        assert path_type in ('base', 'drop_v1', 'drop_v2', 'drop_v2'), ''
+        assert path_type in ('base', 'drop_v1', 'drop_v2', 'drop_v2', 'sqr'), ''
 
         self.norm = nn.LayerNorm(
             hidden_dim,
@@ -406,65 +410,128 @@ class DINOTransformerDecoder(nn.Layer):
 
         reference_points_input_list = [reference_points, ]
 
+        dec_query_set = defaultdict(list)
+        dec_query_set[0].append(('0', reference_points, reference_points, None))
+        ks = [1, 2, 3, 5, 8, 13, 21]
+        dec_out_bboxes_list = []
+        dec_out_logits_list = []
+
         for i, layer in enumerate(self.layers):
 
-            # drop block
-            if self.training and self.path_type == 'drop_v1' and i == drop_i and random.uniform(
-                    0., 1.) < self.drop_p:
-                continue
+            if self.path_type == 'sqr':
+                for j, (_name, _iboxes, _, _) in enumerate(dec_query_set[i]):
+                    reference_points = _iboxes
 
-            # drop path
-            elif self.training and self.path_type == 'drop_v2' and i == drop_i and random.uniform(
-                    0., 1.) < self.drop_p:
-                # reference_points_input_list = reference_points_input_list[:-1]
-                reference_points = reference_points_input_list[-2]
+                    reference_points_input = reference_points.detach(
+                    ).unsqueeze(2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
 
-            # dynamic layers
-            elif self.training and self.path_type == 'drop_v3':
-                if i > drop_d:
-                    continue
+                    query_pos_embed = get_sine_pos_embed(
+                        reference_points_input[..., 0, :], self.hidden_dim // 2)
 
-            elif self.training and self.path_type == 'dynamic':
-                _k = random.randint(dynamic_k, len(reference_points_input_list))
-                reference_points = reference_points_input_list[_k]
-                dynamic_k = _k
+                    query_pos_embed = query_pos_head(query_pos_embed)
+
+                    output = layer(output, reference_points_input, memory,
+                                   memory_spatial_shapes, attn_mask,
+                                   memory_mask, query_pos_embed)
+
+                    inter_ref_points = F.sigmoid(bbox_head[i](
+                        output) + inverse_sigmoid(reference_points.detach()))
+
+                    dec_logit = score_head[i](output)
+
+                    if self.return_intermediate:
+                        intermediate.append(self.norm(output))
+
+                        if self.look_forward_twice:
+                            if i == 0:
+                                dec_out_bboxes.append(inter_ref_points)
+                            else:
+                                dec_out_bboxes.append(
+                                    F.sigmoid(bbox_head[i](output) +
+                                              inverse_sigmoid(
+                                                  reference_points)))
+                        else:
+                            dec_out_bboxes.append(inter_ref_points)
+
+                        dec_out_logits.append(dec_logit)
+
+                        dec_query_set[i + 1].append(
+                            ('{}{}'.format(_name, i + 1), inter_ref_points,
+                             dec_out_bboxes[-1], dec_out_logits[-1]))
+
+                for _, (_n, _, _boxes,
+                        _logits) in enumerate(dec_query_set[i + 1][::-1]):
+                    dec_out_bboxes_list.append(_boxes)
+                    dec_out_logits_list.append(_logits)
+                    # print(i + 1, _n)
+
+                _k = ks[i + 1] - len(dec_query_set[i + 1])
+                dec_query_set[i + 1].extend(dec_query_set[i][:_k])
 
             else:
-                pass
+                # drop block
+                if self.training and self.path_type == 'drop_v1' and i == drop_i and random.uniform(
+                        0., 1.) < self.drop_p:
+                    continue
 
-            reference_points_input = reference_points.detach().unsqueeze(
-                2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
-            query_pos_embed = get_sine_pos_embed(
-                reference_points_input[..., 0, :], self.hidden_dim // 2)
-            query_pos_embed = query_pos_head(query_pos_embed)
+                # drop path
+                elif self.training and self.path_type == 'drop_v2' and i == drop_i and random.uniform(
+                        0., 1.) < self.drop_p:
+                    # reference_points_input_list = reference_points_input_list[:-1]
+                    reference_points = reference_points_input_list[-2]
 
-            output = layer(output, reference_points_input, memory,
-                           memory_spatial_shapes, attn_mask, memory_mask,
-                           query_pos_embed)
+                # dynamic layers
+                elif self.training and self.path_type == 'drop_v3':
+                    if i > drop_d:
+                        continue
 
-            if not self.training and self.path_type == 'drop_v1' and i in list(
-                    range(1, self.num_layers - 1)):
-                output *= 1. / (1 - 1. / (self.num_layers - 2) * self.drop_p)
+                elif self.training and self.path_type == 'dynamic':
+                    _k = random.randint(dynamic_k,
+                                        len(reference_points_input_list))
+                    reference_points = reference_points_input_list[_k]
+                    dynamic_k = _k
 
-            inter_ref_points = F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
-                reference_points.detach()))
-            dec_logit = score_head[i](output)
-
-            if self.return_intermediate:
-                intermediate.append(self.norm(output))
-                if i == 0:
-                    dec_out_bboxes.append(inter_ref_points)
                 else:
-                    dec_out_bboxes.append(
-                        F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
-                            reference_points)))
-                dec_out_logits.append(dec_logit)
+                    pass
 
-            reference_points = inter_ref_points
+                reference_points_input = reference_points.detach().unsqueeze(
+                    2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
+                query_pos_embed = get_sine_pos_embed(
+                    reference_points_input[..., 0, :], self.hidden_dim // 2)
+                query_pos_embed = query_pos_head(query_pos_embed)
 
-            reference_points_input_list.append(reference_points)
+                output = layer(output, reference_points_input, memory,
+                               memory_spatial_shapes, attn_mask, memory_mask,
+                               query_pos_embed)
 
-        if self.return_intermediate:
+                if not self.training and self.path_type == 'drop_v1' and i in list(
+                        range(1, self.num_layers - 1)):
+                    output *= 1. / (1 - 1. /
+                                    (self.num_layers - 2) * self.drop_p)
+
+                inter_ref_points = F.sigmoid(bbox_head[i](
+                    output) + inverse_sigmoid(reference_points.detach()))
+                dec_logit = score_head[i](output)
+
+                if self.return_intermediate:
+                    intermediate.append(self.norm(output))
+                    if i == 0:
+                        dec_out_bboxes.append(inter_ref_points)
+                    else:
+                        dec_out_bboxes.append(
+                            F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
+                                reference_points)))
+                    dec_out_logits.append(dec_logit)
+
+                reference_points = inter_ref_points
+
+                reference_points_input_list.append(reference_points)
+
+        if self.return_intermediate and self.path_type == 'sqr':
+            return None, paddle.stack(dec_out_bboxes_list), paddle.stack(
+                dec_out_logits_list)
+
+        elif self.return_intermediate:
             return paddle.stack(intermediate), paddle.stack(
                 dec_out_bboxes), paddle.stack(dec_out_logits)
 
