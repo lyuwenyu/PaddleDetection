@@ -203,8 +203,10 @@ class DETRLoss(nn.Layer):
         loss_class = []
         loss_bbox = []
         loss_giou = []
+        FIRST_FLAG = match_indices is None
+
         for aux_boxes, aux_logits in zip(boxes, logits):
-            if match_indices is None:
+            if match_indices is None or FIRST_FLAG:
                 match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
                                              gt_class)
             if self.use_vfl:
