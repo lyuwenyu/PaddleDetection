@@ -93,7 +93,8 @@ DINOHead:
     aux_loss: True
     use_vfl: True
     iou_type: 'giou' # siou_l
-    matched_once: True # False
+    matched_once: False # True
+
     matcher:
       name: HungarianMatcher
       matcher_coeff: {class: 2, bbox: 5, giou: 2}
