@@ -76,7 +76,7 @@ DINOTransformer:
 
   keep_mlp_bias_weight_decay: True # False
   mlp_activation: relu
-  dn_epoch: -1
+  dn_epoch: 10000 # 33
   num_bbox_head_layers: 3
   num_query_pos_head_layers: 2
 

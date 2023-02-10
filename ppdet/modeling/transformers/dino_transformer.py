@@ -566,7 +566,7 @@ class DINOTransformer(nn.Layer):
                  eps=1e-2,
                  path_type='base',
                  drop_p=0.2,
-                 dn_epoch=-1,
+                 dn_epoch=10000000,
                  mlp_activation='relu',
                  num_bbox_head_layers=3,
                  num_query_pos_head_layers=2,
