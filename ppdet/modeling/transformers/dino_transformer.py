@@ -360,14 +360,14 @@ from collections import defaultdict
 
 
 class DINOTransformerDecoder(nn.Layer):
-    def __init__(
-            self,
-            hidden_dim,
-            decoder_layer,
-            num_layers,
-            return_intermediate=True,
-            path_type='base',
-            drop_p=0.2, ):
+    def __init__(self,
+                 hidden_dim,
+                 decoder_layer,
+                 num_layers,
+                 return_intermediate=True,
+                 path_type='base',
+                 drop_p=0.2,
+                 look_forward_twice=True):
         super(DINOTransformerDecoder, self).__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.hidden_dim = hidden_dim
@@ -375,6 +375,7 @@ class DINOTransformerDecoder(nn.Layer):
         self.return_intermediate = return_intermediate
 
         self.path_type = path_type
+        self.look_forward_twice = look_forward_twice
         self.drop_p = drop_p
 
         assert path_type in ('base', 'drop_v1', 'drop_v2', 'drop_v2', 'sqr'), ''
