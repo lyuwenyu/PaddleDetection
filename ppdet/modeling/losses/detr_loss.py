@@ -205,12 +205,22 @@ class DETRLoss(nn.Layer):
         loss_class = []
         loss_bbox = []
         loss_giou = []
-        ONCE_FLAG = (match_indices is None) and (not self.matched_once)
+        # ONCE_FLAG = (match_indices is None) and (not self.matched_once)
+        DN_FLAG = match_indices is not None
 
         for aux_boxes, aux_logits in zip(boxes, logits):
-            if match_indices is None or ONCE_FLAG:
-                match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
-                                             gt_class)
+
+            if self.matched_once:
+                if match_indices is None:
+                    match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
+                                                 gt_class)
+            else:
+                if DN_FLAG:
+                    match_indices = match_indices
+                else:
+                    match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
+                                                 gt_class)
+
             if self.use_vfl:
                 if sum(len(a) for a in gt_bbox) > 0:
                     src_bbox, target_bbox = self._get_src_target_assign(
