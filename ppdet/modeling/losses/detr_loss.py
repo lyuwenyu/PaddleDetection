@@ -47,7 +47,8 @@ class DETRLoss(nn.Layer):
                  use_focal_loss=False,
                  use_vfl=False,
                  iou_type='giou',
-                 matched_once=False):
+                 matched_once=True,
+                 only_use_encoder_matched_index=False):
         r"""
         Args:
             num_classes (int): The number of classes.
@@ -66,6 +67,7 @@ class DETRLoss(nn.Layer):
         self.use_focal_loss = use_focal_loss
         self.use_vfl = use_vfl
         self.matched_once = matched_once
+        self.only_use_encoder_matched_index = only_use_encoder_matched_index
 
         if not self.use_focal_loss:
             self.loss_coeff['class'] = paddle.full([num_classes + 1],
@@ -294,8 +296,12 @@ class DETRLoss(nn.Layer):
         if "match_indices" in kwargs:
             match_indices = kwargs["match_indices"]
         else:
-            match_indices = self.matcher(boxes[-1].detach(),
-                                         logits[-1].detach(), gt_bbox, gt_class)
+            if self.only_use_encoder_matched_index:
+                match_indices = self.matcher(
+                    boxes[0].detach(), logits[0].detach(), gt_bbox, gt_class)
+            else:
+                match_indices = self.matcher(
+                    boxes[-1].detach(), logits[-1].detach(), gt_bbox, gt_class)
 
         num_gts = sum(len(a) for a in gt_bbox)
         num_gts = paddle.to_tensor([num_gts], dtype="float32")
@@ -330,7 +336,11 @@ class DETRLoss(nn.Layer):
 
         if self.aux_loss:
             if "match_indices" not in kwargs:
-                match_indices = None
+                if self.only_use_encoder_matched_index:
+                    match_indices = match_indices
+                else:
+                    match_indices = None
+
             total_loss.update(
                 self._get_loss_aux(
                     boxes[:-1] if boxes is not None else None, logits[:-1]

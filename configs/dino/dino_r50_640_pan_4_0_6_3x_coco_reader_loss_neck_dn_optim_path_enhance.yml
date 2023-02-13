@@ -9,7 +9,7 @@ _BASE_: [
   # '_base_/enhance_yoloe_reader.yml',
 ]
 
-weights: output/dino_r50_640_pan_4_0_6_3x_coco_reader_loss_neck_dn_optim_enhance/model_final
+weights: output/dino_r50_640_pan_4_0_6_3x_coco_reader_loss_neck_dn_optim_path_enhance/model_final
 find_unused_parameters: True
 log_iter: 100
 
@@ -37,6 +37,7 @@ ResNet:
   freeze_at: 0
   return_idx: [1, 2, 3]
   lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+  # lr_mult_list: [0.0421875, 0.05625, 0.075, 0.1]
   num_stages: 4
   freeze_stem_only: true
   variant: d
@@ -51,6 +52,7 @@ YOLOCSPPAN:
   dropout: 0.1
   activation: 'gelu'
   proj_dim: [512, 512, 512]
+  # proj_dim: [256, 256, 256]
 
 
 # YOLOCSPPAN:
@@ -73,7 +75,7 @@ DINOTransformer:
   num_denoising: 100
   label_noise_ratio: 0.5
   box_noise_scale: 1.0
-  learnt_init_query: True # False
+  learnt_init_query: False # True
 
   mlp_activation: relu
   keep_mlp_bias_weight_decay: True # False
@@ -93,7 +95,8 @@ DINOHead:
     aux_loss: True
     use_vfl: True
     iou_type: 'giou' # siou_l
-    matched_once: False # True
+    matched_once: True # False
+    only_use_encoder_matched_index: False
 
     matcher:
       name: HungarianMatcher
