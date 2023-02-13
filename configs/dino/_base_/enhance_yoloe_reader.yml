@@ -8,7 +8,7 @@ TrainReader:
     - Decode: {}
     - RandomDistort: {p: 0.8}
     # - RandomExpand: {fill_value: [123.675, 116.28, 103.53], prob: 0.5}
-    - RandomExpand: {fill_value: [114., 11.4, 114.], prob: 0.5}
+    - RandomExpand: {fill_value: [114., 114., 114.], prob: 0.5}
 
     - RandomCrop: {p: 0.8}
 
