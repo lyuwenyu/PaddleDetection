@@ -3445,3 +3445,142 @@ class RandomSelects(BaseOperator):
             raise RuntimeError('RandomSelects')
 
         return t(sample)
+
+
+@register_op
+class RandomPad(BaseOperator):
+    def __init__(self,
+                 size=None,
+                 size_divisor=32,
+                 pad_mode='random',
+                 offsets=None,
+                 fill_value=(127.5, 127.5, 127.5)):
+        """
+        Pad image to a specified size or multiple of size_divisor.
+        Args:
+            size (int, Sequence): image target size, if None, pad to multiple of size_divisor, default None
+            size_divisor (int): size divisor, default 32
+            pad_mode (int): pad mode, currently only supports four modes [-1, 0, 1, 2]. if -1, use specified offsets
+                if 0, only pad to right and bottom. if 1, pad according to center. if 2, only pad left and top
+            offsets (list): [offset_x, offset_y], specify offset while padding, only supported pad_mode=-1
+            fill_value (bool): rgb value of pad area, default (127.5, 127.5, 127.5)
+        """
+        super(RandomPad, self).__init__()
+
+        if not isinstance(size, (int, Sequence)):
+            raise TypeError(
+                "Type of target_size is invalid when random_size is True. \
+                            Must be List, now is {}".format(type(size)))
+
+        if isinstance(size, int):
+            size = [size, size]
+
+        assert pad_mode in [
+            -1, 0, 1, 2, 'random'
+        ], 'currently only supports four modes [-1, 0, 1, 2]'
+        if pad_mode == -1:
+            assert offsets, 'if pad_mode is -1, offsets should not be None'
+
+        self.size = size
+        self.size_divisor = size_divisor
+        self.pad_mode = pad_mode
+        self.fill_value = fill_value
+        self.offsets = offsets
+
+    def apply_segm(self, segms, offsets, im_size, size):
+        def _expand_poly(poly, x, y):
+            expanded_poly = np.array(poly)
+            expanded_poly[0::2] += x
+            expanded_poly[1::2] += y
+            return expanded_poly.tolist()
+
+        def _expand_rle(rle, x, y, height, width, h, w):
+            if 'counts' in rle and type(rle['counts']) == list:
+                rle = mask_util.frPyObjects(rle, height, width)
+            mask = mask_util.decode(rle)
+            expanded_mask = np.full((h, w), 0).astype(mask.dtype)
+            expanded_mask[y:y + height, x:x + width] = mask
+            rle = mask_util.encode(
+                np.array(
+                    expanded_mask, order='F', dtype=np.uint8))
+            return rle
+
+        x, y = offsets
+        height, width = im_size
+        h, w = size
+        expanded_segms = []
+        for segm in segms:
+            if is_poly(segm):
+                # Polygon format
+                expanded_segms.append(
+                    [_expand_poly(poly, x, y) for poly in segm])
+            else:
+                # RLE format
+                import pycocotools.mask as mask_util
+                expanded_segms.append(
+                    _expand_rle(segm, x, y, height, width, h, w))
+        return expanded_segms
+
+    def apply_bbox(self, bbox, offsets):
+        return bbox + np.array(offsets * 2, dtype=np.float32)
+
+    def apply_keypoint(self, keypoints, offsets):
+        n = len(keypoints[0]) // 2
+        return keypoints + np.array(offsets * n, dtype=np.float32)
+
+    def apply_image(self, image, offsets, im_size, size):
+        x, y = offsets
+        im_h, im_w = im_size
+        h, w = size
+        canvas = np.ones((h, w, 3), dtype=np.float32)
+        canvas *= np.array(self.fill_value, dtype=np.float32)
+        canvas[y:y + im_h, x:x + im_w, :] = image.astype(np.float32)
+        return canvas
+
+    def apply(self, sample, context=None):
+        im = sample['image']
+        im_h, im_w = im.shape[:2]
+        if self.size:
+            h, w = self.size
+            assert (
+                im_h <= h and im_w <= w
+            ), '(h, w) of target size should be greater than (im_h, im_w)'
+        else:
+            h = int(np.ceil(im_h / self.size_divisor) * self.size_divisor)
+            w = int(np.ceil(im_w / self.size_divisor) * self.size_divisor)
+
+        if h == im_h and w == im_w:
+            sample['image'] = im.astype(np.float32)
+            return sample
+
+        if self.pad_mode == -1:
+            offset_x, offset_y = self.offsets
+        elif self.pad_mode == 0:
+            offset_y, offset_x = 0, 0
+        elif self.pad_mode == 1:
+            offset_y, offset_x = (h - im_h) // 2, (w - im_w) // 2
+        elif self.pad_mode == 'random':
+            offset_y, offset_x = random.randint(0, h - im_h), random.randint(
+                0, w - im_w)
+        else:
+            offset_y, offset_x = h - im_h, w - im_w
+
+        offsets, im_size, size = [offset_x, offset_y], [im_h, im_w], [h, w]
+
+        sample['image'] = self.apply_image(im, offsets, im_size, size)
+
+        if self.pad_mode == 0:
+            return sample
+
+        if 'gt_bbox' in sample and len(sample['gt_bbox']) > 0:
+            sample['gt_bbox'] = self.apply_bbox(sample['gt_bbox'], offsets)
+
+        if 'gt_poly' in sample and len(sample['gt_poly']) > 0:
+            sample['gt_poly'] = self.apply_segm(sample['gt_poly'], offsets,
+                                                im_size, size)
+
+        if 'gt_keypoint' in sample and len(sample['gt_keypoint']) > 0:
+            sample['gt_keypoint'] = self.apply_keypoint(sample['gt_keypoint'],
+                                                        offsets)
+
+        return sample
