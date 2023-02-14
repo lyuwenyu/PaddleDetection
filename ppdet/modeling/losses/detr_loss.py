@@ -496,8 +496,8 @@ class DINOLoss(DETRLoss):
                 dn_out_logits=None,
                 dn_meta=None,
                 **kwargs):
-        total_loss = super(DINOLoss, self).forward(boxes, logits, gt_bbox,
-                                                   gt_class)
+        total_loss = super(DINOLoss, self)._forward(boxes, logits, gt_bbox,
+                                                    gt_class)
 
         # denoising training loss
         if dn_meta is not None:
