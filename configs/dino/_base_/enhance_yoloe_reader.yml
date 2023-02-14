@@ -28,13 +28,13 @@ TrainReader:
     - BboxXYXY2XYWH: {}
 
     - Permute: {}
-    - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
+    # - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
 
   batch_size: 4
   shuffle: true
   drop_last: true
   collate_batch: false
-  use_shared_memory: false
+  use_shared_memory: true # false
 
 
 
@@ -49,7 +49,7 @@ EvalReader:
 
   batch_transforms:
     - Permute: {}
-    - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
+    # - PadMaskBatch: {pad_to_stride: -1, return_pad_mask: true}
   batch_size: 4
 
 TestReader:

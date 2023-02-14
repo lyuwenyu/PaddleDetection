@@ -49,7 +49,7 @@ YOLOCSPPAN:
   nhead: 8
   num_layers: 2
   dim_feedforward: 2048
-  dropout: 0.1
+  dropout: 0.1 # 0.
   activation: 'gelu'
   proj_dim: [512, 512, 512]
   # proj_dim: [256, 256, 256]
@@ -69,7 +69,7 @@ DINOTransformer:
   nhead: 8
   num_encoder_layers: 0
   num_decoder_layers: 6
-  dim_feedforward: 2048
+  dim_feedforward: 2048 # 1024
   dropout: 0.0
   activation: relu
   num_denoising: 100
