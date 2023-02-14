@@ -22,12 +22,19 @@ ema_decay_type: "exponential"
 ema_filter_no_grads: True
 ema_filter_bn_states: False
 
+
 DETR:
-  backbone: ResNet
+  backbone: ResNet # CSPDarkNet
   neck: YOLOCSPPAN
   transformer: DINOTransformer
   detr_head: DINOHead
   post_process: DETRBBoxPostProcess
+
+
+# CSPDarkNet:
+#   arch: "X"
+#   return_idx: [2, 3, 4]
+#   depthwise: False
 
 
 ResNet:
@@ -95,8 +102,10 @@ DINOHead:
     aux_loss: True
     use_vfl: True
     iou_type: 'giou' # siou_l
-    matched_once: True # False
     only_use_encoder_matched_index: False
+
+    matched_once: True # False
+    fix_loss_nomalizer: False # True
 
     matcher:
       name: HungarianMatcher

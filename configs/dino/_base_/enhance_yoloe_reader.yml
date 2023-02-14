@@ -14,6 +14,7 @@ TrainReader:
 
     - Resize: {target_size: 640, keep_ratio: True, interp: 1}
     - RandomPad: {size: [640, 640], fill_value: [114., 114., 114.], pad_mode: 'random'}
+    # - DebugVisibleImage: {}
 
     - RandomFlip: {prob: 0.5, }
     # - Resize: {target_size: 640, keep_ratio: False}

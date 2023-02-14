@@ -48,7 +48,8 @@ class DETRLoss(nn.Layer):
                  use_vfl=False,
                  iou_type='giou',
                  matched_once=True,
-                 only_use_encoder_matched_index=False):
+                 only_use_encoder_matched_index=False,
+                 fix_loss_nomalizer=False):
         r"""
         Args:
             num_classes (int): The number of classes.
@@ -66,8 +67,10 @@ class DETRLoss(nn.Layer):
         self.aux_loss = aux_loss
         self.use_focal_loss = use_focal_loss
         self.use_vfl = use_vfl
+
         self.matched_once = matched_once
         self.only_use_encoder_matched_index = only_use_encoder_matched_index
+        self.fix_loss_nomalizer = fix_loss_nomalizer
 
         if not self.use_focal_loss:
             self.loss_coeff['class'] = paddle.full([num_classes + 1],
@@ -101,6 +104,12 @@ class DETRLoss(nn.Layer):
             return {name_class: paddle.zeros([1])}
         target_label = paddle.full(logits.shape[:2], bg_index, dtype='int64')
         bs, num_query_objects = target_label.shape
+
+        if self.fix_loss_nomalizer:
+            loss_nomalizer = num_gts
+        else:
+            loss_nomalizer = num_gts / num_query_objects
+
         num_gt = sum(len(a) for a in gt_class)
         if num_gt > 0:
             index, updates = self._get_index_updates(num_query_objects,
@@ -119,11 +128,10 @@ class DETRLoss(nn.Layer):
                 target_score = target_score.reshape(
                     [bs, num_query_objects, 1]) * target_label
                 loss_ = self.loss_coeff['class'] * varifocal_loss_with_logits(
-                    logits, target_score, target_label,
-                    num_gts / num_query_objects)
+                    logits, target_score, target_label, loss_nomalizer)
             else:
                 loss_ = self.loss_coeff['class'] * sigmoid_focal_loss(
-                    logits, target_label, num_gts / num_query_objects)
+                    logits, target_label, loss_nomalizer)
         else:
             loss_ = F.cross_entropy(
                 logits, target_label, weight=self.loss_coeff['class'])
