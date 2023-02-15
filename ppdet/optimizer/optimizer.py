@@ -351,7 +351,219 @@ class LearningRate3(object):
 
 
 @register
-class OptimizerBuilder():
+class OptimizerBuilder1():
+    """
+    Build optimizer handles
+    Args:
+        regularizer (object): an `Regularizer` instance
+        optimizer (object): an `Optimizer` instance
+    """
+    __category__ = 'optim'
+
+    def __init__(self,
+                 clip_grad_by_norm=None,
+                 regularizer={'type': 'L2',
+                              'factor': .0001},
+                 optimizer={'type': 'Momentum',
+                            'momentum': .9}):
+        self.clip_grad_by_norm = clip_grad_by_norm
+        self.regularizer = regularizer
+        self.optimizer = optimizer
+
+    def __call__(self, learning_rate, model=None):
+        if self.clip_grad_by_norm is not None:
+            grad_clip = nn.ClipGradByGlobalNorm(
+                clip_norm=self.clip_grad_by_norm)
+        else:
+            grad_clip = None
+        if self.regularizer and self.regularizer != 'None':
+            reg_type = self.regularizer['type'] + 'Decay'
+            reg_factor = self.regularizer['factor']
+            regularization = getattr(regularizer, reg_type)(reg_factor)
+        else:
+            regularization = None
+
+        optim_args = self.optimizer.copy()
+        optim_type = optim_args['type']
+        del optim_args['type']
+
+        if optim_type == 'AdamWDL':
+            return build_adamwdl(model, lr=learning_rate, **optim_args)
+
+        if optim_type != 'AdamW':
+            optim_args['weight_decay'] = regularization
+
+        op = getattr(optimizer, optim_type)
+
+        if 'param_groups' in optim_args:
+            assert isinstance(optim_args['param_groups'], list), ''
+
+            param_groups = optim_args.pop('param_groups')
+
+            params, visited = [], []
+            for group in param_groups:
+                assert isinstance(group,
+                                  dict) and 'params' in group and isinstance(
+                                      group['params'], list), ''
+                # _params = {
+                #     n: p
+                #     for n, p in model.named_parameters()
+                #     if any([k in n
+                #             for k in group['params']]) and p.trainable is True
+                # }
+
+                # TODO just for weight_decay == 0
+                if 'weight_decay' in group and group['weight_decay'] == 0.:
+                    _params = {
+                        n: p
+                        for n, p in model.named_parameters()
+                        if (any([k in n
+                                 for k in group['params']]) or len(p.shape) == 1
+                            ) and p.trainable is True and (n not in visited)
+                    }
+                else:
+                    _params = {
+                        n: p
+                        for n, p in model.named_parameters()
+                        if any([k in n for k in group['params']]) and
+                        p.trainable is True and (n not in visited)
+                    }
+
+                _group = group.copy()
+                _group.update({'params': list(_params.values())})
+
+                params.append(_group)
+                visited.extend(list(_params.keys()))
+
+            ext_params = [
+                p for n, p in model.named_parameters()
+                if n not in visited and p.trainable is True
+            ]
+
+            if len(ext_params) < len(model.parameters()):
+                params.append({'params': ext_params})
+
+            elif len(ext_params) > len(model.parameters()):
+                raise RuntimeError
+
+        else:
+            _params = model.parameters()
+            params = [param for param in _params if param.trainable is True]
+
+        return op(learning_rate=learning_rate,
+                  parameters=params,
+                  grad_clip=grad_clip,
+                  **optim_args)
+
+
+@register
+class OptimizerBuilder2():
+    """
+    Build optimizer handles
+    Args:
+        regularizer (object): an `Regularizer` instance
+        optimizer (object): an `Optimizer` instance
+    """
+    __category__ = 'optim'
+
+    def __init__(self,
+                 clip_grad_by_norm=None,
+                 regularizer={'type': 'L2',
+                              'factor': .0001},
+                 optimizer={'type': 'Momentum',
+                            'momentum': .9}):
+        self.clip_grad_by_norm = clip_grad_by_norm
+        self.regularizer = regularizer
+        self.optimizer = optimizer
+
+    def __call__(self, learning_rate, model=None):
+        if self.clip_grad_by_norm is not None:
+            grad_clip = nn.ClipGradByGlobalNorm(
+                clip_norm=self.clip_grad_by_norm)
+        else:
+            grad_clip = None
+        if self.regularizer and self.regularizer != 'None':
+            reg_type = self.regularizer['type'] + 'Decay'
+            reg_factor = self.regularizer['factor']
+            regularization = getattr(regularizer, reg_type)(reg_factor)
+        else:
+            regularization = None
+
+        optim_args = self.optimizer.copy()
+        optim_type = optim_args['type']
+        del optim_args['type']
+
+        if optim_type == 'AdamWDL':
+            return build_adamwdl(model, lr=learning_rate, **optim_args)
+
+        if optim_type != 'AdamW':
+            optim_args['weight_decay'] = regularization
+
+        op = getattr(optimizer, optim_type)
+
+        if 'param_groups' in optim_args:
+            assert isinstance(optim_args['param_groups'], list), ''
+
+            param_groups = optim_args.pop('param_groups')
+
+            params, visited = [], []
+            for group in param_groups:
+                assert isinstance(group,
+                                  dict) and 'params' in group and isinstance(
+                                      group['params'], list), ''
+                # _params = {
+                #     n: p
+                #     for n, p in model.named_parameters()
+                #     if any([k in n
+                #             for k in group['params']]) and p.trainable is True
+                # }
+
+                # TODO just for weight_decay == 0
+                if 'weight_decay' in group and group['weight_decay'] == 0.:
+                    _params = {
+                        n: p
+                        for n, p in model.named_parameters()
+                        if (any([k in n
+                                 for k in group['params']]) or len(p.shape) == 1
+                            ) and p.trainable is True and (n not in visited)
+                    }
+                else:
+                    _params = {
+                        n: p
+                        for n, p in model.named_parameters()
+                        if any([k in n for k in group['params']]) and
+                        p.trainable is True and (n not in visited)
+                    }
+
+                _group = group.copy()
+                _group.update({'params': list(_params.values())})
+
+                params.append(_group)
+                visited.extend(list(_params.keys()))
+
+            ext_params = [
+                p for n, p in model.named_parameters()
+                if n not in visited and p.trainable is True
+            ]
+
+            if len(ext_params) < len(model.parameters()):
+                params.append({'params': ext_params})
+
+            elif len(ext_params) > len(model.parameters()):
+                raise RuntimeError
+
+        else:
+            _params = model.parameters()
+            params = [param for param in _params if param.trainable is True]
+
+        return op(learning_rate=learning_rate,
+                  parameters=params,
+                  grad_clip=grad_clip,
+                  **optim_args)
+
+
+@register
+class OptimizerBuilder3():
     """
     Build optimizer handles
     Args:
