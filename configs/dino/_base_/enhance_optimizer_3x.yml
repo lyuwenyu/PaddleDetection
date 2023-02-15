@@ -1,6 +1,30 @@
 epoch: 36
 
-LearningRate:
+
+# for backbone
+LearningRate1:
+  base_lr: 0.01
+  schedulers:
+  - !CosineDecay
+    max_epochs: *epoch
+    min_lr_ratio: 0.05
+  - !LinearWarmup
+    start_factor: 0.001
+    steps: 2000
+
+OptimizerBuilder1:
+  optimizer:
+    type: Momentum
+    momentum: 0.9
+    use_nesterov: True
+  regularizer:
+    factor: 0.0005
+    type: L2
+
+
+
+# for neck
+LearningRate2:
   base_lr: 0.0001
   schedulers:
   - !PiecewiseDecay
@@ -11,43 +35,29 @@ LearningRate:
     start_factor: 0.001
     steps: 2000
 
-OptimizerBuilder:
+OptimizerBuilder2:
   clip_grad_by_norm: 0.1
   regularizer: false
   optimizer:
     type: AdamW
     weight_decay: 0.0001
 
-    param_groups:
-        -
-          params: ['.bias', '.norm', '.bn']
-          weight_decay: 0.
 
-        -
-          params: ['backbone.stem', 'backbone.conv1']
-          learning_rate: 0.
+# for transformer
+LearningRate3:
+  base_lr: 0.0001
+  schedulers:
+  - !PiecewiseDecay
+    gamma: 0.1
+    milestones: [100]
+    # use_warmup: false
+  - !LinearWarmup
+    start_factor: 0.001
+    steps: 2000
 
-        -
-          params: ['backbone', ]
-          learning_rate: 0.1 # the scale of base learning_rate
-
-
-        ## -----------------
-        #   params: ['backbone.stem', 'backbone.conv1']
-        #   learning_rate: 0.031640625 # 0
-
-        # -
-        #   params: ['backbone.res2', ]
-        #   learning_rate: 0.0421875
-
-        # -
-        #   params: ['backbone.res3', ]
-        #   learning_rate: 0.05625
-
-        # -
-        #   params: ['backbone.res4', ]
-        #   learning_rate: 0.075
-
-        # -
-        #   params: ['backbone.res5', ]
-        #   learning_rate: 0.1
+OptimizerBuilder3:
+  clip_grad_by_norm: 0.1
+  regularizer: false
+  optimizer:
+    type: AdamW
+    weight_decay: 0.0001

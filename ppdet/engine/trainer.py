@@ -82,27 +82,9 @@ class Trainer(object):
             self.dataset = self.cfg['{}Dataset'.format(capital_mode)] = create(
                 '{}Dataset'.format(capital_mode))()
 
-        if cfg.architecture == 'DeepSORT' and self.mode == 'train':
-            logger.error('DeepSORT has no need of training on mot dataset.')
-            sys.exit(1)
-
-        if cfg.architecture == 'FairMOT' and self.mode == 'eval':
-            images = self.parse_mot_images(cfg)
-            self.dataset.set_images(images)
-
         if self.mode == 'train':
             self.loader = create('{}Reader'.format(capital_mode))(
                 self.dataset, cfg.worker_num)
-
-        if cfg.architecture == 'JDE' and self.mode == 'train':
-            cfg['JDEEmbeddingHead'][
-                'num_identities'] = self.dataset.num_identities_dict[0]
-            # JDE only support single class MOT now.
-
-        if cfg.architecture == 'FairMOT' and self.mode == 'train':
-            cfg['FairMOTEmbeddingHead'][
-                'num_identities_dict'] = self.dataset.num_identities_dict
-            # FairMOT support single class and multi-class MOT now.
 
         # build model
         if 'model' not in self.cfg:
@@ -110,12 +92,6 @@ class Trainer(object):
         else:
             self.model = self.cfg.model
             self.is_loaded_weights = True
-
-        if cfg.architecture == 'YOLOX':
-            for k, m in self.model.named_sublayers():
-                if isinstance(m, nn.BatchNorm2D):
-                    m._epsilon = 1e-3  # for amp(fp16)
-                    m._momentum = 0.97  # 0.03 in pytorch
 
         #normalize params for deploy
         if 'slim' in cfg and cfg['slim_type'] == 'OFA':
@@ -157,8 +133,8 @@ class Trainer(object):
                 logger.warning(
                     "Samples in dataset are less than batch_size, please set smaller batch_size in TrainReader."
                 )
-            self.lr = create('LearningRate')(steps_per_epoch)
-            self.optimizer = create('OptimizerBuilder')(self.lr, self.model)
+            # self.lr = create('LearningRate')(steps_per_epoch)
+            # self.optimizer = create('OptimizerBuilder')(self.lr, self.model)
 
             # Unstructured pruner is only enabled in the train mode.
             if self.cfg.get('unstructured_prune'):
@@ -203,6 +179,23 @@ class Trainer(object):
         self._reset_metrics()
 
         print(self.model)
+
+        import paddle
+        import paddle.nn as nn
+        import paddle.optimizer as optim
+
+        self.opt1 = optim.SGD()
+
+        self.lr1 = create('LearningRate1')(steps_per_epoch)
+        self.optimizer1 = create('OptimizerBuilder1')(self.lr,
+                                                      self.model.backbone)
+
+        self.lr2 = create('LearningRate2')(steps_per_epoch)
+        self.optimizer2 = create('OptimizerBuilder2')(self.lr, self.model.neck)
+
+        self.lr3 = create('LearningRate3')(steps_per_epoch)
+        self.optimizer3 = create('OptimizerBuilder3')(self.lr,
+                                                      self.model.transformer)
 
     def _init_callbacks(self):
         if self.mode == 'train':
@@ -430,7 +423,10 @@ class Trainer(object):
         # get distributed model
         if self.cfg.get('fleet', False):
             model = fleet.distributed_model(model)
-            self.optimizer = fleet.distributed_optimizer(self.optimizer)
+            self.optimizer1 = fleet.distributed_optimizer(self.optimizer1)
+            self.optimizer2 = fleet.distributed_optimizer(self.optimizer2)
+            self.optimizer3 = fleet.distributed_optimizer(self.optimizer3)
+
         elif self._nranks > 1:
             find_unused_parameters = self.cfg[
                 'find_unused_parameters'] if 'find_unused_parameters' in self.cfg else False
@@ -524,13 +520,29 @@ class Trainer(object):
                         loss = outputs['loss']
                         # model backward
                         loss.backward()
-                    self.optimizer.step()
-                curr_lr = self.optimizer.get_lr()
-                self.lr.step()
+
+                    self.optimizer1.step()
+                    self.optimizer2.step()
+                    self.optimizer3.step()
+
+                curr_lr1 = self.optimizer1.get_lr()
+                curr_lr2 = self.optimizer2.get_lr()
+                curr_lr3 = self.optimizer3.get_lr()
+
+                self.lr1.step()
+                self.lr2.step()
+                self.lr3.step()
+
                 if self.cfg.get('unstructured_prune'):
                     self.pruner.step()
-                self.optimizer.clear_grad()
-                self.status['learning_rate'] = curr_lr
+
+                self.optimizer1.clear_grad()
+                self.optimizer2.clear_grad()
+                self.optimizer3.clear_grad()
+
+                self.status['learning_rate1'] = curr_lr1
+                self.status['learning_rate2'] = curr_lr2
+                self.status['learning_rate3'] = curr_lr3
 
                 if self._nranks < 2 or self._local_rank == 0:
                     self.status['training_staus'].update(outputs)
