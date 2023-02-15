@@ -30,3 +30,24 @@ OptimizerBuilder:
         -
           params: ['backbone', ]
           learning_rate: 0.1 # the scale of base learning_rate
+
+
+        ## -----------------
+        #   params: ['backbone.stem', 'backbone.conv1']
+        #   learning_rate: 0.031640625 # 0
+
+        # -
+        #   params: ['backbone.res2', ]
+        #   learning_rate: 0.0421875
+
+        # -
+        #   params: ['backbone.res3', ]
+        #   learning_rate: 0.05625
+
+        # -
+        #   params: ['backbone.res4', ]
+        #   learning_rate: 0.075
+
+        # -
+        #   params: ['backbone.res5', ]
+        #   learning_rate: 0.1
