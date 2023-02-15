@@ -217,16 +217,16 @@ class DETRLoss(nn.Layer):
         loss = 1 - (numerator + 1) / (denominator + 1)
         return loss.sum() / num_gts
 
-    def _get_loss_aux(
-            self,
-            boxes,
-            logits,
-            gt_bbox,
-            gt_class,
-            bg_index,
-            num_gts,
-            match_indices=None,
-            postfix="", ):
+    def _get_loss_aux(self,
+                      boxes,
+                      logits,
+                      gt_bbox,
+                      gt_class,
+                      bg_index,
+                      num_gts,
+                      match_indices=None,
+                      postfix="",
+                      weights=None):
         if boxes is None and logits is None:
             return {
                 "loss_class_aux" + postfix: paddle.paddle.zeros([1]),
@@ -238,6 +238,9 @@ class DETRLoss(nn.Layer):
         loss_giou = []
         # ONCE_FLAG = (match_indices is None) and (not self.matched_once)
         DN_FLAG = match_indices is not None
+
+        if weights is not None:
+            assert len(weights) == len(boxes), ''
 
         for i, (aux_boxes, aux_logits) in enumerate(zip(boxes, logits)):
 
@@ -252,8 +255,8 @@ class DETRLoss(nn.Layer):
                     match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
                                                  gt_class)
 
-            if self.sqr_weights is not None:
-                w = self.sqr_weights[i]
+            if weights is not None:
+                w = weights[i]
             else:
                 w = 1.
 
@@ -314,6 +317,7 @@ class DETRLoss(nn.Layer):
         ])
         return src_assign, target_assign
 
+    # for dn
     def forward(self,
                 boxes,
                 logits,
@@ -381,14 +385,28 @@ class DETRLoss(nn.Layer):
                 else:
                     match_indices = None
 
+#             total_loss.update(
+#                 self._get_loss_aux(
+#                     boxes[:-1] if boxes is not None else None, logits[:-1]
+#                     if logits is not None else None, gt_bbox, gt_class,
+#                     self.num_classes, num_gts, match_indices, postfix))
+
             total_loss.update(
                 self._get_loss_aux(
-                    boxes[:-1] if boxes is not None else None, logits[:-1]
-                    if logits is not None else None, gt_bbox, gt_class,
-                    self.num_classes, num_gts, match_indices, postfix))
+                    boxes[:-1] if boxes is not None else None,
+                    logits[:-1] if logits is not None else None,
+                    gt_bbox,
+                    gt_class,
+                    self.num_classes,
+                    num_gts,
+                    match_indices,
+                    postfix,
+                    weights=None
+                    if self.sqr_weights is None else self.sqr_weights[1:-1]))
 
         return total_loss
 
+    # for enc and dec
     def _forward(self,
                  boxes,
                  logits,
@@ -475,9 +493,16 @@ class DETRLoss(nn.Layer):
 
             total_loss.update(
                 self._get_loss_aux(
-                    boxes[:-1] if boxes is not None else None, logits[:-1]
-                    if logits is not None else None, gt_bbox, gt_class,
-                    self.num_classes, num_gts, match_indices, postfix))
+                    boxes[:-1] if boxes is not None else None,
+                    logits[:-1] if logits is not None else None,
+                    gt_bbox,
+                    gt_class,
+                    self.num_classes,
+                    num_gts,
+                    match_indices,
+                    postfix,
+                    weights=None
+                    if self.sqr_weights is None else self.sqr_weights[:-1]))
 
         return total_loss
 

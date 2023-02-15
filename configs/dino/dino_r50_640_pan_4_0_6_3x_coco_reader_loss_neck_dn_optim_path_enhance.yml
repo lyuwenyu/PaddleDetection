@@ -105,7 +105,6 @@ DINOHead:
     only_use_encoder_matched_index: False
 
     fix_matched_once: False # True
-    fix_loss_nomalizer: False # True
     sqr_path_numbers: ~ # [1, 2, 3, 5, 8, 13]
 
     matcher:
