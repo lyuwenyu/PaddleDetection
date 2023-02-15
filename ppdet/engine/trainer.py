@@ -185,14 +185,14 @@ class Trainer(object):
         import paddle.optimizer as optim
 
         self.lr1 = create('LearningRate1')(steps_per_epoch)
-        self.optimizer1 = create('OptimizerBuilder')(self.lr,
+        self.optimizer1 = create('OptimizerBuilder')(self.lr1,
                                                      self.model.backbone)
 
         self.lr2 = create('LearningRate2')(steps_per_epoch)
-        self.optimizer2 = create('OptimizerBuilder')(self.lr, self.model.neck)
+        self.optimizer2 = create('OptimizerBuilder')(self.lr2, self.model.neck)
 
         self.lr3 = create('LearningRate3')(steps_per_epoch)
-        self.optimizer3 = create('OptimizerBuilder')(self.lr,
+        self.optimizer3 = create('OptimizerBuilder')(self.lr3,
                                                      self.model.transformer)
 
     def _init_callbacks(self):
@@ -538,6 +538,7 @@ class Trainer(object):
                 self.optimizer2.clear_grad()
                 self.optimizer3.clear_grad()
 
+                self.status['learning_rate'] = curr_lr1
                 self.status['learning_rate1'] = curr_lr1
                 self.status['learning_rate2'] = curr_lr2
                 self.status['learning_rate3'] = curr_lr3
