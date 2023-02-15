@@ -329,15 +329,16 @@ class OptimizerBuilder():
                     _params = {
                         n: p
                         for n, p in model.named_parameters()
-                        if (any([k in n for k in group['params']]) or len(
-                            p.shape) == 1) and p.trainable is True
+                        if (any([k in n
+                                 for k in group['params']]) or len(p.shape) == 1
+                            ) and p.trainable is True and (n not in visited)
                     }
                 else:
                     _params = {
                         n: p
                         for n, p in model.named_parameters()
                         if any([k in n for k in group['params']]) and
-                        p.trainable is True
+                        p.trainable is True and (n not in visited)
                     }
 
                 _group = group.copy()

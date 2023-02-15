@@ -22,3 +22,11 @@ OptimizerBuilder:
         -
           params: ['.bias', '.norm', '.bn']
           weight_decay: 0.
+
+        -
+          params: ['backbone.stem', 'backbone.conv1']
+          learning_rate: 0.
+
+        -
+          params: ['backbone', ]
+          learning_rate: 0.1 # the scale of base learning_rate

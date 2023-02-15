@@ -31,6 +31,10 @@ DETR:
   post_process: DETRBBoxPostProcess
 
 
+
+# depth_mult: 1.0
+# width_mult: 1.0
+
 # CSPDarkNet:
 #   arch: "X"
 #   return_idx: [2, 3, 4]
