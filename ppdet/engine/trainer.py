@@ -184,18 +184,16 @@ class Trainer(object):
         import paddle.nn as nn
         import paddle.optimizer as optim
 
-        self.opt1 = optim.SGD()
-
         self.lr1 = create('LearningRate1')(steps_per_epoch)
-        self.optimizer1 = create('OptimizerBuilder1')(self.lr,
-                                                      self.model.backbone)
+        self.optimizer1 = create('OptimizerBuilder')(self.lr,
+                                                     self.model.backbone)
 
         self.lr2 = create('LearningRate2')(steps_per_epoch)
-        self.optimizer2 = create('OptimizerBuilder2')(self.lr, self.model.neck)
+        self.optimizer2 = create('OptimizerBuilder')(self.lr, self.model.neck)
 
         self.lr3 = create('LearningRate3')(steps_per_epoch)
-        self.optimizer3 = create('OptimizerBuilder3')(self.lr,
-                                                      self.model.transformer)
+        self.optimizer3 = create('OptimizerBuilder')(self.lr,
+                                                     self.model.transformer)
 
     def _init_callbacks(self):
         if self.mode == 'train':

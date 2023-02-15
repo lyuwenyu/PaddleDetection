@@ -1,4 +1,4 @@
-epoch: 36
+epoch: &epoch 36
 
 
 # for backbone

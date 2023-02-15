@@ -29,7 +29,7 @@ import copy
 
 from .adamw import AdamWDL, build_adamwdl
 
-__all__ = ['LearningRate', 'OptimizerBuilder']
+# __all__ = ['LearningRate', 'OptimizerBuilder']
 
 from ppdet.utils.logger import setup_logger
 logger = setup_logger(__name__)
@@ -219,7 +219,7 @@ class ExpWarmup(object):
 
 
 @register
-class LearningRate(object):
+class LearningRate1(object):
     """
     Learning Rate configuration
 
@@ -232,7 +232,95 @@ class LearningRate(object):
     def __init__(self,
                  base_lr=0.01,
                  schedulers=[PiecewiseDecay(), LinearWarmup()]):
-        super(LearningRate, self).__init__()
+        super(LearningRate1, self).__init__()
+        self.base_lr = base_lr
+        self.schedulers = []
+
+        schedulers = copy.deepcopy(schedulers)
+        for sched in schedulers:
+            if isinstance(sched, dict):
+                # support dict sched instantiate
+                module = sys.modules[__name__]
+                type = sched.pop("name")
+                scheduler = getattr(module, type)(**sched)
+                self.schedulers.append(scheduler)
+            else:
+                self.schedulers.append(sched)
+
+    def __call__(self, step_per_epoch):
+        assert len(self.schedulers) >= 1
+        if not self.schedulers[0].use_warmup:
+            return self.schedulers[0](base_lr=self.base_lr,
+                                      step_per_epoch=step_per_epoch)
+
+        # TODO: split warmup & decay
+        # warmup
+        boundary, value = self.schedulers[1](self.base_lr, step_per_epoch)
+        # decay
+        decay_lr = self.schedulers[0](self.base_lr, boundary, value,
+                                      step_per_epoch)
+        return decay_lr
+
+
+@register
+class LearningRate2(object):
+    """
+    Learning Rate configuration
+
+    Args:
+        base_lr (float): base learning rate
+        schedulers (list): learning rate schedulers
+    """
+    __category__ = 'optim'
+
+    def __init__(self,
+                 base_lr=0.01,
+                 schedulers=[PiecewiseDecay(), LinearWarmup()]):
+        super(LearningRate2, self).__init__()
+        self.base_lr = base_lr
+        self.schedulers = []
+
+        schedulers = copy.deepcopy(schedulers)
+        for sched in schedulers:
+            if isinstance(sched, dict):
+                # support dict sched instantiate
+                module = sys.modules[__name__]
+                type = sched.pop("name")
+                scheduler = getattr(module, type)(**sched)
+                self.schedulers.append(scheduler)
+            else:
+                self.schedulers.append(sched)
+
+    def __call__(self, step_per_epoch):
+        assert len(self.schedulers) >= 1
+        if not self.schedulers[0].use_warmup:
+            return self.schedulers[0](base_lr=self.base_lr,
+                                      step_per_epoch=step_per_epoch)
+
+        # TODO: split warmup & decay
+        # warmup
+        boundary, value = self.schedulers[1](self.base_lr, step_per_epoch)
+        # decay
+        decay_lr = self.schedulers[0](self.base_lr, boundary, value,
+                                      step_per_epoch)
+        return decay_lr
+
+
+@register
+class LearningRate3(object):
+    """
+    Learning Rate configuration
+
+    Args:
+        base_lr (float): base learning rate
+        schedulers (list): learning rate schedulers
+    """
+    __category__ = 'optim'
+
+    def __init__(self,
+                 base_lr=0.01,
+                 schedulers=[PiecewiseDecay(), LinearWarmup()]):
+        super(LearningRate3, self).__init__()
         self.base_lr = base_lr
         self.schedulers = []
 
