@@ -49,6 +49,7 @@ ResNet:
   return_idx: [1, 2, 3]
   lr_mult_list: [0.1, 0.1, 0.1, 0.1]
   # lr_mult_list: [0.0421875, 0.05625, 0.075, 0.1]
+  # lr_mult_list: [0.01, 0.03, 0.07, 0.1]
   num_stages: 4
   freeze_stem_only: true
   variant: d
@@ -56,12 +57,14 @@ ResNet:
 
 YOLOCSPPAN:
   depthwise: False
+  act: silu # relu
+
   use_trans: True
   nhead: 8
   num_layers: 2
   dim_feedforward: 2048
   dropout: 0.1 # 0.
-  activation: 'gelu'
+  activation: 'gelu'  # relu
   proj_dim: [512, 512, 512]
   # proj_dim: [256, 256, 256]
 
@@ -102,7 +105,7 @@ DINOTransformer:
 DINOHead:
   loss:
     name: DINOLoss
-    loss_coeff: {class: 1, bbox: 5, giou: 2}
+    loss_coeff: {class: 1, bbox: 5, giou: 2} # {class: 2, bbox: 5, giou: 2}
     aux_loss: True
     use_vfl: True
     iou_type: 'giou' # siou_l
