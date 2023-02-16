@@ -4,7 +4,7 @@ _BASE_: [
   '_base_/dino_r50.yml',
 
   # '_base_/optimizer_3x.yml',
-  '_base_/enhance_optimizer_3x.yml',
+  # '_base_/enhance_optimizer_3x.yml',
   '_base_/yoloe_reader.yml',
   # '_base_/enhance_yoloe_reader.yml',
 ]
@@ -120,3 +120,69 @@ DINOHead:
 
 DETRBBoxPostProcess:
   num_top_queries: 300
+
+
+
+
+
+# optimizer
+
+epoch: &epoch 120
+
+# for backbone
+LearningRate1:
+  base_lr: 0.01
+  schedulers:
+  - !CosineDecay
+    max_epochs: *epoch
+    min_lr_ratio: 0.05
+  - !LinearWarmup
+    start_factor: 0.001
+    steps: 2000
+
+OptimizerBuilder1:
+  optimizer:
+    type: Momentum
+    momentum: 0.9
+    use_nesterov: True
+  regularizer:
+    factor: 0.0005
+    type: L2
+
+
+# for neck
+LearningRate2:
+  base_lr: 0.0001
+  schedulers:
+  - !PiecewiseDecay
+    gamma: 0.1
+    milestones: [100]
+  - !LinearWarmup
+    start_factor: 0.001
+    steps: 2000
+
+OptimizerBuilder2:
+  clip_grad_by_norm: 0.1
+  regularizer: false
+  optimizer:
+    type: AdamW
+    weight_decay: 0.0001
+
+
+# for transformer
+LearningRate3:
+  base_lr: 0.0001
+  schedulers:
+  - !PiecewiseDecay
+    gamma: 0.1
+    milestones: [500]
+  - !LinearWarmup
+    start_factor: 0.001
+    steps: 2000
+
+OptimizerBuilder3:
+  clip_grad_by_norm: 0.1
+  regularizer: false
+  optimizer:
+    type: AdamW
+    weight_decay: 0.0001
