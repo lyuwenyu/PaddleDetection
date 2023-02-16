@@ -503,6 +503,25 @@ class DETRLoss(nn.Layer):
                     postfix,
                     weights=None
                     if self.sqr_weights is None else self.sqr_weights[:-1]))
+        else:
+            if "match_indices" not in kwargs:
+                if self.only_use_encoder_matched_index:
+                    match_indices = match_indices
+                else:
+                    match_indices = None
+
+            total_loss.update(
+                self._get_loss_aux(
+                    boxes[:1] if boxes is not None else None,
+                    logits[:1] if logits is not None else None,
+                    gt_bbox,
+                    gt_class,
+                    self.num_classes,
+                    num_gts,
+                    match_indices,
+                    postfix,
+                    weights=None
+                    if self.sqr_weights is None else self.sqr_weights[:1]))
 
         return total_loss
 
