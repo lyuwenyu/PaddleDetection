@@ -62,8 +62,8 @@ YOLOCSPPAN:
   dim_feedforward: 2048
   dropout: 0.1 # 0.
   activation: 'gelu'
-  proj_dim: [512, 512, 512]
-  # proj_dim: [256, 256, 256]
+#   proj_dim: [512, 512, 512]
+  proj_dim: [256, 256, 256]
 
 
 # YOLOCSPPAN:
@@ -151,22 +151,41 @@ OptimizerBuilder1:
 
 
 # for neck
+# LearningRate2:
+#   base_lr: 0.0001
+#   schedulers:
+#   - !PiecewiseDecay
+#     gamma: 0.1
+#     milestones: [150]
+#   - !LinearWarmup
+#     start_factor: 0.001
+#     steps: 2000
+
+# OptimizerBuilder2:
+#   clip_grad_by_norm: 0.1
+#   regularizer: false
+#   optimizer:
+#     type: AdamW
+#     weight_decay: 0.0001
 LearningRate2:
-  base_lr: 0.0001
+  base_lr: 0.01
   schedulers:
-  - !PiecewiseDecay
-    gamma: 0.1
-    milestones: [100]
+  - !CosineDecay
+    max_epochs: *epoch
+    min_lr_ratio: 0.05
   - !LinearWarmup
     start_factor: 0.001
     steps: 2000
 
 OptimizerBuilder2:
-  clip_grad_by_norm: 0.1
-  regularizer: false
   optimizer:
-    type: AdamW
-    weight_decay: 0.0001
+    type: Momentum
+    momentum: 0.9
+    use_nesterov: True
+  regularizer:
+    factor: 0.0005
+    type: L2
+
 
 
 # for transformer
