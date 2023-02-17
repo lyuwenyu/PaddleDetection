@@ -531,7 +531,7 @@ class DINOTransformerDecoder(nn.Layer):
 
                 reference_points_input_list.append(reference_points)
 
-        if self.return_intermediate and self.path_type == 'sqr':
+        if self.return_intermediate and self.path_type == 'sqr' and epoch < self.sqr_epoch:
             return None, paddle.stack(dec_out_bboxes_list), paddle.stack(
                 dec_out_logits_list)
 
