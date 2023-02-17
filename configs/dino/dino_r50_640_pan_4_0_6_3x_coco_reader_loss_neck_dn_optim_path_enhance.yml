@@ -100,6 +100,8 @@ DINOTransformer:
   dn_epoch: 10000 # 33
 
   path_type: 'base' # sqr
+
+  # path_type: 'sqr' # sqr
   # sqr_epoch: 1
 
 
@@ -113,7 +115,8 @@ DINOHead:
     only_use_encoder_matched_index: False
 
     fix_matched_once: False # True
-    sqr_path_numbers: ~ # [1, 2, 3, 5, 8, 13]
+
+    # sqr_path_numbers: [1, 2, 3, 5, 8, 13]
     # sqr_epoch: 1
 
     matcher:
