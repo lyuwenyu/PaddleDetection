@@ -859,8 +859,13 @@ def load_predictor(model_dir,
         'trt_fp16': Config.Precision.Half
     }
     if run_mode in precision_map.keys():
+
+        tuned_trt_shape_file = os.path.join(model_dir, tuned_trt_shape_file)
+
         if arch in TUNED_TRT_DYNAMIC_MODELS:
-            config.collect_shape_range_info(tuned_trt_shape_file)
+            if not os.path.exists(tuned_trt_shape_file):
+                config.collect_shape_range_info(tuned_trt_shape_file)
+
         config.enable_tensorrt_engine(
             workspace_size=(1 << 25) * batch_size,
             max_batch_size=batch_size,

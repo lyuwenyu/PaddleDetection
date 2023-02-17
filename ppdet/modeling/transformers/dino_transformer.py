@@ -837,7 +837,7 @@ class DINOTransformer(nn.Layer):
             valid_ratios,
             attn_mask,
             mask_flatten,
-            epoch=gt_meta['epoch_id'])
+            epoch=gt_meta.get('epoch_id', -1))
 
         return (dec_out_bboxes, dec_out_logits, enc_topk_bboxes,
                 enc_topk_logits, dn_meta)
