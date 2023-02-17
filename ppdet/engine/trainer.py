@@ -137,14 +137,15 @@ class Trainer(object):
             # self.optimizer = create('OptimizerBuilder')(self.lr, self.model)
 
             # Unstructured pruner is only enabled in the train mode.
-            if self.cfg.get('unstructured_prune'):
-                self.pruner = create('UnstructuredPruner')(self.model,
-                                                           steps_per_epoch)
-        if self.use_amp and self.amp_level == 'O2':
-            self.model, self.optimizer = paddle.amp.decorate(
-                models=self.model,
-                optimizers=self.optimizer,
-                level=self.amp_level)
+            # if self.cfg.get('unstructured_prune'):
+            #     self.pruner = create('UnstructuredPruner')(self.model,
+            #                                                steps_per_epoch)
+            # if self.use_amp and self.amp_level == 'O2':
+            #     self.model, self.optimizer = paddle.amp.decorate(
+            #         models=self.model,
+            #         optimizers=self.optimizer,
+            #         level=self.amp_level)
+
         self.use_ema = ('use_ema' in cfg and cfg['use_ema'])
         if self.use_ema:
             ema_decay = self.cfg.get('ema_decay', 0.9998)
@@ -194,6 +195,9 @@ class Trainer(object):
         self.lr3 = create('LearningRate3')(steps_per_epoch)
         self.optimizer3 = create('OptimizerBuilder3')(self.lr3,
                                                       self.model.transformer)
+
+        self.lr = self.lr1
+        self.optimizer = self.optimizer1
 
     def _init_callbacks(self):
         if self.mode == 'train':
