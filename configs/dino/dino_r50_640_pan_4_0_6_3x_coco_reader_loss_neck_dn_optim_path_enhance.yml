@@ -67,7 +67,7 @@ YOLOCSPPAN:
   activation: 'gelu'  # relu
   proj_dim: [512, 512, 512]
   # proj_dim: [256, 256, 256]
-
+  proj_no_norm: False
 
 # YOLOCSPPAN:
 #   depthwise: False
