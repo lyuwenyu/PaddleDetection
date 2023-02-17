@@ -100,6 +100,7 @@ DINOTransformer:
   dn_epoch: 10000 # 33
 
   path_type: 'base' # sqr
+  # sqr_epoch: 1
 
 
 DINOHead:
@@ -113,6 +114,7 @@ DINOHead:
 
     fix_matched_once: False # True
     sqr_path_numbers: ~ # [1, 2, 3, 5, 8, 13]
+    # sqr_epoch: 1
 
     matcher:
       name: HungarianMatcher
