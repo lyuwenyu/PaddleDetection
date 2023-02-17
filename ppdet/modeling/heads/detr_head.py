@@ -422,7 +422,8 @@ class DINOHead(nn.Layer):
                 inputs['gt_class'],
                 dn_out_bboxes=dn_out_bboxes,
                 dn_out_logits=dn_out_logits,
-                dn_meta=dn_meta)
+                dn_meta=dn_meta,
+                epoch=inputs['epoch_id'])
         else:
             if self.eval_idx is not None:
                 return (dec_out_bboxes[self.eval_idx],

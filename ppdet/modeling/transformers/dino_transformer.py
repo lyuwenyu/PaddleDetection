@@ -367,7 +367,8 @@ class DINOTransformerDecoder(nn.Layer):
                  return_intermediate=True,
                  path_type='base',
                  drop_p=0.2,
-                 look_forward_twice=True):
+                 look_forward_twice=True,
+                 sqr_epoch=100000):
         super(DINOTransformerDecoder, self).__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.hidden_dim = hidden_dim
@@ -377,6 +378,7 @@ class DINOTransformerDecoder(nn.Layer):
         self.path_type = path_type
         self.look_forward_twice = look_forward_twice
         self.drop_p = drop_p
+        self.sqr_epoch = sqr_epoch
 
         assert path_type in ('base', 'drop_v1', 'drop_v2', 'drop_v2', 'sqr'), ''
 
@@ -395,7 +397,8 @@ class DINOTransformerDecoder(nn.Layer):
                 query_pos_head,
                 valid_ratios=None,
                 attn_mask=None,
-                memory_mask=None):
+                memory_mask=None,
+                epoch=-1):
         if valid_ratios is None:
             valid_ratios = paddle.ones(
                 [memory.shape[0], memory_spatial_shapes.shape[0], 2])
@@ -419,7 +422,7 @@ class DINOTransformerDecoder(nn.Layer):
 
         for i, layer in enumerate(self.layers):
 
-            if self.path_type == 'sqr':
+            if self.path_type == 'sqr' and epoch < self.sqr_epoch:
                 for j, (_name, _iboxes, _, _) in enumerate(dec_query_set[i]):
                     reference_points = _iboxes
 
@@ -570,7 +573,8 @@ class DINOTransformer(nn.Layer):
                  mlp_activation='relu',
                  num_bbox_head_layers=3,
                  num_query_pos_head_layers=2,
-                 keep_mlp_bias_weight_decay=True):
+                 keep_mlp_bias_weight_decay=True,
+                 sqr_epoch=1000000):
         super(DINOTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -583,6 +587,7 @@ class DINOTransformer(nn.Layer):
         self.num_queries = num_queries
         self.eps = eps
         self.dn_epoch = dn_epoch
+        self.sqr_epoch = sqr_epoch
 
         # backbone feature projection
         self._build_input_proj_layer(backbone_feat_channels)
@@ -605,7 +610,8 @@ class DINOTransformer(nn.Layer):
             num_decoder_layers,
             return_intermediate_dec,
             path_type=path_type,
-            drop_p=drop_p)
+            drop_p=drop_p,
+            sqr_epoch=sqr_epoch)
 
         # denoising part
         self.denoising_class_embed = nn.Embedding(
@@ -821,9 +827,17 @@ class DINOTransformer(nn.Layer):
 
         # decoder
         _, dec_out_bboxes, dec_out_logits = self.decoder(
-            target, init_ref_points, memory, spatial_shapes, self.dec_bbox_head,
-            self.dec_score_head, self.query_pos_head, valid_ratios, attn_mask,
-            mask_flatten)
+            target,
+            init_ref_points,
+            memory,
+            spatial_shapes,
+            self.dec_bbox_head,
+            self.dec_score_head,
+            self.query_pos_head,
+            valid_ratios,
+            attn_mask,
+            mask_flatten,
+            epoch=gt_meta['epoch_id'])
 
         return (dec_out_bboxes, dec_out_logits, enc_topk_bboxes,
                 enc_topk_logits, dn_meta)

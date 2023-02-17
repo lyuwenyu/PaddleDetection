@@ -50,7 +50,8 @@ class DETRLoss(nn.Layer):
                  only_use_encoder_matched_index=False,
                  fix_matched_once=False,
                  fix_loss_nomalizer=False,
-                 sqr_path_numbers=None):
+                 sqr_path_numbers=None,
+                 sqr_epoch=100000):
         r"""
         Args:
             num_classes (int): The number of classes.
@@ -75,6 +76,7 @@ class DETRLoss(nn.Layer):
 
         self.sqr_path_numbers = sqr_path_numbers
         self.sqr_weights = None
+        self.sqr_epoch = sqr_epoch
         if self.sqr_path_numbers is not None:
             sqr_weights = []
             for n in [1, ] + self.sqr_path_numbers:
@@ -366,17 +368,47 @@ class DETRLoss(nn.Layer):
                 iou_score = None
         else:
             iou_score = None
+
+        if self.sqr_weights is not None and kwargs.get(
+                'epoch') < self.sqr_epoch:
+            w = self.sqr_weights[-1]
+        else:
+            w = 1
+
         total_loss.update(
-            self._get_loss_class(logits[
-                -1] if logits is not None else None, gt_class, match_indices,
-                                 self.num_classes, num_gts, postfix, iou_score))
+            self._get_loss_class(
+                logits[-1] if logits is not None else None,
+                gt_class,
+                match_indices,
+                self.num_classes,
+                num_gts,
+                postfix,
+                iou_score,
+                weight=w))
         total_loss.update(
-            self._get_loss_bbox(boxes[-1] if boxes is not None else None,
-                                gt_bbox, match_indices, num_gts, postfix))
+            self._get_loss_bbox(
+                boxes[-1] if boxes is not None else None,
+                gt_bbox,
+                match_indices,
+                num_gts,
+                postfix,
+                weight=w))
         if masks is not None and gt_mask is not None:
             total_loss.update(
                 self._get_loss_mask(masks if masks is not None else None,
                                     gt_mask, match_indices, num_gts, postfix))
+
+        # total_loss.update(
+        #     self._get_loss_class(logits[
+        #         -1] if logits is not None else None, gt_class, match_indices,
+        #                          self.num_classes, num_gts, postfix, iou_score))
+        # total_loss.update(
+        #     self._get_loss_bbox(boxes[-1] if boxes is not None else None,
+        #                         gt_bbox, match_indices, num_gts, postfix))
+        # if masks is not None and gt_mask is not None:
+        #     total_loss.update(
+        #         self._get_loss_mask(masks if masks is not None else None,
+        #                             gt_mask, match_indices, num_gts, postfix))
 
         if self.aux_loss:
             if "match_indices" not in kwargs:
@@ -402,7 +434,8 @@ class DETRLoss(nn.Layer):
                     match_indices,
                     postfix,
                     weights=None
-                    if self.sqr_weights is None else self.sqr_weights[1:-1]))
+                    if (self.sqr_weights is None or kwargs.get('epoch') >=
+                        self.sqr_epoch) else self.sqr_weights[1:-1]))
 
         return total_loss
 
@@ -456,7 +489,8 @@ class DETRLoss(nn.Layer):
         else:
             iou_score = None
 
-        if self.sqr_weights is not None:
+        if self.sqr_weights is not None and kwargs.get(
+                'epoch') < self.sqr_epoch:
             w = self.sqr_weights[-1]
         else:
             w = 1
@@ -501,8 +535,8 @@ class DETRLoss(nn.Layer):
                     num_gts,
                     match_indices,
                     postfix,
-                    weights=None
-                    if self.sqr_weights is None else self.sqr_weights[:-1]))
+                    weights=None if (self.sqr_weights is None or kwargs.get(
+                        'epoch') >= self.sqr_epoch) else self.sqr_weights[:-1]))
         else:
             if "match_indices" not in kwargs:
                 if self.only_use_encoder_matched_index:
@@ -520,8 +554,8 @@ class DETRLoss(nn.Layer):
                     num_gts,
                     match_indices,
                     postfix,
-                    weights=None
-                    if self.sqr_weights is None else self.sqr_weights[:1]))
+                    weights=None if (self.sqr_weights is None or kwargs.get(
+                        'epoch') >= self.sqr_epoch) else self.sqr_weights[:1]))
 
         return total_loss
 
@@ -540,8 +574,11 @@ class DINOLoss(DETRLoss):
                 dn_out_logits=None,
                 dn_meta=None,
                 **kwargs):
-        total_loss = super(DINOLoss, self)._forward(boxes, logits, gt_bbox,
-                                                    gt_class)
+
+        epoch = kwargs.get('epoch', self.sqr_epoch)
+
+        total_loss = super(DINOLoss, self)._forward(
+            boxes, logits, gt_bbox, gt_class, epoch=epoch)
 
         # denoising training loss
         if dn_meta is not None:
@@ -573,7 +610,8 @@ class DINOLoss(DETRLoss):
             gt_class,
             postfix="_dn",
             match_indices=dn_match_indices,
-            dn_num_group=dn_num_group)
+            dn_num_group=dn_num_group,
+            epoch=epoch)
         total_loss.update(dn_loss)
 
         return total_loss
