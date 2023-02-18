@@ -16,7 +16,7 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 from ppdet.core.workspace import register, serializable
-from ppdet.modeling.layers import DropBlock
+from ppdet.modeling.layers import BatchNorm2d, DropBlock
 from ppdet.modeling.ops import get_act_fn
 from ..backbones.darknet import ConvBNLayer
 from ..shape_spec import ShapeSpec
@@ -991,6 +991,10 @@ class PPYOLOPAN(nn.Layer):
         return [ShapeSpec(channels=c) for c in self._out_channels]
 
 
+from paddle import ParamAttr
+from paddle.regularizer import L2Decay
+
+
 @register
 @serializable
 class YOLOCSPPAN(nn.Layer):
@@ -1018,7 +1022,8 @@ class YOLOCSPPAN(nn.Layer):
                  act='silu',
                  trt=False,
                  eval_size=[640, 640],
-                 proj_no_norm=False):
+                 proj_conv=False,
+                 proj_conv_bn=False):
         super(YOLOCSPPAN, self).__init__()
         self.proj_dim = proj_dim
         self.eval_size = eval_size
@@ -1028,13 +1033,27 @@ class YOLOCSPPAN(nn.Layer):
             # proj channels
             self.neck_input_proj = nn.LayerList()
             for idx in range(len(in_channels)):
-                if proj_no_norm:
+                if proj_conv:
                     self.neck_input_proj.append(
                         nn.Conv2D(
                             int(in_channels[idx]),
                             proj_dim[idx],
                             1,
                             1, ))
+                elif proj_conv_bn:
+                    self.neck_input_proj.append(
+                        nn.Sequential(
+                            nn.Conv2D(
+                                int(in_channels[idx]),
+                                proj_dim[idx],
+                                1,
+                                1,
+                                bias_attr=False),
+                            nn.BatchNorm2D(
+                                proj_dim[idx],
+                                weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+                                bias_attr=ParamAttr(regularizer=L2Decay(0.0)))))
+
                 else:
                     self.neck_input_proj.append(
                         BaseConv(
