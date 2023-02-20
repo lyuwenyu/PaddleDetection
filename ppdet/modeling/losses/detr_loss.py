@@ -51,7 +51,8 @@ class DETRLoss(nn.Layer):
                  fix_matched_once=False,
                  fix_loss_nomalizer=False,
                  sqr_path_numbers=None,
-                 sqr_epoch=100000):
+                 sqr_epoch=100000,
+                 matcher_idx_list=None):
         r"""
         Args:
             num_classes (int): The number of classes.
@@ -73,6 +74,7 @@ class DETRLoss(nn.Layer):
         self.fix_matched_once = fix_matched_once
         self.only_use_encoder_matched_index = only_use_encoder_matched_index
         self.fix_loss_nomalizer = fix_loss_nomalizer
+        self.matcher_idx_list = matcher_idx_list
 
         self.sqr_path_numbers = sqr_path_numbers
         self.sqr_weights = None
@@ -247,7 +249,7 @@ class DETRLoss(nn.Layer):
         for i, (aux_boxes, aux_logits) in enumerate(zip(boxes, logits)):
 
             if not self.fix_matched_once:
-                if match_indices is None:
+                if match_indices is None or i in self.matcher_idx_list:
                     match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
                                                  gt_class)
             else:
