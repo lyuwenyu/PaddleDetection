@@ -249,7 +249,9 @@ class DETRLoss(nn.Layer):
         for i, (aux_boxes, aux_logits) in enumerate(zip(boxes, logits)):
 
             if not self.fix_matched_once:
-                if match_indices is None or i in self.matcher_idx_list:
+                if match_indices is None or (
+                        self.matcher_idx_list is not None and
+                        i in self.matcher_idx_list):
                     match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
                                                  gt_class)
             else:
