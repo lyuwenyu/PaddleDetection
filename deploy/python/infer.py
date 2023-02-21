@@ -46,8 +46,9 @@ SUPPORT_MODELS = {
     'PPLCNet', 'DETR', 'CenterTrack'
 }
 
-# TUNED_TRT_DYNAMIC_MODELS = {'DETR'}
-TUNED_TRT_DYNAMIC_MODELS = {}
+TUNED_TRT_DYNAMIC_MODELS = {'DETR'}
+
+# TUNED_TRT_DYNAMIC_MODELS = {}
 
 
 def bench_log(detector, img_list, model_info, batch_size=1, name=None):
@@ -862,7 +863,8 @@ def load_predictor(model_dir,
         'trt_fp16': Config.Precision.Half
     }
     if run_mode in precision_map.keys():
-        if arch in TUNED_TRT_DYNAMIC_MODELS:
+        if arch in TUNED_TRT_DYNAMIC_MODELS and not os.path.exists(
+                tuned_trt_shape_file):
             config.collect_shape_range_info(tuned_trt_shape_file)
         config.enable_tensorrt_engine(
             workspace_size=(1 << 35) * batch_size,
@@ -894,7 +896,8 @@ def load_predictor(model_dir,
             print('trt set dynamic shape done!')
 
     # disable print log when predict
-    config.disable_glog_info()
+    # config.disable_glog_info()
+
     # enable shared memory
     config.enable_memory_optim()
     # disable feed, fetch OP, needed by zero_copy_run
@@ -902,7 +905,7 @@ def load_predictor(model_dir,
     if delete_shuffle_pass:
         config.delete_pass("shuffle_channel_detect_pass")
 
-    config.exp_disable_tensorrt_ops(['reshape2'])
+    # config.exp_disable_tensorrt_ops(['reshape2'])
 
     predictor = create_predictor(config)
     return predictor, config
