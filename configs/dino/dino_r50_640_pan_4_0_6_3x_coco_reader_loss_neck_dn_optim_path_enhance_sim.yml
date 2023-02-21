@@ -121,6 +121,8 @@ DINOHead:
     fix_matched_once: False # True
     matcher_idx_list: ~
     # matcher_idx_list: [0, 3]
+    # matcher_idx_list: [0, 2]
+    # matcher_idx_list: [0, 2, 4]
 
     # sqr_path_numbers: [1, 2, 3, 5, 8, 13]
     # sqr_epoch: 1

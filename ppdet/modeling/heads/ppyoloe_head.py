@@ -418,6 +418,7 @@ class PPYOLOEHead(nn.Layer):
             if self.exclude_nms:
                 # `exclude_nms=True` just use in benchmark
                 return pred_bboxes, pred_scores
+                # return pred_bboxes.sum(), pred_scores.sum()
             else:
                 bbox_pred, bbox_num, _ = self.nms(pred_bboxes, pred_scores)
                 return bbox_pred, bbox_num
