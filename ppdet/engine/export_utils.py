@@ -54,7 +54,7 @@ TRT_MIN_SUBGRAPH = {
     'YOLOF': 40,
     'METRO_Body': 3,
     # 'DETR': 3,
-    'DETR': 30,
+    'DETR': 40,
 }
 
 KEYPOINT_ARCH = ['HigherHRNet', 'TopDownHRNet']

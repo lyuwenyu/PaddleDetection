@@ -865,7 +865,7 @@ def load_predictor(model_dir,
         if arch in TUNED_TRT_DYNAMIC_MODELS:
             config.collect_shape_range_info(tuned_trt_shape_file)
         config.enable_tensorrt_engine(
-            workspace_size=(1 << 30) * batch_size,
+            workspace_size=(1 << 35) * batch_size,
             # workspace_size=(1 << 25) * batch_size,
             max_batch_size=batch_size,
             min_subgraph_size=min_subgraph_size,
@@ -901,6 +901,9 @@ def load_predictor(model_dir,
     config.switch_use_feed_fetch_ops(False)
     if delete_shuffle_pass:
         config.delete_pass("shuffle_channel_detect_pass")
+
+    config.exp_disable_tensorrt_ops(['reshape2'])
+
     predictor = create_predictor(config)
     return predictor, config
 
