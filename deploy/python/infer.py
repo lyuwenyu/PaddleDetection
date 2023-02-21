@@ -46,7 +46,8 @@ SUPPORT_MODELS = {
     'PPLCNet', 'DETR', 'CenterTrack'
 }
 
-TUNED_TRT_DYNAMIC_MODELS = {'DETR'}
+# TUNED_TRT_DYNAMIC_MODELS = {'DETR'}
+TUNED_TRT_DYNAMIC_MODELS = {}
 
 
 def bench_log(detector, img_list, model_info, batch_size=1, name=None):
@@ -436,7 +437,7 @@ class Detector(object):
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         out_path = os.path.join(self.output_dir, video_out_name)
-        fourcc = cv2.VideoWriter_fourcc(* 'mp4v')
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         writer = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
         index = 1
         while (1):
@@ -864,7 +865,8 @@ def load_predictor(model_dir,
         if arch in TUNED_TRT_DYNAMIC_MODELS:
             config.collect_shape_range_info(tuned_trt_shape_file)
         config.enable_tensorrt_engine(
-            workspace_size=(1 << 25) * batch_size,
+            workspace_size=(1 << 30) * batch_size,
+            # workspace_size=(1 << 25) * batch_size,
             max_batch_size=batch_size,
             min_subgraph_size=min_subgraph_size,
             precision_mode=precision_map[run_mode],

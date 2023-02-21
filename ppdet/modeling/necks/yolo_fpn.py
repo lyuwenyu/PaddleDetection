@@ -1017,7 +1017,8 @@ class YOLOCSPPAN(nn.Layer):
                  data_format='NCHW',
                  act='silu',
                  trt=False,
-                 eval_size=[640, 640]):
+                 eval_size=[640, 640],
+                 proj_use_conv=False):
         super(YOLOCSPPAN, self).__init__()
         self.proj_dim = proj_dim
         self.eval_size = eval_size
@@ -1027,9 +1028,14 @@ class YOLOCSPPAN(nn.Layer):
             # proj channels
             self.neck_input_proj = nn.LayerList()
             for idx in range(len(in_channels)):
-                self.neck_input_proj.append(
-                    BaseConv(
-                        int(in_channels[idx]), proj_dim[idx], 1, 1, act=act))
+                if proj_use_conv:
+                    self.neck_input_proj.append(
+                        nn.Conv2D(int(in_channels[idx]), proj_dim[idx], 1, 1))
+                else:
+                    self.neck_input_proj.append(
+                        BaseConv(
+                            int(in_channels[idx]), proj_dim[idx], 1, 1,
+                            act=act))
             in_channels = proj_dim
         self.in_channels = in_channels
         self._out_channels = in_channels
