@@ -6,7 +6,7 @@ _BASE_: [
   '_base_/yoloe_reader.yml',
 ]
 
-weights: output/dino_r50vd_pan_4_0_6_3x_coco/model_final
+weights: output/dino_base_sim_speed/model_final
 find_unused_parameters: True
 log_iter: 100
 snapshot_epoch: 2

@@ -1,3 +1,17 @@
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  '_base_/optimizer_3x.yml',
+  '_base_/dino_r50vd_pan.yml',
+  '_base_/yoloe_reader.yml',
+]
+
+weights: output/dino_base_sim_for_cls_3x/model_final
+find_unused_parameters: True
+log_iter: 100
+snapshot_epoch: 2
+
+
 architecture: DETR
 # pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vd_ssld_v2_pretrained.pdparams
 norm_type: sync_bn
@@ -31,18 +45,19 @@ YOLOCSPPAN:
   use_trans: True
   nhead: 8
   num_layers: 2
-  dim_feedforward: 2048
+  dim_feedforward: 1024
   dropout: 0.1
   activation: 'gelu'
-  proj_dim: [512, 512, 512]
+  proj_dim: [256, 256, 256]
+  proj_use_conv: True
 
 PPDETRTransformer:
   num_queries: 300
   position_embed_type: sine
-  num_levels: 4
+  num_levels: 3
   nhead: 8
   num_decoder_layers: 6
-  dim_feedforward: 2048
+  dim_feedforward: 1024
   dropout: 0.0
   activation: relu
   num_denoising: 100
