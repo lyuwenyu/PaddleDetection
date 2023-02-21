@@ -46,7 +46,7 @@ EvalReader:
 
 TestReader:
   inputs_def:
-    image_shape: [3, *eval_height, *eval_width]
+    image_shape: [1, 3, 640, 640]
   sample_transforms:
     - Decode: {}
     - Resize: {target_size: *eval_size, keep_ratio: False, interp: 2}
