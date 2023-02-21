@@ -906,7 +906,8 @@ def load_predictor(model_dir,
     if delete_shuffle_pass:
         config.delete_pass("shuffle_channel_detect_pass")
 
-    # config.exp_disable_tensorrt_ops(['reshape2'])
+    # TODO
+    config.exp_disable_tensorrt_ops(['reshape2'])
 
     predictor = create_predictor(config)
     return predictor, config
