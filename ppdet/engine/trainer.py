@@ -213,6 +213,17 @@ class Trainer(object):
         self._init_metrics()
         self._reset_metrics()
 
+        print(self.model)
+        params = sum([
+            p.numel() for n, p in self.model.named_parameters()
+            if all([x not in n for x in ['_mean', '_variance']])
+        ])  # exclude BatchNorm running status
+        print('params: ', params.item())
+
+        dataset = create('EvalDataset')()
+        loader = create('EvalReader')(dataset, 0)
+        self._flops(loader)
+
     def _init_callbacks(self):
         if self.mode == 'train':
             self._callbacks = [LogPrinter(self), Checkpointer(self)]
