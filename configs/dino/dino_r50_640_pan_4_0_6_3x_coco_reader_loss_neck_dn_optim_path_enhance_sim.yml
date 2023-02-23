@@ -3,7 +3,7 @@ _BASE_: [
   '../runtime.yml',
   '_base_/dino_r50.yml',
 
-  '_base_/optimizer_5x.yml',
+  '_base_/optimizer_15x.yml',
   # '_base_/enhance_optimizer_3x.yml',
   '_base_/yoloe_reader.yml',
   # '_base_/enhance_yoloe_reader.yml',
@@ -121,8 +121,8 @@ DINOHead:
     fix_matched_once: False # True
     matcher_idx_list: ~
     # matcher_idx_list: [0, 3]
-    # matcher_idx_list: [0, 2]
-    # matcher_idx_list: [0, 2, 4]
+    # matcher_idx_list: [0, 4]
+    # matcher_idx_list: [0, 5]
 
     # sqr_path_numbers: [1, 2, 3, 5, 8, 13]
     # sqr_epoch: 1
