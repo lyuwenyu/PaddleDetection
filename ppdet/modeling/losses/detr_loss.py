@@ -227,6 +227,32 @@ class DETRLoss(nn.Layer):
         loss = 1 - (numerator + 1) / (denominator + 1)
         return loss.sum() / num_gts
 
+    def _get_index_updates(self, num_query_objects, target, match_indices):
+        batch_idx = paddle.concat([
+            paddle.full_like(src, i) for i, (src, _) in enumerate(match_indices)
+        ])
+        src_idx = paddle.concat([src for (src, _) in match_indices])
+        src_idx += (batch_idx * num_query_objects)
+        target_assign = paddle.concat([
+            paddle.gather(
+                t, dst, axis=0) for t, (_, dst) in zip(target, match_indices)
+        ])
+        return src_idx, target_assign
+
+    def _get_src_target_assign(self, src, target, match_indices):
+        src_assign = paddle.concat([
+            paddle.gather(
+                t, I, axis=0) if len(I) > 0 else paddle.zeros([0, t.shape[-1]])
+            for t, (I, _) in zip(src, match_indices)
+        ])
+        target_assign = paddle.concat([
+            paddle.gather(
+                t, J, axis=0) if len(J) > 0 else paddle.zeros([0, t.shape[-1]])
+            for t, (_, J) in zip(target, match_indices)
+        ])
+        return src_assign, target_assign
+
+    # for dn
     def _get_loss_aux(self,
                       boxes,
                       logits,
@@ -283,6 +309,10 @@ class DETRLoss(nn.Layer):
                     iou_score = None
             else:
                 iou_score = None
+
+            if self.only_enc_use_vfl:
+                iou_score = None
+
             loss_class.append(
                 self._get_loss_class(
                     aux_logits,
@@ -303,31 +333,6 @@ class DETRLoss(nn.Layer):
             "loss_giou_aux" + postfix: paddle.add_n(loss_giou)
         }
         return loss
-
-    def _get_index_updates(self, num_query_objects, target, match_indices):
-        batch_idx = paddle.concat([
-            paddle.full_like(src, i) for i, (src, _) in enumerate(match_indices)
-        ])
-        src_idx = paddle.concat([src for (src, _) in match_indices])
-        src_idx += (batch_idx * num_query_objects)
-        target_assign = paddle.concat([
-            paddle.gather(
-                t, dst, axis=0) for t, (_, dst) in zip(target, match_indices)
-        ])
-        return src_idx, target_assign
-
-    def _get_src_target_assign(self, src, target, match_indices):
-        src_assign = paddle.concat([
-            paddle.gather(
-                t, I, axis=0) if len(I) > 0 else paddle.zeros([0, t.shape[-1]])
-            for t, (I, _) in zip(src, match_indices)
-        ])
-        target_assign = paddle.concat([
-            paddle.gather(
-                t, J, axis=0) if len(J) > 0 else paddle.zeros([0, t.shape[-1]])
-            for t, (_, J) in zip(target, match_indices)
-        ])
-        return src_assign, target_assign
 
     # for dn
     def forward(self,
