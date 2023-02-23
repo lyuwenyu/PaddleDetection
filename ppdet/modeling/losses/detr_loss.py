@@ -510,6 +510,13 @@ class DETRLoss(nn.Layer):
             if self.only_enc_use_vfl and i != 0:
                 iou_score = None
 
+            if i == 0:
+                enc_class_weight_multi = self.enc_class_weight_multi
+                enc_box_weight_multi = self.enc_box_weight_multi
+            else:
+                enc_class_weight_multi = 1.
+                enc_box_weight_multi = 1.
+
             loss_class.append(
                 self._get_loss_class(
                     aux_logits,
@@ -519,8 +526,7 @@ class DETRLoss(nn.Layer):
                     num_gts,
                     postfix,
                     iou_score,
-                    weight=w * self.enc_class_weight_multi)['loss_class' +
-                                                            postfix])
+                    weight=w * enc_class_weight_multi)['loss_class' + postfix])
 
             loss_ = self._get_loss_bbox(
                 aux_boxes,
@@ -528,7 +534,7 @@ class DETRLoss(nn.Layer):
                 match_indices,
                 num_gts,
                 postfix,
-                weight=w * self.enc_box_weight_multi)
+                weight=w * enc_box_weight_multi)
 
             loss_bbox.append(loss_['loss_bbox' + postfix])
             loss_giou.append(loss_['loss_giou' + postfix])
@@ -595,6 +601,9 @@ class DETRLoss(nn.Layer):
             w = self.sqr_weights[-1]
         else:
             w = 1.
+
+        if self.only_enc_use_vfl:
+            iou_score = None
 
         total_loss.update(
             self._get_loss_class(
