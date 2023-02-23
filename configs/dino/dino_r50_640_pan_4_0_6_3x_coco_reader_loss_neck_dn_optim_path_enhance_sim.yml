@@ -91,7 +91,10 @@ DINOTransformer:
   num_denoising: 100
   label_noise_ratio: 0.5
   box_noise_scale: 1.0
-  learnt_init_query: False # True
+
+  # learnt_init_query: False # True
+  learnt_init_query: True
+
 
   mlp_activation: relu
   keep_mlp_bias_weight_decay: True # False
@@ -117,6 +120,10 @@ DINOHead:
     use_vfl: True
     iou_type: 'giou' # siou_l
     only_use_encoder_matched_index: False
+
+    only_enc_use_vfl: True
+    enc_class_weight_multi: 2.
+    enc_box_weight_multi: 1.
 
     fix_matched_once: False # True
     matcher_idx_list: ~

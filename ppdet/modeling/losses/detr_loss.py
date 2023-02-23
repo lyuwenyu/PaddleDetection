@@ -52,7 +52,10 @@ class DETRLoss(nn.Layer):
                  fix_loss_nomalizer=False,
                  sqr_path_numbers=None,
                  sqr_epoch=100000,
-                 matcher_idx_list=None):
+                 matcher_idx_list=None,
+                 only_enc_use_vfl=False,
+                 enc_class_weight_multi=1.,
+                 enc_box_weight_multi=1.):
         r"""
         Args:
             num_classes (int): The number of classes.
@@ -70,6 +73,9 @@ class DETRLoss(nn.Layer):
         self.aux_loss = aux_loss
         self.use_focal_loss = use_focal_loss
         self.use_vfl = use_vfl
+        self.only_enc_use_vfl = only_enc_use_vfl
+        self.enc_class_weight_multi = enc_class_weight_multi
+        self.enc_box_weight_multi = enc_box_weight_multi
 
         self.fix_matched_once = fix_matched_once
         self.only_use_encoder_matched_index = only_use_encoder_matched_index
@@ -444,6 +450,97 @@ class DETRLoss(nn.Layer):
         return total_loss
 
     # for enc and dec
+    def _get_loss_aux_enc(self,
+                          boxes,
+                          logits,
+                          gt_bbox,
+                          gt_class,
+                          bg_index,
+                          num_gts,
+                          match_indices=None,
+                          postfix="",
+                          weights=None):
+        if boxes is None and logits is None:
+            return {
+                "loss_class_aux" + postfix: paddle.paddle.zeros([1]),
+                "loss_bbox_aux" + postfix: paddle.paddle.zeros([1]),
+                "loss_giou_aux" + postfix: paddle.paddle.zeros([1])
+            }
+        loss_class = []
+        loss_bbox = []
+        loss_giou = []
+        # ONCE_FLAG = (match_indices is None) and (not self.matched_once)
+        DN_FLAG = match_indices is not None
+
+        if weights is not None:
+            assert len(weights) == len(boxes), ''
+
+        for i, (aux_boxes, aux_logits) in enumerate(zip(boxes, logits)):
+
+            if not self.fix_matched_once:
+                if match_indices is None or (
+                        self.matcher_idx_list is not None and
+                        i in self.matcher_idx_list):
+                    match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
+                                                 gt_class)
+            else:
+                if DN_FLAG:
+                    match_indices = match_indices
+                else:
+                    match_indices = self.matcher(aux_boxes, aux_logits, gt_bbox,
+                                                 gt_class)
+
+            if weights is not None:
+                w = weights[i]
+            else:
+                w = 1.
+
+            if self.use_vfl:
+                if sum(len(a) for a in gt_bbox) > 0:
+                    src_bbox, target_bbox = self._get_src_target_assign(
+                        aux_boxes.detach(), gt_bbox, match_indices)
+                    iou_score = bbox_iou(
+                        bbox_cxcywh_to_xyxy(src_bbox).split(4, -1),
+                        bbox_cxcywh_to_xyxy(target_bbox).split(4, -1))
+                else:
+                    iou_score = None
+            else:
+                iou_score = None
+
+            if self.only_enc_use_vfl and i != 0:
+                iou_score = None
+
+            loss_class.append(
+                self._get_loss_class(
+                    aux_logits,
+                    gt_class,
+                    match_indices,
+                    bg_index,
+                    num_gts,
+                    postfix,
+                    iou_score,
+                    weight=w * self.enc_class_weight_multi)['loss_class' +
+                                                            postfix])
+
+            loss_ = self._get_loss_bbox(
+                aux_boxes,
+                gt_bbox,
+                match_indices,
+                num_gts,
+                postfix,
+                weight=w * self.enc_box_weight_multi)
+
+            loss_bbox.append(loss_['loss_bbox' + postfix])
+            loss_giou.append(loss_['loss_giou' + postfix])
+
+        loss = {
+            "loss_class_aux" + postfix: paddle.add_n(loss_class),
+            "loss_bbox_aux" + postfix: paddle.add_n(loss_bbox),
+            "loss_giou_aux" + postfix: paddle.add_n(loss_giou)
+        }
+        return loss
+
+    # for enc and dec
     def _forward(self,
                  boxes,
                  logits,
@@ -497,7 +594,7 @@ class DETRLoss(nn.Layer):
                 'epoch') < self.sqr_epoch:
             w = self.sqr_weights[-1]
         else:
-            w = 1
+            w = 1.
 
         total_loss.update(
             self._get_loss_class(
@@ -530,7 +627,7 @@ class DETRLoss(nn.Layer):
                     match_indices = None
 
             total_loss.update(
-                self._get_loss_aux(
+                self._get_loss_aux_enc(
                     boxes[:-1] if boxes is not None else None,
                     logits[:-1] if logits is not None else None,
                     gt_bbox,
