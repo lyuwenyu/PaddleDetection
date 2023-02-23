@@ -68,8 +68,8 @@ YOLOCSPPAN:
   # proj_dim: [512, 512, 512]
   proj_dim: [256, 256, 256]
 
-  proj_conv: True
-  proj_conv_bn: False
+  proj_conv: False
+  proj_conv_bn: True
 
 # YOLOCSPPAN:
 #   depthwise: False
