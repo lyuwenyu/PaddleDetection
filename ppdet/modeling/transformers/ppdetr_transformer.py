@@ -149,7 +149,9 @@ class TransformerDecoder(nn.Layer):
         dec_out_bboxes = []
         dec_out_logits = []
         for i, layer in enumerate(self.layers):
-            ref_points_input = F.sigmoid(ref_points_unact).detach().unsqueeze(2)
+            # ref_points_input = F.sigmoid(ref_points_unact).detach().unsqueeze(2)
+            ref_points_input = F.sigmoid(ref_points_unact).unsqueeze(2)
+
             query_pos_embed = get_sine_pos_embed(ref_points_input[..., 0, :],
                                                  self.hidden_dim // 2)
             query_pos_embed = query_pos_head(query_pos_embed)
@@ -158,7 +160,8 @@ class TransformerDecoder(nn.Layer):
                            memory_spatial_shapes, memory_level_start_index,
                            attn_mask, memory_mask, query_pos_embed)
 
-            inter_ref_bbox = bbox_head[i](output) + ref_points_unact.detach()
+            # inter_ref_bbox = bbox_head[i](output) + ref_points_unact.detach()
+            inter_ref_bbox = bbox_head[i](output) + ref_points_unact
 
             if self.training:
                 dec_out_logits.append(score_head[i](output))
@@ -469,5 +472,6 @@ class PPDETRTransformer(nn.Layer):
         if denoising_class is not None:
             target = paddle.concat([denoising_class, target], 1)
 
-        return target, reference_points_unact.detach(
-        ), enc_topk_bboxes, enc_topk_logits
+        # return target, reference_points_unact.detach(
+        # ), enc_topk_bboxes, enc_topk_logits
+        return target, reference_points_unact, enc_topk_bboxes, enc_topk_logits

@@ -67,7 +67,8 @@ def run(FLAGS, cfg):
     if cfg.architecture in ['DeepSORT', 'ByteTrack']:
         trainer.load_weights_sde(cfg.det_weights, cfg.reid_weights)
     else:
-        trainer.load_weights(cfg.weights)
+        if cfg.weights is not None:
+            trainer.load_weights(cfg.weights)
 
     # export model
     trainer.export(FLAGS.output_dir)
