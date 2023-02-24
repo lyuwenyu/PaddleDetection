@@ -79,29 +79,35 @@ class DETR(BaseArch):
         # Backbone
         body_feats = self.backbone(self.inputs)
 
-        if self.neck is not None:
-            body_feats = self.neck(body_feats)
+        body_feats = [paddle.cast(x, 'float32') for x in body_feats]
 
-        # Transformer
-        # pad_mask = self.inputs['pad_mask'] if self.training else None
+        with paddle.amp.auto_cast(enable=False):
 
-        pad_mask = self.inputs[
-            'pad_mask'] if 'pad_mask' in self.inputs else None
+            if self.neck is not None:
+                body_feats = self.neck(body_feats)
 
-        out_transformer = self.transformer(body_feats, pad_mask, self.inputs)
+            # Transformer
+            # pad_mask = self.inputs['pad_mask'] if self.training else None
 
-        # DETR Head
-        if self.training:
-            return self.detr_head(out_transformer, body_feats, self.inputs)
-        else:
-            preds = self.detr_head(out_transformer, body_feats)
-            if self.exclude_post_process:
-                bboxes, logits, masks = preds
-                return bboxes, logits
+            pad_mask = self.inputs[
+                'pad_mask'] if 'pad_mask' in self.inputs else None
+
+            out_transformer = self.transformer(body_feats, pad_mask,
+                                               self.inputs)
+
+            # DETR Head
+            if self.training:
+                return self.detr_head(out_transformer, body_feats, self.inputs)
             else:
-                bbox, bbox_num = self.post_process(
-                    preds, self.inputs['im_shape'], self.inputs['scale_factor'])
-            return bbox, bbox_num
+                preds = self.detr_head(out_transformer, body_feats)
+                if self.exclude_post_process:
+                    bboxes, logits, masks = preds
+                    return bboxes, logits
+                else:
+                    bbox, bbox_num = self.post_process(
+                        preds, self.inputs['im_shape'],
+                        self.inputs['scale_factor'])
+                return bbox, bbox_num
 
     def get_loss(self):
         losses = self._forward()
