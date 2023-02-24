@@ -146,7 +146,8 @@ class TransformerDecoder(nn.Layer):
                 score_head,
                 query_pos_head,
                 attn_mask=None,
-                memory_mask=None):
+                memory_mask=None,
+                memory_spatial_list=None):
         output = tgt
         dec_out_bboxes = []
         dec_out_logits = []
@@ -160,7 +161,8 @@ class TransformerDecoder(nn.Layer):
 
             output = layer(output, ref_points_input, memory,
                            memory_spatial_shapes, memory_level_start_index,
-                           attn_mask, memory_mask, query_pos_embed)
+                           attn_mask, memory_mask, query_pos_embed,
+                           memory_spatial_list)
 
             # inter_ref_bbox = bbox_head[i](output) + ref_points_unact.detach()
             inter_ref_bbox = bbox_head[i](output) + ref_points_unact
