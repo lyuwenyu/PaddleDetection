@@ -103,7 +103,8 @@ class TransformerDecoderLayer(nn.Layer):
                 memory_level_start_index,
                 attn_mask=None,
                 memory_mask=None,
-                query_pos_embed=None):
+                query_pos_embed=None,
+                memory_spatial_list=None):
         # self attention
         q = k = self.with_pos_embed(tgt, query_pos_embed)
         if attn_mask is not None:
@@ -115,7 +116,8 @@ class TransformerDecoderLayer(nn.Layer):
         # cross attention
         tgt2 = self.cross_attn(
             self.with_pos_embed(tgt, query_pos_embed), reference_points, memory,
-            memory_spatial_shapes, memory_level_start_index, memory_mask)
+            memory_spatial_shapes, memory_level_start_index, memory_mask,
+            memory_spatial_list)
         tgt = tgt + self.dropout2(tgt2)
         tgt = self.norm2(tgt)
 
@@ -345,11 +347,13 @@ class PPDETRTransformer(nn.Layer):
         # get encoder inputs
         feat_flatten = []
         spatial_shapes = []
+        spatial_shapes_list = []
         for i, feat in enumerate(proj_feats):
             _, _, h, w = paddle.shape(feat)
             spatial_shapes.append(paddle.concat([h, w]))
             # [b,c,h,w] -> [b,h*w,c]
             feat_flatten.append(feat.flatten(2).transpose([0, 2, 1]))
+            spatial_shapes_list.append(h * w)
 
         # [b, l, c]
         feat_flatten = paddle.concat(feat_flatten, 1)
@@ -357,16 +361,19 @@ class PPDETRTransformer(nn.Layer):
         spatial_shapes = paddle.to_tensor(
             paddle.stack(spatial_shapes).astype('int64'))
         # [l], 每一个level的起始index
+
         level_start_index = paddle.concat([
             paddle.zeros(
                 [1], dtype='int64'), spatial_shapes.prod(1).cumsum(0)[:-1]
         ])
-        return (feat_flatten, spatial_shapes, level_start_index)
+
+        return (feat_flatten, spatial_shapes, level_start_index,
+                spatial_shapes_list)
 
     def forward(self, feats, pad_mask=None, gt_meta=None):
         # input projection and embedding
-        (memory, spatial_shapes,
-         level_start_index) = self._get_encoder_input(feats)
+        (memory, spatial_shapes, level_start_index,
+         spatial_shapes_list) = self._get_encoder_input(feats)
 
         # prepare denoising training
         if self.training:
@@ -395,7 +402,8 @@ class PPDETRTransformer(nn.Layer):
             self.dec_bbox_head,
             self.dec_score_head,
             self.query_pos_head,
-            attn_mask=attn_mask)
+            attn_mask=attn_mask,
+            memory_spatial_list=spatial_shapes_list)
         return (out_bboxes, out_logits, enc_topk_bboxes, enc_topk_logits,
                 dn_meta)
 

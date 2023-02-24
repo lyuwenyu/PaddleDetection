@@ -103,7 +103,8 @@ class MSDeformableAttention(nn.Layer):
                 value,
                 value_spatial_shapes,
                 value_level_start_index,
-                value_mask=None):
+                value_mask=None,
+                value_spatial_list=None):
         """
         Args:
             query (Tensor): [bs, query_length, C]
@@ -151,8 +152,8 @@ class MSDeformableAttention(nn.Layer):
                 format(reference_points.shape[-1]))
 
         output = self.ms_deformable_attn_core(
-            value, value_spatial_shapes, value_level_start_index,
-            sampling_locations, attention_weights)
+            value, value_spatial_shapes, value_spatial_list,
+            value_level_start_index, sampling_locations, attention_weights)
         output = self.output_proj(output)
 
         return output
