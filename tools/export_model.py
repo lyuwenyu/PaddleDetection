@@ -63,12 +63,12 @@ def run(FLAGS, cfg):
     # build detector
     trainer = Trainer(cfg, mode='test')
 
-    # load weights
-    if cfg.architecture in ['DeepSORT', 'ByteTrack']:
-        trainer.load_weights_sde(cfg.det_weights, cfg.reid_weights)
-    else:
-        if cfg.weights is not None:
-            trainer.load_weights(cfg.weights)
+    # # load weights
+    # if cfg.architecture in ['DeepSORT', 'ByteTrack']:
+    #     trainer.load_weights_sde(cfg.det_weights, cfg.reid_weights)
+    # else:
+    #     if cfg.weights is not None:
+    #         trainer.load_weights(cfg.weights)
 
     # export model
     trainer.export(FLAGS.output_dir)
