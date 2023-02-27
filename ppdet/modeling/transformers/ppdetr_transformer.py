@@ -361,7 +361,7 @@ class PPDETRTransformer(nn.Layer):
             spatial_shapes.append(paddle.concat([h, w]))
             # [b,c,h,w] -> [b,h*w,c]
             feat_flatten.append(feat.flatten(2).transpose([0, 2, 1]))
-            spatial_shapes_list.append(h * w)
+            spatial_shapes_list.append([h, w])
 
         # [b, l, c]
         feat_flatten = paddle.concat(feat_flatten, 1)

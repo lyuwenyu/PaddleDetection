@@ -86,14 +86,14 @@ def deformable_attention_core_func(value, value_spatial_shapes,
     _, Len_q, _, n_levels, n_points, _ = sampling_locations.shape
 
     if value_spatial_list is not None:
-        value_list = value.split(value_spatial_list, axis=1)
+        value_list = value.split([h * w for h, w in value_spatial_list], axis=1)
     else:
         value_list = value.split(
             value_spatial_shapes.prod(1).split(n_levels), axis=1)
 
     sampling_grids = 2 * sampling_locations - 1
     sampling_value_list = []
-    for level, (h, w) in enumerate(value_spatial_shapes):
+    for level, (h, w) in enumerate(value_spatial_list):
         # N_, H_*W_, M_, D_ -> N_, H_*W_, M_*D_ -> N_, M_*D_, H_*W_ -> N_*M_, D_, H_, W_
 
         # value_l_ = value_list[level].flatten(2).transpose(
