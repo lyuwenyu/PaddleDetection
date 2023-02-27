@@ -357,8 +357,12 @@ class PPDETRTransformer(nn.Layer):
         spatial_shapes = []
         spatial_shapes_list = []
         for i, feat in enumerate(proj_feats):
-            _, _, h, w = paddle.shape(feat)
-            spatial_shapes.append(paddle.concat([h, w]))
+            # _, _, h, w = paddle.shape(feat)
+            # spatial_shapes.append(paddle.concat([h, w]))
+
+            _, _, h, w = feat.shape
+            spatial_shapes.append([h, w])
+
             # [b,c,h,w] -> [b,h*w,c]
             feat_flatten.append(feat.flatten(2).transpose([0, 2, 1]))
             spatial_shapes_list.append([h, w])
@@ -366,8 +370,7 @@ class PPDETRTransformer(nn.Layer):
         # [b, l, c]
         feat_flatten = paddle.concat(feat_flatten, 1)
         # [num_levels, 2]
-        spatial_shapes = paddle.to_tensor(
-            paddle.stack(spatial_shapes).astype('int64'))
+        spatial_shapes = paddle.to_tensor(spatial_shapes)
         # [l], 每一个level的起始index
 
         level_start_index = paddle.concat([
