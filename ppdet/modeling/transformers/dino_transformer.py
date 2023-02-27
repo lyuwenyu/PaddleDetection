@@ -435,6 +435,8 @@ class DINOTransformerDecoder(nn.Layer):
                         query_pos_embed = get_sine_pos_embed(
                             reference_points_input[..., 0, :],
                             self.hidden_dim // 2)
+                    else:
+                        query_pos_embed = reference_points.detach()
 
                     query_pos_embed = query_pos_head(query_pos_embed)
 
@@ -504,8 +506,13 @@ class DINOTransformerDecoder(nn.Layer):
 
                 reference_points_input = reference_points.detach().unsqueeze(
                     2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
-                query_pos_embed = get_sine_pos_embed(
-                    reference_points_input[..., 0, :], self.hidden_dim // 2)
+
+                if self.use_sin_query_pos_embed:
+                    query_pos_embed = get_sine_pos_embed(
+                        reference_points_input[..., 0, :], self.hidden_dim // 2)
+                else:
+                    query_pos_embed = reference_points.detach()
+
                 query_pos_embed = query_pos_head(query_pos_embed)
 
                 output = layer(output, reference_points_input, memory,
