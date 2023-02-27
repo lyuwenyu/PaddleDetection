@@ -98,6 +98,7 @@ DINOTransformer:
 
   num_bbox_head_layers: 3
   num_query_pos_head_layers: 2
+  use_sin_query_pos_embed: True
 
   dn_epoch: 10000 # 33
 
