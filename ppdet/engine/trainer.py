@@ -1091,35 +1091,39 @@ class Trainer(object):
         if hasattr(self.model, 'deploy'):
             self.model.deploy = True
 
-        if 'slim' not in self.cfg:
-            for layer in self.model.sublayers():
-                if hasattr(layer, 'convert_to_deploy'):
-                    layer.convert_to_deploy()
+        # if 'slim' not in self.cfg:
+        #     for layer in self.model.sublayers():
+        #         if hasattr(layer, 'convert_to_deploy'):
+        #             layer.convert_to_deploy()
 
-        if hasattr(self.cfg, 'export') and 'fuse_conv_bn' in self.cfg[
-                'export'] and self.cfg['export']['fuse_conv_bn']:
-            self.model = fuse_conv_bn(self.model)
+        # if hasattr(self.cfg, 'export') and 'fuse_conv_bn' in self.cfg[
+        #         'export'] and self.cfg['export']['fuse_conv_bn']:
+        #     self.model = fuse_conv_bn(self.model)
 
-        export_post_process = self.cfg['export'].get(
-            'post_process', False) if hasattr(self.cfg, 'export') else True
-        export_nms = self.cfg['export'].get('nms', False) if hasattr(
-            self.cfg, 'export') else True
-        export_benchmark = self.cfg['export'].get(
-            'benchmark', False) if hasattr(self.cfg, 'export') else False
-        if hasattr(self.model, 'fuse_norm'):
-            self.model.fuse_norm = self.cfg['TestReader'].get('fuse_normalize',
-                                                              False)
-        if hasattr(self.model, 'export_post_process'):
-            self.model.export_post_process = export_post_process if not export_benchmark else False
-        if hasattr(self.model, 'export_nms'):
-            self.model.export_nms = export_nms if not export_benchmark else False
-        if export_post_process and not export_benchmark:
-            image_shape = [None] + image_shape[1:]
+        # export_post_process = self.cfg['export'].get(
+        #     'post_process', False) if hasattr(self.cfg, 'export') else True
+        # export_nms = self.cfg['export'].get('nms', False) if hasattr(
+        #     self.cfg, 'export') else True
+        # export_benchmark = self.cfg['export'].get(
+        #     'benchmark', False) if hasattr(self.cfg, 'export') else False
+        # if hasattr(self.model, 'fuse_norm'):
+        #     self.model.fuse_norm = self.cfg['TestReader'].get('fuse_normalize',
+        #                                                       False)
+        # if hasattr(self.model, 'export_post_process'):
+        #     self.model.export_post_process = export_post_process if not export_benchmark else False
+        # if hasattr(self.model, 'export_nms'):
+        #     self.model.export_nms = export_nms if not export_benchmark else False
+        # if export_post_process and not export_benchmark:
+        #     image_shape = [None] + image_shape[1:]
 
         # Save infer cfg
         _dump_infer_config(self.cfg,
                            os.path.join(save_dir, 'infer_cfg.yml'), image_shape,
                            self.model)
+
+        print('image_shape ', image_shape)
+        print('im_shape ', im_shape)
+        print('scale_factor ', scale_factor)
 
         input_spec = [{
             "image": InputSpec(
