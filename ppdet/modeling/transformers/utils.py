@@ -280,26 +280,26 @@ def get_sine_pos_embed(pos_tensor,
     return pos_res
 
 
-# def get_sine_pos_embed(pos_tensor,
-#                        num_pos_feats=128,
-#                        temperature=10000,
-#                        exchange_xy=True):
-#     scale = 2. * math.pi
-#     dim_t = 2. * paddle.floor_divide(
-#         paddle.arange(num_pos_feats), paddle.to_tensor(2))
-#     dim_t = scale / temperature**(dim_t / num_pos_feats)
+def _get_sine_pos_embed(pos_tensor,
+                        num_pos_feats=128,
+                        temperature=10000,
+                        exchange_xy=True):
+    scale = 2. * math.pi
+    dim_t = 2. * paddle.floor_divide(
+        paddle.arange(num_pos_feats), paddle.to_tensor(2))
+    dim_t = scale / temperature**(dim_t / num_pos_feats)
 
-#     pos_res = pos_tensor.unsqueeze(-1) * dim_t
+    pos_res = pos_tensor.unsqueeze(-1) * dim_t
 
-#     pos_res[..., 0::2] = pos_res[..., 0::2].sin()
-#     pos_res[..., 1::2] = pos_res[..., 1::2].cos()
+    pos_res[..., 0::2] = pos_res[..., 0::2].sin()
+    pos_res[..., 1::2] = pos_res[..., 1::2].cos()
 
-#     if exchange_xy:
-#         pos_res_list = pos_res.split(pos_res.shape[-2], -2)
-#         pos_res_list[0], pos_res_list[1] = pos_res_list[1], pos_res_list[0]
-#         pos_res = paddle.concat(pos_res_list, axis=-2)
+    if exchange_xy:
+        pos_res_list = pos_res.split(pos_res.shape[-2], -2)
+        pos_res_list[0], pos_res_list[1] = pos_res_list[1], pos_res_list[0]
+        pos_res = paddle.concat(pos_res_list, axis=-2)
 
-#     return pos_res.flatten(-2)
+    return pos_res.flatten(-2)
 
 
 def varifocal_loss_with_logits(pred_logits,
