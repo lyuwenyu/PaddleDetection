@@ -360,22 +360,25 @@ from collections import defaultdict
 
 
 class DINOTransformerDecoder(nn.Layer):
-    def __init__(self,
-                 hidden_dim,
-                 decoder_layer,
-                 num_layers,
-                 return_intermediate=True,
-                 path_type='base',
-                 drop_p=0.2,
-                 look_forward_twice=True,
-                 sqr_epoch=100000,
-                 use_sin_query_pos_embed=True):
+    def __init__(
+            self,
+            hidden_dim,
+            decoder_layer,
+            num_layers,
+            return_intermediate=True,
+            path_type='base',
+            drop_p=0.2,
+            look_forward_twice=True,
+            sqr_epoch=100000,
+            use_sin_query_pos_embed=True,
+            sin_query_pos_ratio=2, ):
         super(DINOTransformerDecoder, self).__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.return_intermediate = return_intermediate
         self.use_sin_query_pos_embed = use_sin_query_pos_embed
+        self.sin_query_pos_ratio = sin_query_pos_ratio
 
         self.path_type = path_type
         self.look_forward_twice = look_forward_twice
@@ -432,9 +435,14 @@ class DINOTransformerDecoder(nn.Layer):
                     ).unsqueeze(2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
 
                     if self.use_sin_query_pos_embed:
-                        query_pos_embed = get_sine_pos_embed(
-                            reference_points_input[..., 0, :],
-                            self.hidden_dim // 2)
+                        if self.sin_query_pos_ratio == 2:
+                            query_pos_embed = get_sine_pos_embed(
+                                reference_points_input[..., 0, :],
+                                self.hidden_dim // 2)
+                        elif self.sin_query_pos_ratio == 4:
+                            query_pos_embed = get_sine_pos_embed(
+                                reference_points_input[..., 0, :],
+                                self.hidden_dim // 4)
                     else:
                         query_pos_embed = reference_points.detach()
 
@@ -508,8 +516,14 @@ class DINOTransformerDecoder(nn.Layer):
                     2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
 
                 if self.use_sin_query_pos_embed:
-                    query_pos_embed = get_sine_pos_embed(
-                        reference_points_input[..., 0, :], self.hidden_dim // 2)
+                    if self.sin_query_pos_ratio == 2:
+                        query_pos_embed = get_sine_pos_embed(
+                            reference_points_input[..., 0, :],
+                            self.hidden_dim // 2)
+                    elif self.sin_query_pos_ratio == 4:
+                        query_pos_embed = get_sine_pos_embed(
+                            reference_points_input[..., 0, :],
+                            self.hidden_dim // 4)
                 else:
                     query_pos_embed = reference_points.detach()
 
@@ -557,36 +571,38 @@ class DINOTransformerDecoder(nn.Layer):
 class DINOTransformer(nn.Layer):
     __shared__ = ['num_classes', 'hidden_dim']
 
-    def __init__(self,
-                 num_classes=80,
-                 hidden_dim=256,
-                 num_queries=900,
-                 position_embed_type='sine',
-                 return_intermediate_dec=True,
-                 backbone_feat_channels=[512, 1024, 2048],
-                 num_levels=4,
-                 num_encoder_points=4,
-                 num_decoder_points=4,
-                 nhead=8,
-                 num_encoder_layers=6,
-                 num_decoder_layers=6,
-                 dim_feedforward=1024,
-                 dropout=0.,
-                 activation="relu",
-                 num_denoising=100,
-                 label_noise_ratio=0.5,
-                 box_noise_scale=1.0,
-                 learnt_init_query=True,
-                 eps=1e-2,
-                 path_type='base',
-                 drop_p=0.2,
-                 dn_epoch=10000000,
-                 mlp_activation='relu',
-                 num_bbox_head_layers=3,
-                 num_query_pos_head_layers=2,
-                 keep_mlp_bias_weight_decay=True,
-                 sqr_epoch=1000000,
-                 use_sin_query_pos_embed=True):
+    def __init__(
+            self,
+            num_classes=80,
+            hidden_dim=256,
+            num_queries=900,
+            position_embed_type='sine',
+            return_intermediate_dec=True,
+            backbone_feat_channels=[512, 1024, 2048],
+            num_levels=4,
+            num_encoder_points=4,
+            num_decoder_points=4,
+            nhead=8,
+            num_encoder_layers=6,
+            num_decoder_layers=6,
+            dim_feedforward=1024,
+            dropout=0.,
+            activation="relu",
+            num_denoising=100,
+            label_noise_ratio=0.5,
+            box_noise_scale=1.0,
+            learnt_init_query=True,
+            eps=1e-2,
+            path_type='base',
+            drop_p=0.2,
+            dn_epoch=10000000,
+            mlp_activation='relu',
+            num_bbox_head_layers=3,
+            num_query_pos_head_layers=2,
+            keep_mlp_bias_weight_decay=True,
+            sqr_epoch=1000000,
+            use_sin_query_pos_embed=True,
+            sin_query_pos_ratio=2, ):
         super(DINOTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -646,14 +662,24 @@ class DINOTransformer(nn.Layer):
             self.tgt_embed = nn.Embedding(num_queries, hidden_dim)
 
         self.use_sin_query_pos_embed = use_sin_query_pos_embed
+        self.sin_query_pos_ratio = sin_query_pos_ratio
         if use_sin_query_pos_embed:
-            self.query_pos_head = MLP(
-                2 * hidden_dim,
-                hidden_dim,
-                hidden_dim,
-                num_layers=num_query_pos_head_layers,
-                activation=mlp_activation,
-                keep_bias_weight_decay=keep_mlp_bias_weight_decay)
+            if sin_query_pos_ratio == 2:
+                self.query_pos_head = MLP(
+                    2 * hidden_dim,
+                    hidden_dim,
+                    hidden_dim,
+                    num_layers=num_query_pos_head_layers,
+                    activation=mlp_activation,
+                    keep_bias_weight_decay=keep_mlp_bias_weight_decay)
+            elif sin_query_pos_ratio == 4:
+                self.query_pos_head = MLP(
+                    hidden_dim,
+                    hidden_dim,
+                    hidden_dim,
+                    num_layers=num_query_pos_head_layers,
+                    activation=mlp_activation,
+                    keep_bias_weight_decay=keep_mlp_bias_weight_decay)
         else:
             self.query_pos_head = MLP(
                 4,
