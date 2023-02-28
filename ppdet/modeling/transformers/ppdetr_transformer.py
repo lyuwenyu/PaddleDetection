@@ -469,7 +469,8 @@ class PPDETRTransformer(nn.Layer):
         enc_outputs_coord_unact = self.enc_bbox_head(output_memory) + anchors
 
         _, topk_ind = paddle.topk(
-            enc_outputs_class.max(-1), self.num_queries, axis=1)
+            enc_outputs_class.max(-1), self.num_queries, axis=1, sorted=True)
+
         # extract region proposal boxes
         batch_ind = paddle.arange(end=bs, dtype=topk_ind.dtype)
         batch_ind = batch_ind.unsqueeze(-1).tile([1, self.num_queries])

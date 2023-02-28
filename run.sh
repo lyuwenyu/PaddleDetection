@@ -1,6 +1,6 @@
 
-#  paddle2onnx --model_dir=./output_inference/dino_base_sim_speed/ --model_filename=model.pdmodel --params_filename=model.pdiparams  --opset_version 16 --save_file dino.onnx
-
+# paddle2onnx --model_dir=./output_inference/dino_base_sim_speed/ --model_filename=model.pdmodel --params_filename=model.pdiparams  --opset_version 16 --save_file dino.onnx
+# ../software/TensorRT-8.5.1.7/bin/trtexec --onnx=./dino.onnx --workspace=4096  --shapes=image:1x3x640x640 --avgRuns=100 --fp16
 
 python tools/export_model.py -c configs/dino/dino_base_sim_speed.yml -o weights=neck_1024.pdparams trt=True
 
