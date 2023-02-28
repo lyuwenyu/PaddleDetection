@@ -1,4 +1,6 @@
 
+#  paddle2onnx --model_dir=./output_inference/dino_base_sim_speed/ --model_filename=model.pdmodel --params_filename=model.pdiparams  --opset_version 16 --save_file dino.onnx
+
 
 python tools/export_model.py -c configs/dino/dino_base_sim_speed.yml -o weights=neck_1024.pdparams trt=True
 
