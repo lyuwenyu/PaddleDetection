@@ -108,6 +108,8 @@ DINOTransformer:
   # path_type: 'sqr' # sqr
   # sqr_epoch: 1
 
+  topk_sorted: True
+
 
 DINOHead:
   eval_idx: -1

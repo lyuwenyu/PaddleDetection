@@ -571,38 +571,38 @@ class DINOTransformerDecoder(nn.Layer):
 class DINOTransformer(nn.Layer):
     __shared__ = ['num_classes', 'hidden_dim']
 
-    def __init__(
-            self,
-            num_classes=80,
-            hidden_dim=256,
-            num_queries=900,
-            position_embed_type='sine',
-            return_intermediate_dec=True,
-            backbone_feat_channels=[512, 1024, 2048],
-            num_levels=4,
-            num_encoder_points=4,
-            num_decoder_points=4,
-            nhead=8,
-            num_encoder_layers=6,
-            num_decoder_layers=6,
-            dim_feedforward=1024,
-            dropout=0.,
-            activation="relu",
-            num_denoising=100,
-            label_noise_ratio=0.5,
-            box_noise_scale=1.0,
-            learnt_init_query=True,
-            eps=1e-2,
-            path_type='base',
-            drop_p=0.2,
-            dn_epoch=10000000,
-            mlp_activation='relu',
-            num_bbox_head_layers=3,
-            num_query_pos_head_layers=2,
-            keep_mlp_bias_weight_decay=True,
-            sqr_epoch=1000000,
-            use_sin_query_pos_embed=True,
-            sin_query_pos_ratio=2, ):
+    def __init__(self,
+                 num_classes=80,
+                 hidden_dim=256,
+                 num_queries=900,
+                 position_embed_type='sine',
+                 return_intermediate_dec=True,
+                 backbone_feat_channels=[512, 1024, 2048],
+                 num_levels=4,
+                 num_encoder_points=4,
+                 num_decoder_points=4,
+                 nhead=8,
+                 num_encoder_layers=6,
+                 num_decoder_layers=6,
+                 dim_feedforward=1024,
+                 dropout=0.,
+                 activation="relu",
+                 num_denoising=100,
+                 label_noise_ratio=0.5,
+                 box_noise_scale=1.0,
+                 learnt_init_query=True,
+                 eps=1e-2,
+                 path_type='base',
+                 drop_p=0.2,
+                 dn_epoch=10000000,
+                 mlp_activation='relu',
+                 num_bbox_head_layers=3,
+                 num_query_pos_head_layers=2,
+                 keep_mlp_bias_weight_decay=True,
+                 sqr_epoch=1000000,
+                 use_sin_query_pos_embed=True,
+                 sin_query_pos_ratio=2,
+                 topk_sorted=True):
         super(DINOTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -616,6 +616,7 @@ class DINOTransformer(nn.Layer):
         self.eps = eps
         self.dn_epoch = dn_epoch
         self.sqr_epoch = sqr_epoch
+        self.topk_sorted = topk_sorted
 
         # backbone feature projection
         self._build_input_proj_layer(backbone_feat_channels)
@@ -953,7 +954,10 @@ class DINOTransformer(nn.Layer):
             output_memory) + output_anchors
 
         _, topk_ind = paddle.topk(
-            enc_outputs_class.max(-1), self.num_queries, axis=1)
+            enc_outputs_class.max(-1),
+            self.num_queries,
+            axis=1,
+            sorted=self.topk_sorted)
 
         # _, topk_ind = paddle.topk(
         #     enc_outputs_class.max(-1),
