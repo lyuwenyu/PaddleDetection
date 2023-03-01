@@ -526,6 +526,7 @@ class DINOTransformerDecoder(nn.Layer):
                             self.hidden_dim // 4)
                 else:
                     query_pos_embed = reference_points.detach()
+                    # query_pos_embed = inverse_sigmoid(reference_points.detach())
 
                 query_pos_embed = query_pos_head(query_pos_embed)
 
