@@ -246,62 +246,62 @@ def get_contrastive_denoising_training_group(targets,
     return input_query_class, input_query_bbox, attn_mask, dn_meta
 
 
-# def get_sine_pos_embed(pos_tensor,
-#                        num_pos_feats=128,
-#                        temperature=10000,
-#                        exchange_xy=True):
-#     """generate sine position embedding from a position tensor
-
-#     Args:
-#         pos_tensor (torch.Tensor): Shape as `(None, n)`.
-#         num_pos_feats (int): projected shape for each float in the tensor. Default: 128
-#         temperature (int): The temperature used for scaling
-#             the position embedding. Default: 10000.
-#         exchange_xy (bool, optional): exchange pos x and pos y. \
-#             For example, input tensor is `[x, y]`, the results will  # noqa
-#             be `[pos(y), pos(x)]`. Defaults: True.
-
-#     Returns:
-#         torch.Tensor: Returned position embedding  # noqa
-#         with shape `(None, n * num_pos_feats)`.
-#     """
-#     scale = 2. * math.pi
-#     dim_t = 2. * paddle.floor_divide(
-#         paddle.arange(num_pos_feats), paddle.to_tensor(2))
-#     dim_t = scale / temperature**(dim_t / num_pos_feats)
-
-#     def sine_func(x):
-#         x *= dim_t
-#         return paddle.stack(
-#             (x[:, :, 0::2].sin(), x[:, :, 1::2].cos()), axis=3).flatten(2)
-
-#     pos_res = [sine_func(x) for x in pos_tensor.split(pos_tensor.shape[-1], -1)]
-#     if exchange_xy:
-#         pos_res[0], pos_res[1] = pos_res[1], pos_res[0]
-#     pos_res = paddle.concat(pos_res, axis=2)
-#     return pos_res
-
-
 def get_sine_pos_embed(pos_tensor,
                        num_pos_feats=128,
                        temperature=10000,
                        exchange_xy=True):
+    """generate sine position embedding from a position tensor
+
+    Args:
+        pos_tensor (torch.Tensor): Shape as `(None, n)`.
+        num_pos_feats (int): projected shape for each float in the tensor. Default: 128
+        temperature (int): The temperature used for scaling
+            the position embedding. Default: 10000.
+        exchange_xy (bool, optional): exchange pos x and pos y. \
+            For example, input tensor is `[x, y]`, the results will  # noqa
+            be `[pos(y), pos(x)]`. Defaults: True.
+
+    Returns:
+        torch.Tensor: Returned position embedding  # noqa
+        with shape `(None, n * num_pos_feats)`.
+    """
     scale = 2. * math.pi
     dim_t = 2. * paddle.floor_divide(
         paddle.arange(num_pos_feats), paddle.to_tensor(2))
     dim_t = scale / temperature**(dim_t / num_pos_feats)
 
-    pos_res = pos_tensor.unsqueeze(-1) * dim_t
+    def sine_func(x):
+        x *= dim_t
+        return paddle.stack(
+            (x[:, :, 0::2].sin(), x[:, :, 1::2].cos()), axis=3).flatten(2)
 
-    pos_res[..., 0::2] = pos_res[..., 0::2].sin()
-    pos_res[..., 1::2] = pos_res[..., 1::2].cos()
-
+    pos_res = [sine_func(x) for x in pos_tensor.split(pos_tensor.shape[-1], -1)]
     if exchange_xy:
-        pos_res_list = pos_res.split(pos_res.shape[-2], -2)
-        pos_res_list[0], pos_res_list[1] = pos_res_list[1], pos_res_list[0]
-        pos_res = paddle.concat(pos_res_list, axis=-2)
+        pos_res[0], pos_res[1] = pos_res[1], pos_res[0]
+    pos_res = paddle.concat(pos_res, axis=2)
+    return pos_res
 
-    return pos_res.flatten(-2)
+
+# def get_sine_pos_embed(pos_tensor,
+#                        num_pos_feats=128,
+#                        temperature=10000,
+#                        exchange_xy=True):
+#     scale = 2. * math.pi
+#     dim_t = 2. * paddle.floor_divide(
+#         paddle.arange(num_pos_feats), paddle.to_tensor(2))
+#     dim_t = scale / temperature**(dim_t / num_pos_feats)
+
+#     pos_res = pos_tensor.unsqueeze(-1) * dim_t
+
+#     pos_res[..., 0::2] = pos_res[..., 0::2].sin()
+#     pos_res[..., 1::2] = pos_res[..., 1::2].cos()
+
+#     if exchange_xy:
+#         pos_res_list = pos_res.split(pos_res.shape[-2], -2)
+#         pos_res_list[0], pos_res_list[1] = pos_res_list[1], pos_res_list[0]
+#         pos_res = paddle.concat(pos_res_list, axis=-2)
+
+#     return pos_res.flatten(-2)
 
 
 def varifocal_loss_with_logits(pred_logits,
