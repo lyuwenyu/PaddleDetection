@@ -51,7 +51,8 @@ class COCODataSet(DetDataset):
                  load_crowd=False,
                  allow_empty=False,
                  empty_ratio=1.,
-                 repeat=1):
+                 repeat=1,
+                 keep_categary_id=False):
         super(COCODataSet, self).__init__(
             dataset_dir,
             image_dir,
@@ -64,6 +65,7 @@ class COCODataSet(DetDataset):
         self.load_crowd = load_crowd
         self.allow_empty = allow_empty
         self.empty_ratio = empty_ratio
+        self.keep_categary_id = keep_categary_id
 
     def _sample_empty(self, records, num):
         # if empty_ratio is out of [0. ,1.), do not sample the records
@@ -90,11 +92,23 @@ class COCODataSet(DetDataset):
         empty_records = []
         ct = 0
 
-        self.catid2clsid = dict({catid: i for i, catid in enumerate(cat_ids)})
-        self.cname2cid = dict({
-            coco.loadCats(catid)[0]['name']: clsid
-            for catid, clsid in self.catid2clsid.items()
-        })
+        if self.keep_categary_id:
+            self.catid2clsid = dict(
+                {catid: catid
+                 for i, catid in enumerate(cat_ids)})
+            self.cname2cid = dict({
+                coco.loadCats(catid)[0]['name']: clsid
+                for catid, clsid in self.catid2clsid.items()
+            })
+
+        else:
+            self.catid2clsid = dict(
+                {catid: i
+                 for i, catid in enumerate(cat_ids)})
+            self.cname2cid = dict({
+                coco.loadCats(catid)[0]['name']: clsid
+                for catid, clsid in self.catid2clsid.items()
+            })
 
         if 'annotations' not in coco.dataset:
             self.load_image_only = True
