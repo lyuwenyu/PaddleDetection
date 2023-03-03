@@ -533,7 +533,7 @@ class DINOTransformerDecoder(nn.Layer):
                     query_pos_embed = query_pos_head(query_pos_embed)
 
                 else:
-                    query_pos_embed = query_pos_head  # .weight.unsqueeze(0).tile([bs, 1, 1])
+                    query_pos_embed = query_pos_head.weight  # .weight.unsqueeze(0).tile([bs, 1, 1])
 
                 output = layer(output, reference_points_input, memory,
                                memory_spatial_shapes, attn_mask, memory_mask,
