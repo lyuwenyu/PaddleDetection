@@ -535,6 +535,17 @@ class DINOTransformerDecoder(nn.Layer):
                 else:
                     query_pos_embed = query_pos_head.weight  # .weight.unsqueeze(0).tile([bs, 1, 1])
 
+                    # t = paddle.zeros_like(output)
+                    # t[:, -300:, :] = query_pos_embed.unsqueeze(0).tile([t.shape[0], 1, 1])
+
+                    t = paddle.zeros([
+                        output.shape[1] - query_pos_embed.shape[0],
+                        query_pos_embed.shape[-1]
+                    ])
+                    # t.stop_gradient = False 
+                    query_pos_embed = paddle.concat(
+                        [t, query_pos_embed], axis=0)
+
                 output = layer(output, reference_points_input, memory,
                                memory_spatial_shapes, attn_mask, memory_mask,
                                query_pos_embed)
@@ -649,7 +660,7 @@ class DINOTransformer(nn.Layer):
             drop_p=drop_p,
             sqr_epoch=sqr_epoch,
             use_sin_query_pos_embed=use_sin_query_pos_embed,
-            learnt_init_query=learnt_init_query)
+            learn_sin_query_pos_embed=learn_sin_query_pos_embed)
 
         # denoising part
         self.denoising_class_embed = nn.Embedding(
