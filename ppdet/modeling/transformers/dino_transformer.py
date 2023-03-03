@@ -542,9 +542,9 @@ class DINOTransformerDecoder(nn.Layer):
                         output.shape[1] - query_pos_embed.shape[0],
                         query_pos_embed.shape[-1]
                     ])
-                    # t.stop_gradient = False 
-                    query_pos_embed = paddle.concat(
-                        [t, query_pos_embed], axis=0)
+                    t = paddle.concat([t, query_pos_embed], axis=0)
+
+                    query_pos_embed = t
 
                 output = layer(output, reference_points_input, memory,
                                memory_spatial_shapes, attn_mask, memory_mask,
