@@ -648,7 +648,8 @@ class DINOTransformer(nn.Layer):
             path_type=path_type,
             drop_p=drop_p,
             sqr_epoch=sqr_epoch,
-            use_sin_query_pos_embed=use_sin_query_pos_embed)
+            use_sin_query_pos_embed=use_sin_query_pos_embed,
+            learnt_init_query=learnt_init_query)
 
         # denoising part
         self.denoising_class_embed = nn.Embedding(
