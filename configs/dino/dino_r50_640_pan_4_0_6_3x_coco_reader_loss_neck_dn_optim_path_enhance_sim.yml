@@ -123,6 +123,8 @@ DINOTransformer:
   use_sin_query_pos_embed: True
   sin_query_pos_ratio: 2
 
+  learn_sin_query_pos_embed: False
+
   dn_epoch: 10000 # 33
 
   path_type: 'base' # sqr
