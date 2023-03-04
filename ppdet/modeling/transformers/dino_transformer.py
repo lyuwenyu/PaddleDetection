@@ -794,7 +794,9 @@ class DINOTransformer(nn.Layer):
         if self.learnt_init_query:
             xavier_uniform_(self.tgt_embed.weight)
 
-        if not self.learn_sin_query_pos_embed:
+        if self.set_query_pos_embed_none:
+            pass
+        elif not self.learn_sin_query_pos_embed:
             xavier_uniform_(self.query_pos_head.layers[0].weight)
             xavier_uniform_(self.query_pos_head.layers[1].weight)
         else:
