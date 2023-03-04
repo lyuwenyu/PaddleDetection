@@ -371,7 +371,8 @@ class DINOTransformerDecoder(nn.Layer):
                  sqr_epoch=100000,
                  use_sin_query_pos_embed=True,
                  sin_query_pos_ratio=2,
-                 learn_sin_query_pos_embed=False):
+                 learn_sin_query_pos_embed=False,
+                 set_query_pos_embed_none=False):
         super(DINOTransformerDecoder, self).__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.hidden_dim = hidden_dim
@@ -385,6 +386,7 @@ class DINOTransformerDecoder(nn.Layer):
         self.drop_p = drop_p
         self.sqr_epoch = sqr_epoch
         self.learn_sin_query_pos_embed = learn_sin_query_pos_embed
+        self.set_query_pos_embed_none = set_query_pos_embed_none
 
         assert path_type in ('base', 'drop_v1', 'drop_v2', 'drop_v2', 'sqr'), ''
 
@@ -516,7 +518,10 @@ class DINOTransformerDecoder(nn.Layer):
                 reference_points_input = reference_points.detach().unsqueeze(
                     2) * valid_ratios.tile([1, 1, 2]).unsqueeze(1)
 
-                if not self.learn_sin_query_pos_embed:
+                if self.set_query_pos_embed_none:
+                    query_pos_embed = None
+
+                elif not self.learn_sin_query_pos_embed:
                     if self.use_sin_query_pos_embed:
                         if self.sin_query_pos_ratio == 2:
                             query_pos_embed = get_sine_pos_embed(
@@ -620,7 +625,9 @@ class DINOTransformer(nn.Layer):
                  use_sin_query_pos_embed=True,
                  sin_query_pos_ratio=2,
                  topk_sorted=True,
-                 learn_sin_query_pos_embed=False):
+                 learn_sin_query_pos_embed=False,
+                 set_query_pos_embed_none=False,
+                 add_lvl_pos_embed_flatten=False):
         super(DINOTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -635,7 +642,7 @@ class DINOTransformer(nn.Layer):
         self.dn_epoch = dn_epoch
         self.sqr_epoch = sqr_epoch
         self.topk_sorted = topk_sorted
-
+        self.add_lvl_pos_embed_flatten = add_lvl_pos_embed_flatten
         # backbone feature projection
         self._build_input_proj_layer(backbone_feat_channels)
 
@@ -660,7 +667,8 @@ class DINOTransformer(nn.Layer):
             drop_p=drop_p,
             sqr_epoch=sqr_epoch,
             use_sin_query_pos_embed=use_sin_query_pos_embed,
-            learn_sin_query_pos_embed=learn_sin_query_pos_embed)
+            learn_sin_query_pos_embed=learn_sin_query_pos_embed,
+            set_query_pos_embed_none=set_query_pos_embed_none)
 
         # denoising part
         self.denoising_class_embed = nn.Embedding(
@@ -714,6 +722,10 @@ class DINOTransformer(nn.Layer):
 
         else:
             self.query_pos_head = nn.Embedding(num_queries, hidden_dim)
+
+        self.set_query_pos_embed_none = set_query_pos_embed_none
+        if set_query_pos_embed_none:
+            self.query_pos_head = None
 
         # encoder head
         self.enc_output = nn.Sequential(
@@ -883,7 +895,7 @@ class DINOTransformer(nn.Layer):
             memory = self.encoder(feat_flatten, spatial_shapes, mask_flatten,
                                   lvl_pos_embed_flatten, valid_ratios)
         else:
-            memory = feat_flatten
+            memory = feat_flatten + lvl_pos_embed_flatten if self.add_lvl_pos_embed_flatten else feat_flatten
 
         # solve hang during distributed training
         memory = memory + self.denoising_class_embed.weight.sum() * 0.

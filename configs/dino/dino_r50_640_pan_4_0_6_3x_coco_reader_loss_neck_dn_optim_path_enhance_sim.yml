@@ -120,10 +120,13 @@ DINOTransformer:
 
   num_bbox_head_layers: 3
   num_query_pos_head_layers: 2
+
   use_sin_query_pos_embed: True
   sin_query_pos_ratio: 2
 
   learn_sin_query_pos_embed: False
+  set_query_pos_embed_none: False
+  add_lvl_pos_embed_flatten: False
 
   dn_epoch: 10000 # 33
 
