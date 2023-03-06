@@ -264,17 +264,19 @@ class BottleNeck(nn.Layer):
         hidden_channels = int(out_channels * expansion)
         Conv = DWConv if depthwise else BaseConv
 
-        if use_repconv and hidden_channels == hidden_channels:
-            self.conv1 = nn.Identity()
-        else:
-            self.conv1 = BaseConv(
-                in_channels,
-                hidden_channels,
-                ksize=1,
-                stride=1,
-                bias=bias,
-                act=act)
+        # if use_repconv and hidden_channels == hidden_channels:
+        #     self.conv1 = nn.Identity()
+        # else:
+        #     self.conv1 = BaseConv(
+        #         in_channels,
+        #         hidden_channels,
+        #         ksize=1,
+        #         stride=1,
+        #         bias=bias,
+        #         act=act)
 
+        self.conv1 = BaseConv(
+            in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
         if use_repconv:
             self.conv2 = RepVggBlock(
                 hidden_channels,
