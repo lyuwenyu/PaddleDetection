@@ -136,6 +136,120 @@ class Focus(nn.Layer):
         return self.conv(outputs)
 
 
+from ppdet.modeling.ops import get_act_fn
+from paddle.nn.initializer import Constant
+
+
+class ConvBNLayer(nn.Layer):
+    def __init__(self,
+                 ch_in,
+                 ch_out,
+                 filter_size=3,
+                 stride=1,
+                 groups=1,
+                 padding=0,
+                 act=None):
+        super(ConvBNLayer, self).__init__()
+
+        self.conv = nn.Conv2D(
+            in_channels=ch_in,
+            out_channels=ch_out,
+            kernel_size=filter_size,
+            stride=stride,
+            padding=padding,
+            groups=groups,
+            bias_attr=False)
+
+        self.bn = nn.BatchNorm2D(
+            ch_out,
+            weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+            bias_attr=ParamAttr(regularizer=L2Decay(0.0)))
+        self.act = get_act_fn(act) if act is None or isinstance(act, (
+            str, dict)) else act
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        x = self.act(x)
+
+        return x
+
+
+class RepVggBlock(nn.Layer):
+    def __init__(self, ch_in, ch_out, act='relu', alpha=False):
+        super(RepVggBlock, self).__init__()
+        self.ch_in = ch_in
+        self.ch_out = ch_out
+        self.conv1 = ConvBNLayer(
+            ch_in, ch_out, 3, stride=1, padding=1, act=None)
+        self.conv2 = ConvBNLayer(
+            ch_in, ch_out, 1, stride=1, padding=0, act=None)
+        self.act = get_act_fn(act) if act is None or isinstance(act, (
+            str, dict)) else act
+        if alpha:
+            self.alpha = self.create_parameter(
+                shape=[1],
+                attr=ParamAttr(initializer=Constant(value=1.)),
+                dtype="float32")
+        else:
+            self.alpha = None
+
+    def forward(self, x):
+        if hasattr(self, 'conv'):
+            y = self.conv(x)
+        else:
+            if self.alpha:
+                y = self.conv1(x) + self.alpha * self.conv2(x)
+            else:
+                y = self.conv1(x) + self.conv2(x)
+        y = self.act(y)
+        return y
+
+    def convert_to_deploy(self):
+        if not hasattr(self, 'conv'):
+            self.conv = nn.Conv2D(
+                in_channels=self.ch_in,
+                out_channels=self.ch_out,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                groups=1)
+        kernel, bias = self.get_equivalent_kernel_bias()
+        self.conv.weight.set_value(kernel)
+        self.conv.bias.set_value(bias)
+        self.__delattr__('conv1')
+        self.__delattr__('conv2')
+
+    def get_equivalent_kernel_bias(self):
+        kernel3x3, bias3x3 = self._fuse_bn_tensor(self.conv1)
+        kernel1x1, bias1x1 = self._fuse_bn_tensor(self.conv2)
+        if self.alpha:
+            return kernel3x3 + self.alpha * self._pad_1x1_to_3x3_tensor(
+                kernel1x1), bias3x3 + self.alpha * bias1x1
+        else:
+            return kernel3x3 + self._pad_1x1_to_3x3_tensor(
+                kernel1x1), bias3x3 + bias1x1
+
+    def _pad_1x1_to_3x3_tensor(self, kernel1x1):
+        if kernel1x1 is None:
+            return 0
+        else:
+            return nn.functional.pad(kernel1x1, [1, 1, 1, 1])
+
+    def _fuse_bn_tensor(self, branch):
+        if branch is None:
+            return 0, 0
+        kernel = branch.conv.weight
+        running_mean = branch.bn._mean
+        running_var = branch.bn._variance
+        gamma = branch.bn.weight
+        beta = branch.bn.bias
+        eps = branch.bn._epsilon
+        std = (running_var + eps).sqrt()
+        t = (gamma / std).reshape((-1, 1, 1, 1))
+        return kernel * t, beta - running_mean * gamma / std
+
+
 class BottleNeck(nn.Layer):
     def __init__(self,
                  in_channels,
@@ -144,19 +258,28 @@ class BottleNeck(nn.Layer):
                  expansion=0.5,
                  depthwise=False,
                  bias=False,
-                 act="silu"):
+                 act="silu",
+                 use_repconv=False):
         super(BottleNeck, self).__init__()
         hidden_channels = int(out_channels * expansion)
         Conv = DWConv if depthwise else BaseConv
         self.conv1 = BaseConv(
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        self.conv2 = Conv(
-            hidden_channels,
-            out_channels,
-            ksize=3,
-            stride=1,
-            bias=bias,
-            act=act)
+
+        if use_repconv:
+            self.conv2 = RepVggBlock(
+                hidden_channels,
+                out_channels,
+                act=act,
+                alpha=False, )
+        else:
+            self.conv2 = Conv(
+                hidden_channels,
+                out_channels,
+                ksize=3,
+                stride=1,
+                bias=bias,
+                act=act)
         self.add_shortcut = shortcut and in_channels == out_channels
 
     def forward(self, x):
@@ -237,7 +360,8 @@ class CSPLayer(nn.Layer):
                  expansion=0.5,
                  depthwise=False,
                  bias=False,
-                 act="silu"):
+                 act="silu",
+                 use_repconv=False):
         super(CSPLayer, self).__init__()
         hidden_channels = int(out_channels * expansion)
         self.conv1 = BaseConv(
@@ -252,7 +376,8 @@ class CSPLayer(nn.Layer):
                 expansion=1.0,
                 depthwise=depthwise,
                 bias=bias,
-                act=act) for _ in range(num_blocks)
+                act=act,
+                use_repconv=use_repconv) for _ in range(num_blocks)
         ])
         self.conv3 = BaseConv(
             hidden_channels * 2,

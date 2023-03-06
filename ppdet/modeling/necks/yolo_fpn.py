@@ -1023,7 +1023,8 @@ class YOLOCSPPAN(nn.Layer):
                  trt=False,
                  eval_size=[640, 640],
                  proj_conv=False,
-                 proj_conv_bn=False):
+                 proj_conv_bn=False,
+                 use_repconv=False):
         super(YOLOCSPPAN, self).__init__()
         self.proj_dim = proj_dim
         self.eval_size = eval_size
@@ -1127,7 +1128,8 @@ class YOLOCSPPAN(nn.Layer):
                     round(3 * depth_mult),
                     shortcut=False,
                     depthwise=depthwise,
-                    act=act))
+                    act=act,
+                    use_repconv=use_repconv))
 
         # bottom-up pan
         self.downsample_convs = nn.LayerList()
@@ -1147,7 +1149,8 @@ class YOLOCSPPAN(nn.Layer):
                     round(3 * depth_mult),
                     shortcut=False,
                     depthwise=depthwise,
-                    act=act))
+                    act=act,
+                    use_repconv=use_repconv))
 
     def build_2d_sincos_position_embedding(
             self,

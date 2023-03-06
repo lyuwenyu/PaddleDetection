@@ -92,6 +92,7 @@ YOLOCSPPAN:
 
   proj_conv: True
   proj_conv_bn: False
+  use_repconv: False
 
 # YOLOCSPPAN:
 #   depthwise: False
