@@ -358,6 +358,73 @@ class SPPFLayer(nn.Layer):
         return out
 
 
+class ParalleNeck(nn.Layer):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 shortcut=True,
+                 expansion=1.0,
+                 depthwise=False,
+                 num_blocks=3,
+                 bias=False,
+                 act="silu",
+                 use_repconv=False):
+
+        super().__init__()
+        hidden_channels = int(out_channels * expansion)
+        Conv = DWConv if depthwise else BaseConv
+        self.conv1s = nn.LayerList([
+            BaseConv(
+                in_channels,
+                hidden_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act) for _ in range(num_blocks)
+        ])
+
+        if use_repconv:
+            self.conv2s = nn.LayerList([
+                RepVggBlock(
+                    hidden_channels,
+                    out_channels,
+                    act=act,
+                    alpha=False, ) for _ in range(num_blocks)
+            ])
+        else:
+            self.conv2s = nn.LayerList([
+                BaseConv(
+                    hidden_channels,
+                    out_channels,
+                    ksize=3,
+                    stride=1,
+                    bias=bias,
+                    act=act) for _ in range(num_blocks)
+            ])
+
+        self.conv3 = BaseConv(
+            out_channels * num_blocks,
+            hidden_channels,
+            ksize=1,
+            stride=1,
+            bias=bias,
+            act=act)
+
+        self.add_shortcut = shortcut and in_channels == out_channels
+
+    def forward(self, x):
+        feats = [m(x) for m in self.conv1s]
+        feats = [m(x) for m in self.conv2s]
+
+        y = paddle.concat(feats, axis=1)
+        y = self.conv3(y)
+
+        if self.add_shortcut:
+            y = y + x
+
+        return y
+
+
 class CSPLayer(nn.Layer):
     """CSP (Cross Stage Partial) layer with 3 convs, named C3 in YOLOv5"""
 
@@ -370,7 +437,8 @@ class CSPLayer(nn.Layer):
                  depthwise=False,
                  bias=False,
                  act="silu",
-                 use_repconv=False):
+                 use_repconv=False,
+                 block_fmt='bottle'):
         super(CSPLayer, self).__init__()
 
         hidden_channels = int(out_channels * expansion)
@@ -388,17 +456,31 @@ class CSPLayer(nn.Layer):
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
         self.conv2 = BaseConv(
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        self.bottlenecks = nn.Sequential(*[
-            BottleNeck(
+
+        if block_fmt == 'bottle':
+            self.bottlenecks = nn.Sequential(*[
+                BottleNeck(
+                    hidden_channels,
+                    hidden_channels,
+                    shortcut=shortcut,
+                    expansion=1.0,
+                    depthwise=depthwise,
+                    bias=bias,
+                    act=act,
+                    use_repconv=use_repconv) for _ in range(num_blocks)
+            ])
+        elif block_fmt == 'parallel':
+            self.bottlenecks = ParalleNeck(
                 hidden_channels,
                 hidden_channels,
                 shortcut=shortcut,
                 expansion=1.0,
                 depthwise=depthwise,
+                num_blocks=num_blocks,
                 bias=bias,
                 act=act,
-                use_repconv=use_repconv) for _ in range(num_blocks)
-        ])
+                use_repconv=use_repconv, )
+
         self.conv3 = BaseConv(
             hidden_channels * 2,
             out_channels,
