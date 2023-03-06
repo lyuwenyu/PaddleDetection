@@ -263,8 +263,17 @@ class BottleNeck(nn.Layer):
         super(BottleNeck, self).__init__()
         hidden_channels = int(out_channels * expansion)
         Conv = DWConv if depthwise else BaseConv
-        self.conv1 = BaseConv(
-            in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
+
+        if use_repconv and hidden_channels == hidden_channels:
+            self.conv1 = nn.Identity()
+        else:
+            self.conv1 = BaseConv(
+                in_channels,
+                hidden_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
 
         if use_repconv:
             self.conv2 = RepVggBlock(
@@ -363,7 +372,18 @@ class CSPLayer(nn.Layer):
                  act="silu",
                  use_repconv=False):
         super(CSPLayer, self).__init__()
+
         hidden_channels = int(out_channels * expansion)
+
+        # if hidden_channels == in_channels:
+        #     self.conv1 = nn.Identity()
+        #     self.conv2 = nn.Identity()
+        # else:
+        #     self.conv1 = BaseConv(
+        #         in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
+        #     self.conv2 = BaseConv(
+        #         in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
+
         self.conv1 = BaseConv(
             in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
         self.conv2 = BaseConv(
