@@ -183,7 +183,7 @@ class Trainer(object):
 
             self.ema = ModelEMA(
                 self.model,
-                ema_decay=ema_decay,
+                decay=ema_decay,
                 ema_decay_type=ema_decay_type,
                 cycle_epoch=cycle_epoch,
                 ema_black_list=ema_black_list,
