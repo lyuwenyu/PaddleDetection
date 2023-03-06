@@ -114,8 +114,10 @@ class ModelEMA(object):
         elif self.ema_decay_type == 'exponential':
             decay = self.decay * (1 - math.exp(-(self.step + 1) / 2000))
         elif self.ema_decay_type == 'cosine':
-            if self.ema_start_epoch < cur_epoch:
-                decay = 0  # self.decay * (1 - math.exp(-(self.step + 1) / 2000))
+            # if self.ema_start_epoch < cur_epoch:
+            decay = self.decay * (1 - math.exp(-(self.step + 1) / 2000))
+            if decay < self.ema_decay_start:
+                decay = decay
             else:
                 decay = self.decay - (self.decay - self.ema_decay_start) * (
                     np.cos(np.pi * cur_epoch / self.ema_total_epoch) + 1) / 2
