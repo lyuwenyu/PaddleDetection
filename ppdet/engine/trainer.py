@@ -177,15 +177,21 @@ class Trainer(object):
             ema_black_list = self.cfg.get('ema_black_list', None)
             ema_filter_no_grads = self.cfg.get('ema_filter_no_grads', False)
             ema_filter_bn_states = self.cfg.get('ema_filter_bn_states', False)
+            ema_start_epoch = self.cfg.get('ema_start_epoch', 0)
+            ema_total_epoch = self.cfg.get('ema_total_epoch', 99999)
+            ema_decay_start = self.cfg.get('ema_decay_start', 0.99)
 
             self.ema = ModelEMA(
                 self.model,
-                decay=ema_decay,
+                ema_decay=ema_decay,
                 ema_decay_type=ema_decay_type,
                 cycle_epoch=cycle_epoch,
                 ema_black_list=ema_black_list,
                 ema_filter_no_grads=ema_filter_no_grads,
-                ema_filter_bn_states=ema_filter_bn_states)
+                ema_filter_bn_states=ema_filter_bn_states,
+                ema_start_epoch=ema_start_epoch,
+                ema_total_epoch=ema_total_epoch,
+                ema_decay_start=ema_decay_start)
 
         self._nranks = dist.get_world_size()
         self._local_rank = dist.get_rank()
@@ -538,7 +544,7 @@ class Trainer(object):
                 self.status['batch_time'].update(time.time() - iter_tic)
                 self._compose_callback.on_step_end(self.status)
                 if self.use_ema:
-                    self.ema.update()
+                    self.ema.update(cur_epoch=epoch_id)
                 iter_tic = time.time()
 
             if self.cfg.get('unstructured_prune'):

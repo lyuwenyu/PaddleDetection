@@ -44,6 +44,11 @@ ema_decay_type: "exponential"
 ema_filter_no_grads: True
 ema_filter_bn_states: False
 
+# ema_decay_type: 'consine'
+# ema_start_epoch: 0
+# ema_total_epoch: 60
+# ema_decay_start: 0.999
+
 
 DETR:
   backbone: ResNet # CSPDarkNet
