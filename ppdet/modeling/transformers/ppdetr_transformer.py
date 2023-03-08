@@ -268,10 +268,17 @@ class PPDETRTransformer(nn.Layer):
         self.learnt_init_query = learnt_init_query
         if learnt_init_query:
             self.tgt_embed = nn.Embedding(num_queries, hidden_dim)
-        self.query_pos_head = MLP(2 * hidden_dim,
-                                  hidden_dim,
-                                  hidden_dim,
-                                  num_layers=2)
+
+        if use_sin_query_pos_embed:
+            self.query_pos_head = MLP(2 * hidden_dim,
+                                      hidden_dim,
+                                      hidden_dim,
+                                      num_layers=2)
+        else:
+            self.query_pos_head = MLP(4,
+                                      hidden_dim * 2,
+                                      hidden_dim,
+                                      num_layers=2)
 
         # encoder head
         self.enc_output = nn.Sequential(
