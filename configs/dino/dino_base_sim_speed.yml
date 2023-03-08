@@ -66,6 +66,7 @@ PPDETRTransformer:
   box_noise_scale: 1.0
   learnt_init_query: True
   eval_size: [640, 640]
+  use_sin_query_pos_embed: True
 
 DINOHead:
   loss:

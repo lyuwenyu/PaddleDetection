@@ -130,11 +130,16 @@ class TransformerDecoderLayer(nn.Layer):
 
 
 class TransformerDecoder(nn.Layer):
-    def __init__(self, hidden_dim, decoder_layer, num_layers):
+    def __init__(self,
+                 hidden_dim,
+                 decoder_layer,
+                 num_layers,
+                 use_sin_query_pos_embed=True):
         super(TransformerDecoder, self).__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
+        self.use_sin_query_pos_embed = use_sin_query_pos_embed
 
     def forward(self,
                 tgt,
@@ -158,8 +163,12 @@ class TransformerDecoder(nn.Layer):
             else:
                 ref_points_input = F.sigmoid(ref_points_unact).unsqueeze(2)
 
-            query_pos_embed = get_sine_pos_embed(ref_points_input[..., 0, :],
-                                                 self.hidden_dim // 2)
+            if self.use_sin_query_pos_embed:
+                query_pos_embed = get_sine_pos_embed(
+                    ref_points_input[..., 0, :], self.hidden_dim // 2)
+            else:
+                query_pos_embed = ref_points_unact
+
             query_pos_embed = query_pos_head(query_pos_embed)
 
             output = layer(output, ref_points_input, memory,
@@ -213,7 +222,8 @@ class PPDETRTransformer(nn.Layer):
                  box_noise_scale=1.0,
                  learnt_init_query=True,
                  eval_size=None,
-                 eps=1e-2):
+                 eps=1e-2,
+                 use_sin_query_pos_embed=True):
         super(PPDETRTransformer, self).__init__()
         assert position_embed_type in ['sine', 'learned'], \
             f'ValueError: position_embed_type not supported {position_embed_type}!'
@@ -239,8 +249,11 @@ class PPDETRTransformer(nn.Layer):
         decoder_layer = TransformerDecoderLayer(
             hidden_dim, nhead, dim_feedforward, dropout, activation, num_levels,
             num_decoder_points)
-        self.decoder = TransformerDecoder(hidden_dim, decoder_layer,
-                                          num_decoder_layers)
+        self.decoder = TransformerDecoder(
+            hidden_dim,
+            decoder_layer,
+            num_decoder_layers,
+            use_sin_query_pos_embed=use_sin_query_pos_embed)
 
         # denoising part
         self.denoising_class_embed = nn.Embedding(
