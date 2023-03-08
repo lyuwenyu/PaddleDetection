@@ -714,7 +714,7 @@ class DINOTransformer(nn.Layer):
             else:
                 self.query_pos_head = MLP(
                     4,
-                    hidden_dim,
+                    hidden_dim * 2,
                     hidden_dim,
                     num_layers=num_query_pos_head_layers,
                     activation=mlp_activation,
