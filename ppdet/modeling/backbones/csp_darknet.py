@@ -440,24 +440,52 @@ class CSPLayer(nn.Layer):
                  bias=False,
                  act="silu",
                  use_repconv=False,
-                 block_fmt='bottle'):
+                 block_fmt='bottle',
+                 csp_fmt='origin'):
         super(CSPLayer, self).__init__()
 
         hidden_channels = int(out_channels * expansion)
 
-        # if hidden_channels == in_channels:
-        #     self.conv1 = nn.Identity()
-        #     self.conv2 = nn.Identity()
-        # else:
-        #     self.conv1 = BaseConv(
-        #         in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        #     self.conv2 = BaseConv(
-        #         in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
+        self.csp_fmt = csp_fmt
+        if csp_fmt == 'origin':
+            self.conv1 = BaseConv(
+                in_channels,
+                hidden_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+            self.conv2 = BaseConv(
+                in_channels,
+                hidden_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+            self.conv3 = BaseConv(
+                hidden_channels * 2,
+                out_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
 
-        self.conv1 = BaseConv(
-            in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        self.conv2 = BaseConv(
-            in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
+        if csp_fmt == 'add':
+            self.conv1 = nn.Identity()
+            self.conv2 = nn.Identity()
+            # self.conv3 = nn.Identity()
+            self.conv3 = BaseConv(
+                hidden_channels,
+                out_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+
+        # self.conv1 = BaseConv(
+        #     in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
+        # self.conv2 = BaseConv(
+        #     in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
 
         if block_fmt == 'bottle':
             self.bottlenecks = nn.Sequential(*[
@@ -483,21 +511,21 @@ class CSPLayer(nn.Layer):
                 act=act,
                 use_repconv=use_repconv, )
 
-        self.conv3 = BaseConv(
-            hidden_channels * 2,
-            out_channels,
-            ksize=1,
-            stride=1,
-            bias=bias,
-            act=act)
-
     def forward(self, x):
-        x_1 = self.conv1(x)
-        x_1 = self.bottlenecks(x_1)
-        x_2 = self.conv2(x)
-        x = paddle.concat([x_1, x_2], axis=1)
-        x = self.conv3(x)
-        return x
+        if self.csp_fmt == 'origin':
+            x_1 = self.conv1(x)
+            x_1 = self.bottlenecks(x_1)
+            x_2 = self.conv2(x)
+            x = paddle.concat([x_1, x_2], axis=1)
+            x = self.conv3(x)
+            return x
+        elif self.csp_fmt == 'add':
+            x_1 = self.conv1(x)
+            x_1 = self.bottlenecks(x_1)
+            x_2 = self.conv2(x)
+            x = x_1 + x_2
+            x = self.conv3(x)
+            return x
 
 
 @register
