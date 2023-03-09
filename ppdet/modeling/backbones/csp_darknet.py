@@ -224,14 +224,47 @@ class CSPLayer(nn.Layer):
                  expansion=0.5,
                  depthwise=False,
                  bias=False,
-                 act="silu"):
+                 act="silu",
+                 csp_fmt='origin'):
         super(CSPLayer, self).__init__()
         hidden_channels = int(out_channels * expansion)
-        self.conv1 = BaseConv(
-            in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        self.conv2 = BaseConv(
-            in_channels, hidden_channels, ksize=1, stride=1, bias=bias, act=act)
-        self.bottlenecks = nn.Sequential(* [
+
+        self.csp_fmt = csp_fmt
+        if csp_fmt == 'origin':
+            self.conv1 = BaseConv(
+                in_channels,
+                hidden_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+            self.conv2 = BaseConv(
+                in_channels,
+                hidden_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+
+            self.conv3 = BaseConv(
+                hidden_channels * 2,
+                out_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+        elif csp_fmt == 'add':
+            self.conv1 = nn.Identity()
+            self.conv2 = nn.Identity()
+            self.conv3 = BaseConv(
+                hidden_channels,
+                out_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+
+        self.bottlenecks = nn.Sequential(*[
             BottleNeck(
                 hidden_channels,
                 hidden_channels,
@@ -250,12 +283,22 @@ class CSPLayer(nn.Layer):
             act=act)
 
     def forward(self, x):
-        x_1 = self.conv1(x)
-        x_1 = self.bottlenecks(x_1)
-        x_2 = self.conv2(x)
-        x = paddle.concat([x_1, x_2], axis=1)
-        x = self.conv3(x)
-        return x
+
+        if self.csp_fmt == 'origin':
+            x_1 = self.conv1(x)
+            x_1 = self.bottlenecks(x_1)
+            x_2 = self.conv2(x)
+            x = paddle.concat([x_1, x_2], axis=1)
+            x = self.conv3(x)
+            return x
+
+        elif self.csp_fmt == 'add':
+            x_1 = self.conv1(x)
+            x_1 = self.bottlenecks(x_1)
+            x_2 = self.conv2(x)
+            x = x_1 + x_2
+            x = self.conv3(x)
+            return x
 
 
 @register

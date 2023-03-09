@@ -51,6 +51,7 @@ YOLOCSPPAN:
   proj_dim: [256, 256, 256]
   proj_use_conv: True
   expand_ratio: 0.5
+  csp_fmt: 'origin'
 
 PPDETRTransformer:
   num_queries: 300
