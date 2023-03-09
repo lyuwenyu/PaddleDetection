@@ -286,13 +286,6 @@ class CSPLayer(nn.Layer):
                 bias=bias,
                 act=act) for _ in range(num_blocks)
         ])
-        self.conv3 = BaseConv(
-            hidden_channels * 2,
-            out_channels,
-            ksize=1,
-            stride=1,
-            bias=bias,
-            act=act)
 
     def forward(self, x):
 
