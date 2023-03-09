@@ -268,13 +268,15 @@ class CSPLayer(nn.Layer):
                 stride=1,
                 bias=bias,
                 act=act)
-            self.conv3 = BaseConv(
-                hidden_channels,
-                out_channels,
-                ksize=1,
-                stride=1,
-                bias=bias,
-                act=act)
+            self.conv3 = nn.Identity()
+
+            # self.conv3 = BaseConv(
+            #     hidden_channels,
+            #     out_channels,
+            #     ksize=1,
+            #     stride=1,
+            #     bias=bias,
+            #     act=act)
 
         self.bottlenecks = nn.Sequential(*[
             BottleNeck(
