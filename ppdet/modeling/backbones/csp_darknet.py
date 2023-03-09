@@ -254,8 +254,20 @@ class CSPLayer(nn.Layer):
                 bias=bias,
                 act=act)
         elif csp_fmt == 'add':
-            self.conv1 = nn.Identity()
-            self.conv2 = nn.Identity()
+            self.conv1 = BaseConv(
+                in_channels,
+                hidden_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+            self.conv2 = BaseConv(
+                in_channels,
+                hidden_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
             self.conv3 = BaseConv(
                 hidden_channels,
                 out_channels,
