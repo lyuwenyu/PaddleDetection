@@ -101,7 +101,9 @@ YOLOCSPPAN:
 
   expand_ratio: 1.0
   block_fmt: 'bottle'
-  csp_fmt: 'origin'
+  csp_fmt: 'origin' # add
+  pan_fmt: 'origin' # add
+  shortcut: False
 
 # YOLOCSPPAN:
 #   depthwise: False
