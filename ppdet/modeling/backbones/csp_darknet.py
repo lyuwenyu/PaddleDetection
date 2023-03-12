@@ -184,8 +184,19 @@ class RepVggBlock(nn.Layer):
             ch_in, ch_out, 3, stride=1, padding=1, act=None)
         self.conv2 = ConvBNLayer(
             ch_in, ch_out, 1, stride=1, padding=0, act=None)
-        self.act = get_act_fn(act) if act is None or isinstance(act, (
-            str, dict)) else act
+
+        # self.act = get_act_fn(act) if act is None or isinstance(act, (
+        #     str, dict)) else act
+
+        from typing import Callable
+        if isinstance(act, Callable):
+            self.act = act
+        else:
+            if act == 'silu' or act == 'swish':
+                self.act = lambda x: x * F.sigmoid(x)
+            else:
+                self.act = getattr(F, act)
+
         if alpha:
             self.alpha = self.create_parameter(
                 shape=[1],
