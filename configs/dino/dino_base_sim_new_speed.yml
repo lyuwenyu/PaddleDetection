@@ -49,7 +49,7 @@ YOLOCSPPAN:
   dropout: 0
   activation: 'gelu'
   proj_dim: [256, 256, 256]
-  proj_use_conv: True
+  proj_conv_bn: True
 
   expand_ratio: 1.0
   block_fmt: 'bottle'
