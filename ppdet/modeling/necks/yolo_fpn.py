@@ -16,7 +16,7 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 from ppdet.core.workspace import register, serializable
-from ppdet.modeling.layers import DropBlock
+from ppdet.modeling.layers import BatchNorm2d, DropBlock
 from ppdet.modeling.ops import get_act_fn
 from ..backbones.darknet import ConvBNLayer
 from ..shape_spec import ShapeSpec
@@ -991,6 +991,10 @@ class PPYOLOPAN(nn.Layer):
         return [ShapeSpec(channels=c) for c in self._out_channels]
 
 
+from paddle import ParamAttr
+from paddle.regularizer import L2Decay
+
+
 @register
 @serializable
 class YOLOCSPPAN(nn.Layer):
@@ -1018,26 +1022,53 @@ class YOLOCSPPAN(nn.Layer):
                  act='silu',
                  trt=False,
                  eval_size=[640, 640],
-                 proj_use_conv=False,
+                 proj_conv=False,
+                 proj_conv_bn=False,
+                 use_repconv=False,
                  expand_ratio=0.5,
-                 csp_fmt='origin'):
+                 block_fmt='bottle',
+                 csp_fmt='origin',
+                 pan_fmt='origin',
+                 shortcut=False):
+
         super(YOLOCSPPAN, self).__init__()
         self.proj_dim = proj_dim
         self.eval_size = eval_size
         self.attn_lvl = attn_lvl
+        self.pan_fmt = pan_fmt
+
         if self.proj_dim is not None:
             assert len(proj_dim) == len(in_channels)
             # proj channels
             self.neck_input_proj = nn.LayerList()
             for idx in range(len(in_channels)):
-                if proj_use_conv:
+                if proj_conv:
                     self.neck_input_proj.append(
-                        nn.Conv2D(int(in_channels[idx]), proj_dim[idx], 1, 1))
+                        nn.Conv2D(
+                            int(in_channels[idx]),
+                            proj_dim[idx],
+                            1,
+                            1, ))
+                elif proj_conv_bn:
+                    self.neck_input_proj.append(
+                        nn.Sequential(
+                            nn.Conv2D(
+                                int(in_channels[idx]),
+                                proj_dim[idx],
+                                1,
+                                1,
+                                bias_attr=False),
+                            nn.BatchNorm2D(
+                                proj_dim[idx],
+                                weight_attr=ParamAttr(regularizer=L2Decay(0.0)),
+                                bias_attr=ParamAttr(regularizer=L2Decay(0.0)))))
+
                 else:
                     self.neck_input_proj.append(
                         BaseConv(
                             int(in_channels[idx]), proj_dim[idx], 1, 1,
                             act=act))
+
             in_channels = proj_dim
         self.in_channels = in_channels
         self._out_channels = in_channels
@@ -1087,49 +1118,103 @@ class YOLOCSPPAN(nn.Layer):
                 for _ in range(len(attn_lvl))
             ])
 
-        # top-down fpn
-        self.lateral_convs = nn.LayerList()
-        self.fpn_blocks = nn.LayerList()
-        for idx in range(len(in_channels) - 1, 0, -1):
-            self.lateral_convs.append(
-                BaseConv(
-                    int(in_channels[idx]),
-                    int(in_channels[idx - 1]),
-                    1,
-                    1,
-                    act=act))
-            self.fpn_blocks.append(
-                CSPLayer(
-                    int(in_channels[idx - 1] * 2),
-                    int(in_channels[idx - 1]),
-                    round(3 * depth_mult),
-                    shortcut=False,
-                    depthwise=depthwise,
-                    act=act,
-                    expansion=expand_ratio,
-                    csp_fmt=csp_fmt))
+        if pan_fmt == 'origin':
+            # top-down fpn
+            self.lateral_convs = nn.LayerList()
+            self.fpn_blocks = nn.LayerList()
+            for idx in range(len(in_channels) - 1, 0, -1):
+                self.lateral_convs.append(
+                    BaseConv(
+                        int(in_channels[idx]),
+                        int(in_channels[idx - 1]),
+                        1,
+                        1,
+                        act=act))
+                self.fpn_blocks.append(
+                    CSPLayer(
+                        int(in_channels[idx - 1] * 2),
+                        int(in_channels[idx - 1]),
+                        round(3 * depth_mult),
+                        shortcut=shortcut,
+                        depthwise=depthwise,
+                        act=act,
+                        use_repconv=use_repconv,
+                        expansion=expand_ratio,
+                        block_fmt=block_fmt,
+                        csp_fmt=csp_fmt))
 
-        # bottom-up pan
-        self.downsample_convs = nn.LayerList()
-        self.pan_blocks = nn.LayerList()
-        for idx in range(len(in_channels) - 1):
-            self.downsample_convs.append(
-                Conv(
-                    int(in_channels[idx]),
-                    int(in_channels[idx]),
-                    3,
-                    stride=2,
-                    act=act))
-            self.pan_blocks.append(
-                CSPLayer(
-                    int(in_channels[idx] * 2),
-                    int(in_channels[idx + 1]),
-                    round(3 * depth_mult),
-                    shortcut=False,
-                    depthwise=depthwise,
-                    act=act,
-                    expansion=expand_ratio,
-                    csp_fmt=csp_fmt))
+            # bottom-up pan
+            self.downsample_convs = nn.LayerList()
+            self.pan_blocks = nn.LayerList()
+            for idx in range(len(in_channels) - 1):
+                self.downsample_convs.append(
+                    Conv(
+                        int(in_channels[idx]),
+                        int(in_channels[idx]),
+                        3,
+                        stride=2,
+                        act=act))
+                self.pan_blocks.append(
+                    CSPLayer(
+                        int(in_channels[idx] * 2),
+                        int(in_channels[idx + 1]),
+                        round(3 * depth_mult),
+                        shortcut=shortcut,
+                        depthwise=depthwise,
+                        act=act,
+                        use_repconv=use_repconv,
+                        expansion=expand_ratio,
+                        block_fmt=block_fmt,
+                        csp_fmt=csp_fmt))
+
+        elif pan_fmt == 'add':
+            # top-down fpn
+            self.lateral_convs = nn.LayerList()
+            self.fpn_blocks = nn.LayerList()
+            for idx in range(len(in_channels) - 1, 0, -1):
+                self.lateral_convs.append(
+                    BaseConv(
+                        int(in_channels[idx]),
+                        int(in_channels[idx - 1]),
+                        1,
+                        1,
+                        act=act))
+                self.fpn_blocks.append(
+                    CSPLayer(
+                        int(in_channels[idx - 1]),
+                        int(in_channels[idx - 1]),
+                        round(3 * depth_mult),
+                        shortcut=shortcut,
+                        depthwise=depthwise,
+                        act=act,
+                        use_repconv=use_repconv,
+                        expansion=expand_ratio,
+                        block_fmt=block_fmt,
+                        csp_fmt=csp_fmt))
+
+            # bottom-up pan
+            self.downsample_convs = nn.LayerList()
+            self.pan_blocks = nn.LayerList()
+            for idx in range(len(in_channels) - 1):
+                self.downsample_convs.append(
+                    Conv(
+                        int(in_channels[idx]),
+                        int(in_channels[idx]),
+                        3,
+                        stride=2,
+                        act=act))
+                self.pan_blocks.append(
+                    CSPLayer(
+                        int(in_channels[idx]),
+                        int(in_channels[idx + 1]),
+                        round(3 * depth_mult),
+                        shortcut=shortcut,
+                        depthwise=depthwise,
+                        act=act,
+                        use_repconv=use_repconv,
+                        expansion=expand_ratio,
+                        block_fmt=block_fmt,
+                        csp_fmt=csp_fmt))
 
     def build_2d_sincos_position_embedding(
             self,
@@ -1186,34 +1271,63 @@ class YOLOCSPPAN(nn.Layer):
                     [n, c, h, w])
                 feats[-idx - 1] = last_feat_encode
 
-        # top-down fpn
-        inner_outs = [feats[-1]]
-        for idx in range(len(self.in_channels) - 1, 0, -1):
-            feat_heigh = inner_outs[0]
-            feat_low = feats[idx - 1]
-            feat_heigh = self.lateral_convs[len(self.in_channels) - 1 - idx](
-                feat_heigh)
-            inner_outs[0] = feat_heigh
+        if self.pan_fmt == 'origin':
+            # top-down fpn
+            inner_outs = [feats[-1]]
+            for idx in range(len(self.in_channels) - 1, 0, -1):
+                feat_heigh = inner_outs[0]
+                feat_low = feats[idx - 1]
+                feat_heigh = self.lateral_convs[len(self.in_channels) - 1 -
+                                                idx](feat_heigh)
+                inner_outs[0] = feat_heigh
 
-            upsample_feat = F.interpolate(
-                feat_heigh,
-                scale_factor=2.,
-                mode="nearest",
-                data_format=self.data_format)
-            inner_out = self.fpn_blocks[len(self.in_channels) - 1 - idx](
-                paddle.concat(
-                    [upsample_feat, feat_low], axis=1))
-            inner_outs.insert(0, inner_out)
+                upsample_feat = F.interpolate(
+                    feat_heigh,
+                    scale_factor=2.,
+                    mode="nearest",
+                    data_format=self.data_format)
+                inner_out = self.fpn_blocks[len(self.in_channels) - 1 - idx](
+                    paddle.concat(
+                        [upsample_feat, feat_low], axis=1))
+                inner_outs.insert(0, inner_out)
 
-        # bottom-up pan
-        outs = [inner_outs[0]]
-        for idx in range(len(self.in_channels) - 1):
-            feat_low = outs[-1]
-            feat_height = inner_outs[idx + 1]
-            downsample_feat = self.downsample_convs[idx](feat_low)
-            out = self.pan_blocks[idx](paddle.concat(
-                [downsample_feat, feat_height], axis=1))
-            outs.append(out)
+            # bottom-up pan
+            outs = [inner_outs[0]]
+            for idx in range(len(self.in_channels) - 1):
+                feat_low = outs[-1]
+                feat_height = inner_outs[idx + 1]
+                downsample_feat = self.downsample_convs[idx](feat_low)
+                out = self.pan_blocks[idx](paddle.concat(
+                    [downsample_feat, feat_height], axis=1))
+                outs.append(out)
+
+        elif self.pan_fmt == 'add':
+            # top-down fpn
+            inner_outs = [feats[-1]]
+            for idx in range(len(self.in_channels) - 1, 0, -1):
+                feat_heigh = inner_outs[0]
+                feat_low = feats[idx - 1]
+                feat_heigh = self.lateral_convs[len(self.in_channels) - 1 -
+                                                idx](feat_heigh)
+                inner_outs[0] = feat_heigh
+
+                upsample_feat = F.interpolate(
+                    feat_heigh,
+                    scale_factor=2.,
+                    mode="nearest",
+                    data_format=self.data_format)
+                inner_out = self.fpn_blocks[len(self.in_channels) - 1 - idx](
+                    upsample_feat + feat_low)
+                inner_outs.insert(0, inner_out)
+
+            # bottom-up pan
+            outs = [inner_outs[0]]
+            for idx in range(len(self.in_channels) - 1):
+                feat_low = outs[-1]
+                feat_height = inner_outs[idx + 1]
+                downsample_feat = self.downsample_convs[idx](feat_low)
+                out = self.pan_blocks[idx](downsample_feat + feat_height)
+                outs.append(out)
 
         return outs
 
