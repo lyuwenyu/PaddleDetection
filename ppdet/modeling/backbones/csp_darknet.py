@@ -472,13 +472,15 @@ class RepConvNeck(nn.Layer):
                 alpha=False, ) for _ in range(num_blocks)
         ])
 
-        self.conv3 = BaseConv(
-            hidden_channels,
-            out_channels,
-            ksize=1,
-            stride=1,
-            bias=bias,
-            act=act)
+        self.conv3 = nn.Identity()
+
+        # self.conv3 = BaseConv(
+        #     hidden_channels,
+        #     out_channels,
+        #     ksize=1,
+        #     stride=1,
+        #     bias=bias,
+        #     act=act)
 
         self.add_shortcut = shortcut and in_channels == out_channels
 
