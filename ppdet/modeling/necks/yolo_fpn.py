@@ -1029,6 +1029,7 @@ class YOLOCSPPAN(nn.Layer):
                  block_fmt='bottle',
                  csp_fmt='origin',
                  pan_fmt='origin',
+                 rep_fmt='origin',
                  shortcut=False):
 
         super(YOLOCSPPAN, self).__init__()
@@ -1141,7 +1142,8 @@ class YOLOCSPPAN(nn.Layer):
                         use_repconv=use_repconv,
                         expansion=expand_ratio,
                         block_fmt=block_fmt,
-                        csp_fmt=csp_fmt))
+                        csp_fmt=csp_fmt,
+                        rep_fmt=rep_fmt))
 
             # bottom-up pan
             self.downsample_convs = nn.LayerList()
@@ -1165,7 +1167,8 @@ class YOLOCSPPAN(nn.Layer):
                         use_repconv=use_repconv,
                         expansion=expand_ratio,
                         block_fmt=block_fmt,
-                        csp_fmt=csp_fmt))
+                        csp_fmt=csp_fmt,
+                        rep_fmt=rep_fmt))
 
         elif pan_fmt == 'add':
             # top-down fpn
