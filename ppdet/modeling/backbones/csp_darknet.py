@@ -447,7 +447,8 @@ class RepConvNeck(nn.Layer):
                  num_blocks=3,
                  bias=False,
                  act="silu",
-                 use_repconv=False):
+                 use_repconv=False,
+                 rep_fmt='origin'):
 
         super().__init__()
         hidden_channels = int(out_channels * expansion)
@@ -462,6 +463,7 @@ class RepConvNeck(nn.Layer):
         #         act=act) for _ in range(num_blocks)
         # ])
 
+        self.rep_fmt = rep_fmt
         self.conv1s = nn.LayerList([nn.Identity() for _ in range(num_blocks)])
 
         self.conv2s = nn.LayerList([
@@ -485,6 +487,8 @@ class RepConvNeck(nn.Layer):
         self.add_shortcut = shortcut and in_channels == out_channels
 
     def forward(self, x):
+
+        outputs = []
         _y = x
         for m1, m2 in zip(self.conv1s, self.conv2s):
             y = m2(m1(_y))
@@ -494,12 +498,18 @@ class RepConvNeck(nn.Layer):
             else:
                 _y = y
 
+            outputs.append(_y)
+
         y = self.conv3(_y)
 
-        # if self.add_shortcut:
-        #     y = y + x
+        if self.rep_fmt == 'origin':
+            return y
 
-        return y
+        elif self.rep_fmt == 'add':
+            return sum(self.rep_fmt)
+
+        else:
+            raise RuntimeError()
 
 
 class CSPLayer(nn.Layer):
@@ -516,7 +526,8 @@ class CSPLayer(nn.Layer):
                  act="silu",
                  use_repconv=False,
                  block_fmt='bottle',
-                 csp_fmt='origin'):
+                 csp_fmt='origin',
+                 rep_fmt='origin'):
         super(CSPLayer, self).__init__()
 
         hidden_channels = int(out_channels * expansion)
@@ -603,7 +614,8 @@ class CSPLayer(nn.Layer):
                 num_blocks=num_blocks,
                 bias=bias,
                 act=act,
-                use_repconv=use_repconv, )
+                use_repconv=use_repconv,
+                rep_fmt=rep_fmt)
 
     def forward(self, x):
         if self.csp_fmt == 'origin':
