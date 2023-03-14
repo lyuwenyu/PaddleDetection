@@ -506,7 +506,7 @@ class RepConvNeck(nn.Layer):
             return y
 
         elif self.rep_fmt == 'add':
-            return sum(self.rep_fmt)
+            return sum(outputs)
 
         else:
             raise RuntimeError()
