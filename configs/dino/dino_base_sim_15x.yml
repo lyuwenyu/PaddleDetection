@@ -9,6 +9,11 @@ _BASE_: [
   # '_base_/enhance_yoloe_reader.yml',
 ]
 
+
+# Exporting the model
+export:
+  fuse_conv_bn: True
+
 metric: COCO
 num_classes: 80
 
@@ -104,6 +109,7 @@ YOLOCSPPAN:
   rep_fmt: 'origin'
 
   csp_fmt: 'origin' # add
+
   pan_fmt: 'origin' # add
   shortcut: False
 
