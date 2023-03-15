@@ -11,6 +11,10 @@ find_unused_parameters: True
 log_iter: 100
 snapshot_epoch: 2
 
+export:
+  fuse_conv_bn: True
+
+
 
 architecture: DETR
 pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vd_ssld_v2_pretrained.pdparams
@@ -53,6 +57,7 @@ YOLOCSPPAN:
 
   expand_ratio: 1.0
   block_fmt: 'bottle'
+  rep_fmt: 'origin'
   csp_fmt: 'origin' # add
   pan_fmt: 'origin' # add
   shortcut: False
