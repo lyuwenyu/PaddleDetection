@@ -1091,14 +1091,18 @@ class Trainer(object):
         if hasattr(self.model, 'deploy'):
             self.model.deploy = True
 
+        for layer in self.model.sublayers():
+            if hasattr(layer, 'convert_to_deploy'):
+                layer.convert_to_deploy()
+
         # if 'slim' not in self.cfg:
         #     for layer in self.model.sublayers():
         #         if hasattr(layer, 'convert_to_deploy'):
         #             layer.convert_to_deploy()
 
-        if hasattr(self.cfg, 'export') and 'fuse_conv_bn' in self.cfg[
-                'export'] and self.cfg['export']['fuse_conv_bn']:
-            self.model = fuse_conv_bn(self.model)
+        # if hasattr(self.cfg, 'export') and 'fuse_conv_bn' in self.cfg[
+        #         'export'] and self.cfg['export']['fuse_conv_bn']:
+        #     self.model = fuse_conv_bn(self.model)
 
         # export_post_process = self.cfg['export'].get(
         #     'post_process', False) if hasattr(self.cfg, 'export') else True

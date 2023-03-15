@@ -11,9 +11,6 @@ find_unused_parameters: True
 log_iter: 100
 snapshot_epoch: 2
 
-export:
-  fuse_conv_bn: True
-
 
 
 architecture: DETR
