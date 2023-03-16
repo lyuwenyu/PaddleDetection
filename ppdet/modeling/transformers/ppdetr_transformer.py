@@ -224,7 +224,7 @@ class TransformerDecoder(nn.Layer):
         ref_points_detach = F.sigmoid(ref_points_unact)
         for i, layer in enumerate(self.layers):
             ref_points_input = ref_points_detach.unsqueeze(2)
-            query_pos_embed = query_pos_head(inverse_sigmoid(ref_points_detach))
+            query_pos_embed = query_pos_head(ref_points_detach)
 
             output = layer(output, ref_points_input, memory,
                            memory_spatial_shapes, memory_level_start_index,
@@ -241,7 +241,7 @@ class TransformerDecoder(nn.Layer):
                     dec_out_bboxes.append(
                         F.sigmoid(bbox_head[i](output) + inverse_sigmoid(
                             ref_points)))
-            elif i == len(self.layers) - 1:
+            else:
                 dec_out_logits.append(score_head[i](output))
                 dec_out_bboxes.append(inter_ref_bbox)
 

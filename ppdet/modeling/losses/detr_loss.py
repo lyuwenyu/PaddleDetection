@@ -46,8 +46,8 @@ class DETRLoss(nn.Layer):
                  aux_loss=True,
                  use_focal_loss=False,
                  use_vfl=False,
-                 use_same_match=False,
-                 same_match_ind=0):
+                 use_uni_match=False,
+                 uni_match_ind=0):
         r"""
         Args:
             num_classes (int): The number of classes.
@@ -65,8 +65,8 @@ class DETRLoss(nn.Layer):
         self.aux_loss = aux_loss
         self.use_focal_loss = use_focal_loss
         self.use_vfl = use_vfl
-        self.use_same_match = use_same_match
-        self.same_match_ind = same_match_ind
+        self.use_uni_match = use_uni_match
+        self.uni_match_ind = uni_match_ind
 
         if not self.use_focal_loss:
             self.loss_coeff['class'] = paddle.full([num_classes + 1],
@@ -189,17 +189,17 @@ class DETRLoss(nn.Layer):
         loss_mask, loss_dice = [], []
         if dn_match_indices is not None:
             match_indices = dn_match_indices
-        elif self.use_same_match:
+        elif self.use_uni_match:
             match_indices = self.matcher(
-                boxes[self.same_match_ind],
-                logits[self.same_match_ind],
+                boxes[self.uni_match_ind],
+                logits[self.uni_match_ind],
                 gt_bbox,
                 gt_class,
-                masks=masks[self.same_match_ind] if masks is not None else None,
+                masks=masks[self.uni_match_ind] if masks is not None else None,
                 gt_mask=gt_mask)
         for i, (aux_boxes, aux_logits) in enumerate(zip(boxes, logits)):
             aux_masks = masks[i] if masks is not None else None
-            if not self.use_same_match and dn_match_indices is None:
+            if not self.use_uni_match and dn_match_indices is None:
                 match_indices = self.matcher(
                     aux_boxes,
                     aux_logits,
