@@ -53,9 +53,9 @@ YOLOCSPPAN:
   proj_conv_bn: True
 
   expand_ratio: 1.0
-  block_fmt: 'bottle'
+  block_fmt: 'rep'
   rep_fmt: 'origin'
-  csp_fmt: 'origin' # add
+  csp_fmt: 'add' # add
   pan_fmt: 'origin' # add
   shortcut: False
 
