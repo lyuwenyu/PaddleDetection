@@ -453,43 +453,57 @@ class RepConvNeck(nn.Layer):
         super().__init__()
         hidden_channels = int(out_channels * expansion)
         Conv = DWConv if depthwise else BaseConv
-        # self.conv1s = nn.LayerList([
-        #     BaseConv(
-        #         in_channels,
-        #         hidden_channels,
-        #         ksize=1,
-        #         stride=1,
-        #         bias=bias,
-        #         act=act) for _ in range(num_blocks)
-        # ])
+
+        self.hidden_channels = hidden_channels
+        self.out_channels = out_channels
+
+        if hidden_channels != out_channels:
+            self.prj = BaseConv(
+                in_channels,
+                hidden_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+
+            self.conv1s = nn.LayerList(
+                [nn.Identity() for _ in range(num_blocks)])
+            self.conv2s = nn.LayerList([
+                RepVggBlock(
+                    hidden_channels,
+                    hidden_channels,
+                    act=act,
+                    alpha=False, ) for _ in range(num_blocks)
+            ])
+            self.conv3 = BaseConv(
+                hidden_channels,
+                out_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
+
+        else:
+            self.prj = nn.Identity()
+            self.conv1s = nn.LayerList(
+                [nn.Identity() for _ in range(num_blocks)])
+            self.conv2s = nn.LayerList([
+                RepVggBlock(
+                    hidden_channels,
+                    hidden_channels,
+                    act=act,
+                    alpha=False, ) for _ in range(num_blocks)
+            ])
+            self.conv3 = nn.Identity()
 
         self.rep_fmt = rep_fmt
-        self.conv1s = nn.LayerList([nn.Identity() for _ in range(num_blocks)])
-
-        self.conv2s = nn.LayerList([
-            RepVggBlock(
-                hidden_channels,
-                hidden_channels,
-                act=act,
-                alpha=False, ) for _ in range(num_blocks)
-        ])
-
-        self.conv3 = nn.Identity()
-
-        # self.conv3 = BaseConv(
-        #     hidden_channels,
-        #     out_channels,
-        #     ksize=1,
-        #     stride=1,
-        #     bias=bias,
-        #     act=act)
 
         self.add_shortcut = shortcut and in_channels == out_channels
 
     def forward(self, x):
-
         outputs = []
-        _y = x
+        _y = self.prj(x)
+
         for m1, m2 in zip(self.conv1s, self.conv2s):
             y = m2(m1(_y))
 
@@ -502,14 +516,10 @@ class RepConvNeck(nn.Layer):
 
         y = self.conv3(_y)
 
-        if self.rep_fmt == 'origin':
-            return y
-
-        elif self.rep_fmt == 'add':
+        if self.rep_fmt == 'add':
             return sum(outputs)
-
         else:
-            raise RuntimeError()
+            return y
 
 
 class CSPLayer(nn.Layer):
@@ -527,7 +537,8 @@ class CSPLayer(nn.Layer):
                  use_repconv=False,
                  block_fmt='bottle',
                  csp_fmt='origin',
-                 rep_fmt='origin'):
+                 rep_fmt='origin',
+                 rep_expansion=1.0):
         super(CSPLayer, self).__init__()
 
         hidden_channels = int(out_channels * expansion)
@@ -609,7 +620,7 @@ class CSPLayer(nn.Layer):
                 hidden_channels,
                 hidden_channels,
                 shortcut=shortcut,
-                expansion=1.0,
+                expansion=rep_expansion,
                 depthwise=depthwise,
                 num_blocks=num_blocks,
                 bias=bias,

@@ -100,7 +100,8 @@ YOLOCSPPAN:
   dim_feedforward: 1024
   dropout: 0.0 # 0.
   activation: 'gelu'  # relu
-  proj_dim: [256, 256, 256]
+  # proj_dim: [256, 256, 256]
+  proj_dim: [512, 512, 512]
 
   proj_conv: False
   proj_conv_bn: True
@@ -110,6 +111,7 @@ YOLOCSPPAN:
   expand_ratio: 1.0
   block_fmt: 'rep' # rep
   rep_fmt: 'origin'
+  rep_expansion: 0.5
 
   csp_fmt: 'add' # add
 

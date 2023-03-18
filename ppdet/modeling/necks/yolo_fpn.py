@@ -1030,7 +1030,8 @@ class YOLOCSPPAN(nn.Layer):
                  csp_fmt='origin',
                  pan_fmt='origin',
                  rep_fmt='origin',
-                 shortcut=False):
+                 shortcut=False,
+                 rep_expansion=1.0):
 
         super(YOLOCSPPAN, self).__init__()
         self.proj_dim = proj_dim
@@ -1143,7 +1144,8 @@ class YOLOCSPPAN(nn.Layer):
                         expansion=expand_ratio,
                         block_fmt=block_fmt,
                         csp_fmt=csp_fmt,
-                        rep_fmt=rep_fmt))
+                        rep_fmt=rep_fmt,
+                        rep_expansion=rep_expansion))
 
             # bottom-up pan
             self.downsample_convs = nn.LayerList()
@@ -1168,7 +1170,8 @@ class YOLOCSPPAN(nn.Layer):
                         expansion=expand_ratio,
                         block_fmt=block_fmt,
                         csp_fmt=csp_fmt,
-                        rep_fmt=rep_fmt))
+                        rep_fmt=rep_fmt,
+                        rep_expansion=rep_expansion))
 
         elif pan_fmt == 'add':
             # top-down fpn
@@ -1193,7 +1196,8 @@ class YOLOCSPPAN(nn.Layer):
                         use_repconv=use_repconv,
                         expansion=expand_ratio,
                         block_fmt=block_fmt,
-                        csp_fmt=csp_fmt))
+                        csp_fmt=csp_fmt,
+                        rep_expansion=rep_expansion))
 
             # bottom-up pan
             self.downsample_convs = nn.LayerList()
@@ -1217,7 +1221,8 @@ class YOLOCSPPAN(nn.Layer):
                         use_repconv=use_repconv,
                         expansion=expand_ratio,
                         block_fmt=block_fmt,
-                        csp_fmt=csp_fmt))
+                        csp_fmt=csp_fmt,
+                        rep_expansion=rep_expansion))
 
     def build_2d_sincos_position_embedding(
             self,
