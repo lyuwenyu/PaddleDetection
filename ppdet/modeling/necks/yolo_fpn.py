@@ -1144,7 +1144,8 @@ class YOLOCSPPAN(nn.Layer):
                         expansion=expand_ratio,
                         block_fmt=block_fmt,
                         csp_fmt=csp_fmt,
-                        rep_fmt=rep_fmt))
+                        rep_fmt=rep_fmt,
+                        rep_expansion=rep_expansion))
 
             # bottom-up pan
             self.downsample_convs = nn.LayerList()
@@ -1169,7 +1170,8 @@ class YOLOCSPPAN(nn.Layer):
                         expansion=expand_ratio,
                         block_fmt=block_fmt,
                         csp_fmt=csp_fmt,
-                        rep_fmt=rep_fmt))
+                        rep_fmt=rep_fmt,
+                        rep_expansion=rep_expansion))
 
         elif pan_fmt == 'add':
             # top-down fpn
