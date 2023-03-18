@@ -476,7 +476,13 @@ class RepConvNeck(nn.Layer):
                     act=act,
                     alpha=False, ) for _ in range(num_blocks)
             ])
-            self.conv3 = nn.Identity()
+            self.conv3 = BaseConv(
+                hidden_channels,
+                out_channels,
+                ksize=1,
+                stride=1,
+                bias=bias,
+                act=act)
 
         else:
             self.conv1s = nn.LayerList(
