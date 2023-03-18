@@ -100,7 +100,7 @@ YOLOCSPPAN:
   use_trans: True
   nhead: 8
   num_layers: 1
-  dim_feedforward: 1024
+  dim_feedforward: 2048 # 1024
   dropout: 0.0 # 0.
   activation: 'gelu'  # relu
   # proj_dim: [256, 256, 256]
@@ -115,7 +115,8 @@ YOLOCSPPAN:
   expand_ratio: 1.0
   block_fmt: 'rep' # rep
   rep_fmt: 'origin'
-  rep_expansion: 1.0
+  rep_expansion: 1.0 # 0.5
+  # rep_expansion: 0.5
 
   csp_fmt: 'add' # add
 

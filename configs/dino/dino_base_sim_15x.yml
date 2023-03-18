@@ -88,6 +88,8 @@ ResNet:
 
 
 YOLOCSPPAN:
+  depth_mult: 1.0
+
   depthwise: False
   act: silu # relu
 
@@ -107,6 +109,7 @@ YOLOCSPPAN:
   expand_ratio: 1.0
   block_fmt: 'rep' # rep
   rep_fmt: 'origin'
+  rep_expansion: 1.0 # 0.5
 
   csp_fmt: 'add' # add
 
