@@ -41,7 +41,7 @@ find_unused_parameters: True
 log_iter: 100
 
 
-pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vd_ssld_v2_pretrained.pdparams
+# pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet50_vd_ssld_v2_pretrained.pdparams
 norm_type: sync_bn
 use_ema: True
 ema_decay: 0.9999
@@ -64,18 +64,20 @@ DETR:
 
 
 
-# depth_mult: 1.0
-# width_mult: 1.0
-
-# CSPDarkNet:
-#   arch: "X"
-#   return_idx: [2, 3, 4]
-#   depthwise: False
+pretrain_weights: https://paddledet.bj.bcebos.com/models/pretrained/ResNet101_vd_ssld_pretrained.pdparams
+# ResNet:
+#   depth: 101
+#   variant: d
+#   return_idx: [1, 2, 3]
+#   dcn_v2_stages: [3]
+#   freeze_at: -1
+#   freeze_norm: false
+#   norm_decay: 0.
 
 
 ResNet:
   # index 0 stands for res2
-  depth: 50
+  depth: 101
   norm_type: bn
   freeze_at: 0
   return_idx: [1, 2, 3]
@@ -85,6 +87,7 @@ ResNet:
   num_stages: 4
   freeze_stem_only: true
   variant: d
+  norm_decay: 0.
 
 
 YOLOCSPPAN:
