@@ -505,7 +505,7 @@ class RepConvNeck(nn.Layer):
         outputs = []
 
         if self.hidden_channels != self.out_channels:
-            x = self.prj(x)
+            _y = self.prj(x)
 
         for m1, m2 in zip(self.conv1s, self.conv2s):
             y = m2(m1(_y))
