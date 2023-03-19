@@ -466,6 +466,7 @@ class RepConvNeck(nn.Layer):
             #     stride=1,
             #     bias=bias,
             #     act=act)
+            self.prj = nn.Identity()
 
             self.conv1s = nn.LayerList(
                 [nn.Identity() for _ in range(num_blocks)])
