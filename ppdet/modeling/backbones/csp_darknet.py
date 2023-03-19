@@ -451,20 +451,21 @@ class RepConvNeck(nn.Layer):
                  rep_fmt='origin'):
 
         super().__init__()
-        hidden_channels = int(out_channels * expansion)
+        # hidden_channels = int(out_channels * expansion)
         Conv = DWConv if depthwise else BaseConv
 
+        hidden_channels = in_channels
         self.hidden_channels = hidden_channels
         self.out_channels = out_channels
 
         if hidden_channels != out_channels:
-            self.prj = BaseConv(
-                in_channels,
-                hidden_channels,
-                ksize=1,
-                stride=1,
-                bias=bias,
-                act=act)
+            # self.prj = BaseConv(
+            #     in_channels,
+            #     hidden_channels,
+            #     ksize=1,
+            #     stride=1,
+            #     bias=bias,
+            #     act=act)
 
             self.conv1s = nn.LayerList(
                 [nn.Identity() for _ in range(num_blocks)])
@@ -577,7 +578,8 @@ class CSPLayer(nn.Layer):
                 act=act)
             self.conv2 = BaseConv(
                 in_channels,
-                hidden_channels,
+                # hidden_channels,
+                out_channels,
                 ksize=1,
                 stride=1,
                 bias=bias,
@@ -618,7 +620,8 @@ class CSPLayer(nn.Layer):
         elif block_fmt == 'rep':
             self.bottlenecks = RepConvNeck(
                 hidden_channels,
-                hidden_channels,
+                # hidden_channels,
+                out_channels,
                 shortcut=shortcut,
                 expansion=rep_expansion,
                 depthwise=depthwise,
