@@ -21,6 +21,25 @@ import paddle
 import weakref
 import numpy as np
 
+import paddle.nn as nn
+from typing import List
+
+
+def get_bn_running_state_names(model: nn.Layer) -> List[str]:
+    """Get all bn state full names including running mean and variance
+    """
+    names = []
+    for n, m in model.named_sublayers():
+        if isinstance(m, (nn.BatchNorm2D, nn.SyncBatchNorm)):
+            assert hasattr(m, '_mean'), f'assert {m} has _mean'
+            assert hasattr(m, '_variance'), f'assert {m} has _variance'
+            if not m._use_global_stats:
+                running_mean = f'{n}._mean'
+                running_var = f'{n}._variance'
+                names.extend([running_mean, running_var])
+
+    return names
+
 
 class ModelEMA(object):
     """
@@ -73,8 +92,10 @@ class ModelEMA(object):
 
         if ema_filter_bn_states:
             for n, p in model.named_parameters():
-                if ('_mean' in n) or ('_variance' in n):
+                if (('_mean' in n) or ('_variance' in n)) and 'backbone' in n:
                     self.ema_black_list.add(n)
+
+        print(self.ema_black_list)
 
         self.state_dict = dict()
         for k, v in model.state_dict().items():
