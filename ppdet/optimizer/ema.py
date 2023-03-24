@@ -114,11 +114,11 @@ class ModelEMA(object):
     def reset(self):
         self.step = 0
         self.epoch = 0
-        for k, v in self.state_dict.items():
-            if k in self.ema_black_list:
-                self.state_dict[k] = v
-            else:
-                self.state_dict[k] = paddle.zeros_like(v)
+        # for k, v in self.state_dict.items():
+        #     if k in self.ema_black_list:
+        #         self.state_dict[k] = v
+        #     else:
+        #         self.state_dict[k] = paddle.zeros_like(v)
 
     def resume(self, state_dict, step=0):
         for k, v in state_dict.items():
