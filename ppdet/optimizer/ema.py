@@ -71,12 +71,16 @@ class ModelEMA(object):
                  ema_filter_bn_states=False,
                  ema_start_epoch=0,
                  ema_total_epoch=100000,
-                 ema_decay_start=0.99):
+                 ema_decay_start=0.99,
+                 cycle_ema_fmt='zero'):
         self.step = 0
         self.epoch = 0
+        self.total_epoch = 0
+
         self.decay = decay
         self.ema_decay_type = ema_decay_type
         self.cycle_epoch = cycle_epoch
+        self.cycle_ema_fmt = cycle_ema_fmt
         self.ema_total_epoch = ema_total_epoch
         self.ema_decay_start = ema_decay_start
         self.ema_start_epoch = ema_start_epoch
@@ -112,8 +116,15 @@ class ModelEMA(object):
         }
 
     def reset(self):
-        self.step = 0
-        self.epoch = 0
+        if self.cycle_ema_fmt == 'zero':
+            self.step = 0
+            self.epoch = 0
+        elif self.cycle_ema_fmt == 'continue':
+            self.step = self.total_epoch
+            self.epoch = 0
+        else:
+            raise AttributeError('')
+
         # for k, v in self.state_dict.items():
         #     if k in self.ema_black_list:
         #         self.state_dict[k] = v
@@ -179,6 +190,7 @@ class ModelEMA(object):
                 v.stop_gradient = True
                 state_dict[k] = v
         self.epoch += 1
+        self.total_epoch += 1
         if self.cycle_epoch > 0 and self.epoch == self.cycle_epoch:
             self.reset()
 

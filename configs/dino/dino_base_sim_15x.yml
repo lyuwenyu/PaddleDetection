@@ -48,6 +48,8 @@ ema_decay: 0.9999
 ema_decay_type: "exponential"
 ema_filter_no_grads: True
 ema_filter_bn_states: False
+# cycle_epoch: 36
+# cycle_ema_fmt: 'zero' # continue
 
 # ema_decay_type: 'consine'
 # # ema_start_epoch: 3

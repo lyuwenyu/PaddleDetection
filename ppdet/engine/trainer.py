@@ -180,6 +180,7 @@ class Trainer(object):
             ema_start_epoch = self.cfg.get('ema_start_epoch', 0)
             ema_total_epoch = self.cfg.get('ema_total_epoch', 99999)
             ema_decay_start = self.cfg.get('ema_decay_start', 0.99)
+            cycle_ema_fmt = self.cfg.get('cycle_ema_fmt', 'zero')
 
             self.ema = ModelEMA(
                 self.model,
@@ -191,7 +192,8 @@ class Trainer(object):
                 ema_filter_bn_states=ema_filter_bn_states,
                 ema_start_epoch=ema_start_epoch,
                 ema_total_epoch=ema_total_epoch,
-                ema_decay_start=ema_decay_start)
+                ema_decay_start=ema_decay_start,
+                cycle_ema_fmt=cycle_ema_fmt)
 
         self._nranks = dist.get_world_size()
         self._local_rank = dist.get_rank()
