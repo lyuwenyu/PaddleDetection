@@ -48,8 +48,8 @@ ema_decay: 0.9999
 ema_decay_type: "exponential"
 ema_filter_no_grads: True
 ema_filter_bn_states: False
-# cycle_epoch: 36
-# cycle_ema_fmt: 'zero' # continue
+# cycle_epoch: 60
+# cycle_ema_fmt: 'continue' # 'zero'
 
 # ema_decay_type: 'consine'
 # # ema_start_epoch: 3
@@ -103,6 +103,7 @@ YOLOCSPPAN:
   activation: 'gelu'  # relu
   proj_dim: [256, 256, 256]
   # proj_dim: [384, 384, 384]
+  trans_skip_add: False
 
   proj_conv: False
   proj_conv_bn: True

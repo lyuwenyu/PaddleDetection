@@ -1031,14 +1031,15 @@ class YOLOCSPPAN(nn.Layer):
                  pan_fmt='origin',
                  rep_fmt='origin',
                  shortcut=False,
-                 rep_expansion=1.0):
+                 rep_expansion=1.0,
+                 trans_skip_add=False):
 
         super(YOLOCSPPAN, self).__init__()
         self.proj_dim = proj_dim
         self.eval_size = eval_size
         self.attn_lvl = attn_lvl
         self.pan_fmt = pan_fmt
-
+        self.trans_skip_add = trans_skip_add
         if self.proj_dim is not None:
             assert len(proj_dim) == len(in_channels)
             # proj channels
@@ -1277,7 +1278,12 @@ class YOLOCSPPAN(nn.Layer):
                                                 pos_embed=pos_embed)
                 last_feat_encode = memory.transpose([0, 2, 1]).reshape(
                     [n, c, h, w])
-                feats[-idx - 1] = last_feat_encode
+
+                if self.trans_skip_add:
+                    feats[-idx - 1] = feats[-idx - 1] + last_feat_encode
+
+                else:
+                    feats[-idx - 1] = last_feat_encode
 
         if self.pan_fmt == 'origin':
             # top-down fpn
