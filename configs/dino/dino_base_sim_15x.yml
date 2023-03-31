@@ -100,8 +100,8 @@ YOLOCSPPAN:
   use_repconv: False
 
   expand_ratio: 1.0
-  block_fmt: 'bottle' # rep
-  csp_fmt: 'origin' # add
+  block_fmt: 'rep' # rep
+  csp_fmt: 'add' # add
   pan_fmt: 'origin' # add
   shortcut: False
 
