@@ -58,6 +58,7 @@ PPDETRTransformer:
   learnt_init_query: False
 
 DINOHead:
+  eval_idx: -1
   loss:
     name: DINOLoss
     loss_coeff: {class: 1, bbox: 5, giou: 2}
