@@ -25,7 +25,7 @@ EvalReader:
     - Resize: {target_size: [640, 640], keep_ratio: False, interp: 2}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
-  batch_size: 2
+  batch_size: 8
   shuffle: false
   drop_last: false
 
