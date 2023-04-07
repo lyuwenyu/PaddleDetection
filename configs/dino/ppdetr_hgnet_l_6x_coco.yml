@@ -5,7 +5,7 @@ _BASE_: [
   '_base_/yoloe_reader.yml',
 ]
 
-weights: output/ppdetr_hgnet_l_6x_coco/model_final
+weights: output/ppdetr_hgnet_l_7x_coco/model_final
 find_unused_parameters: True
 log_iter: 100
 snapshot_epoch: 1
@@ -13,7 +13,7 @@ snapshot_epoch: 1
 pretrain_weights: http://10.21.226.186:8787/workspace/backup/dino/hgnet_v2_l_pretrained.pdparams
 
 
-epoch: 72
+epoch: 84
 
 
 
