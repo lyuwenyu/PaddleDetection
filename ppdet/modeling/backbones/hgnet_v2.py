@@ -78,8 +78,8 @@ class ConvBNAct(nn.Layer):
                  act="ReLU"):
         super().__init__()
         self.use_act = use_act
-        print(lr)
-        print(freeze_norm)
+        # print(lr)
+        # print(freeze_norm)
         self.conv = Conv2D(
             in_channels,
             out_channels,
@@ -126,8 +126,8 @@ class ConvBNAct_dw(nn.Layer):
         self.use_act = use_act
         self.use_act1 = use_act1
         self.use_act2 = use_act2
-        print(lr)
-        print(freeze_norm)
+        # print(lr)
+        # print(freeze_norm)
         self.conv1 = Conv2D(
             in_channels,
             out_channels,
@@ -182,8 +182,8 @@ class _StemBlock(nn.Layer):
                  freeze_norm=False,
                  lr=1.0):
         super().__init__()
-        print(freeze_norm)
-        print(lr)
+        # print(freeze_norm)
+        # print(lr)
         num_init_features = 32
         num_stem_features = int(num_init_features / 2)
         self.stem1 = BasicConv2D(
