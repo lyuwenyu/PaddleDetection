@@ -1,0 +1,62 @@
+_BASE_: [
+  '../datasets/coco_detection.yml',
+  '../runtime.yml',
+  '_base_/dino_r50vd_pan.yml',
+  '_base_/yoloe_reader.yml',
+]
+
+weights: output/ppdetr_hgnet_l_6x_coco/model_final
+find_unused_parameters: True
+log_iter: 100
+snapshot_epoch: 1
+
+
+epoch: 72
+
+
+
+DETR:
+  backbone: PPHGNetV2
+  neck: HybridEncoder
+  transformer: PPDETRTransformer
+  detr_head: DINOHead
+  post_process: DETRPostProcess
+
+
+PPHGNetV2:
+  stem_channels: [24, 24, 48]
+  stage_config: {
+        # in_channels, mid_channels, out_channels, blocks, downsample, dw_block, dw_kernel_size, act
+        "stage1": [48, 48, 128, 1, False, False, 3, "ReLU"],
+        "stage2": [128, 96, 512, 1, True, False, 3, "ReLU"],
+        "stage3": [512, 192, 1024, 3, True, True, 5, "ReLU"],
+        "stage4": [1024, 384, 2048, 1, True, True, 5, "ReLU"],
+    }
+  depth_mult: 1.0
+  width_mult: 1.0
+  layer_num: 6
+  dw_act: [False, True]
+  return_idx: [1, 2, 3]
+  freeze_stem_only: True
+  freeze_at: 0
+  freeze_norm: True
+  lr_mult_list: [0.05, 0.05, 0.05, 0.05]
+
+
+LearningRate:
+  base_lr: 0.0001
+  schedulers:
+  - !PiecewiseDecay
+    gamma: 1.0
+    milestones: [100]
+    use_warmup: true
+  - !LinearWarmup
+    start_factor: 0.001
+    steps: 2000
+
+OptimizerBuilder:
+  clip_grad_by_norm: 0.1
+  regularizer: false
+  optimizer:
+    type: AdamW
+    weight_decay: 0.0001
