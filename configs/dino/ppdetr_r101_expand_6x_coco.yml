@@ -24,18 +24,18 @@ ResNet:
 
 
 HybridEncoder:
-  depth_mult: 1.0
-  hidden_dim: 384
+  depth_mult: 1.333
+  hidden_dim: 512
   use_encoder_idx: [2]
   num_encoder_layers: 1
   encoder_layer:
     name: TransformerLayer
-    d_model: 384
+    d_model: 512
     nhead: 8
     dim_feedforward: 2048
     dropout: 0.
     activation: 'gelu'
-  expansion: 1.0
+  expansion: 0.5
 
 
 
