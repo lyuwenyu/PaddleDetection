@@ -11,6 +11,20 @@ log_iter: 100
 snapshot_epoch: 1
 
 
+ResNet:
+  # index 0 stands for res2
+  depth: 50
+  variant: d
+  norm_type: bn
+  freeze_at: 0
+  return_idx: [1, 2, 3]
+  lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+  # lr_mult_list: [0.01, 0.01, 0.01, 0.01]
+
+  num_stages: 4
+  freeze_stem_only: True
+
+
 epoch: 72
 
 LearningRate:
