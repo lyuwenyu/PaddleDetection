@@ -18,13 +18,14 @@ ResNet:
   norm_type: bn
   freeze_at: 0
   return_idx: [1, 2, 3]
-  lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+  # lr_mult_list: [0.1, 0.1, 0.1, 0.1]
+  lr_mult_list: [0.01, 0.01, 0.01, 0.01]
   num_stages: 4
   freeze_stem_only: True
 
 
 HybridEncoder:
-  depth_mult: 1.0
+  # depth_mult: 1.333
   hidden_dim: 384
   use_encoder_idx: [2]
   num_encoder_layers: 1
@@ -39,7 +40,7 @@ HybridEncoder:
 
 
 
-epoch: 72
+epoch: 120
 
 LearningRate:
   base_lr: 0.0001

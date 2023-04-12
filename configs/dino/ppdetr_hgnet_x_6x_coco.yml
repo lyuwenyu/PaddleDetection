@@ -25,14 +25,14 @@ DETR:
 
 
 PPHGNetV2:
-  stem_channels: [24, 24, 48]
+  stem_channels: [32, 32, 64]
   stage_config: {
         # in_channels, mid_channels, out_channels, blocks, downsample, dw_block, dw_kernel_size, act
-        "stage1": [48, 48, 128, 1, False, False, 3, "ReLU"],
-        "stage2": [128, 96, 512, 1, True, False, 3, "ReLU"],
-        "stage3": [512, 192, 1024, 3, True, True, 5, "ReLU"],
-        "stage4": [1024, 384, 2048, 1, True, True, 5, "ReLU"],
-    }
+        "stage1": [64, 64, 128, 1, False, False, 3, "ReLU"],
+        "stage2": [128, 128, 512, 2, True, False, 3, "ReLU"],
+        "stage3": [512, 256, 1024, 5, True, True, 5, "ReLU"],
+        "stage4": [1024, 512, 2048, 2, True, True, 5, "ReLU"],
+  }
   depth_mult: 1.0
   width_mult: 1.0
   layer_num: 6
