@@ -180,7 +180,8 @@ class _StemBlock(nn.Layer):
                  num_input_channels,
                  num_init_features,
                  freeze_norm=False,
-                 lr=1.0):
+                 lr=1.0,
+                 out_channle=48):
         super().__init__()
         # print(freeze_norm)
         # print(lr)
@@ -220,7 +221,7 @@ class _StemBlock(nn.Layer):
             padding=1)
         self.stem4 = BasicConv2D(
             num_init_features,
-            48,
+            out_channle,
             freeze_norm=freeze_norm,
             lr=lr,
             kernel_size=1,
@@ -498,7 +499,8 @@ class PPHGNetV2(nn.Layer):
             num_input_channels=3,
             num_init_features=128,
             freeze_norm=freeze_norm,
-            lr=1.0)
+            lr=1.0,
+            out_channels=stem_channels[-1])
         '''
         self.stem = nn.Sequential(* [
             ConvBNAct(

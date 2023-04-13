@@ -10,7 +10,7 @@ find_unused_parameters: True
 log_iter: 100
 snapshot_epoch: 1
 
-pretrain_weights: http://10.21.226.186:8787/workspace/backup/dino/hgnet_v2_l_pretrained.pdparams
+pretrain_weights: http://10.21.226.186:8787/workspace/backup/ppdetr/hgnet_v2_x_pretrained.pdparams
 
 
 epoch: 72
