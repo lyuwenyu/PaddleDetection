@@ -500,7 +500,7 @@ class PPHGNetV2(nn.Layer):
             num_init_features=128,
             freeze_norm=freeze_norm,
             lr=1.0,
-            out_channels=stem_channels[-1])
+            out_channel=stem_channels[-1])
         '''
         self.stem = nn.Sequential(* [
             ConvBNAct(
