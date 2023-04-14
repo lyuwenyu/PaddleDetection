@@ -181,7 +181,7 @@ class _StemBlock(nn.Layer):
                  num_init_features,
                  freeze_norm=False,
                  lr=1.0,
-                 out_channle=48):
+                 out_channel=48):
         super().__init__()
         # print(freeze_norm)
         # print(lr)
@@ -221,7 +221,7 @@ class _StemBlock(nn.Layer):
             padding=1)
         self.stem4 = BasicConv2D(
             num_init_features,
-            out_channle,
+            out_channel,
             freeze_norm=freeze_norm,
             lr=lr,
             kernel_size=1,
