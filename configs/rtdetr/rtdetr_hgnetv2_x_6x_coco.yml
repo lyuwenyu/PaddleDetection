@@ -24,7 +24,7 @@ PPHGNetV2:
   freeze_stem_only: True
   freeze_at: 0
   freeze_norm: True
-  lr_mult_list: [0.01, 0.01, 0.01, 0.01]
+  lr_mult_list: [0., 0.01, 0.01, 0.01, 0.01]
 
 
 HybridEncoder:
