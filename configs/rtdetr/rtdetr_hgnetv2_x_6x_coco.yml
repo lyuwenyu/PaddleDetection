@@ -18,8 +18,7 @@ DETR:
 
 
 PPHGNetV2:
-  stem_channels: [32, 32, 64]
-  stage_type: 'X'
+  arch: 'X'
   return_idx: [1, 2, 3]
   freeze_stem_only: True
   freeze_at: 0
