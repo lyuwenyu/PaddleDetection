@@ -20,6 +20,8 @@ from paddle.nn import Conv2D, BatchNorm2D, ReLU, AdaptiveAvgPool2D, MaxPool2D
 from paddle.regularizer import L2Decay
 from paddle import ParamAttr
 
+import copy
+
 from ppdet.core.workspace import register, serializable
 from ..shape_spec import ShapeSpec
 
@@ -306,26 +308,31 @@ class PPHGNetV2(nn.Layer):
         model: nn.Layer. Specific PPHGNetV2 model depends on args.
     """
 
-    stage_configs = {
+    arch_configs = {
         'L': {
-            # in_channels, mid_channels, out_channels, num_blocks, downsample, light_block, kernel_size, layer_num
-            "stage1": [48, 48, 128, 1, False, False, 3, 6],
-            "stage2": [128, 96, 512, 1, True, False, 3, 6],
-            "stage3": [512, 192, 1024, 3, True, True, 5, 6],
-            "stage4": [1024, 384, 2048, 1, True, True, 5, 6],
+            'stem_channels': [3, 32, 48],
+            'stage_config': {
+                # in_channels, mid_channels, out_channels, num_blocks, downsample, light_block, kernel_size, layer_num
+                "stage1": [48, 48, 128, 1, False, False, 3, 6],
+                "stage2": [128, 96, 512, 1, True, False, 3, 6],
+                "stage3": [512, 192, 1024, 3, True, True, 5, 6],
+                "stage4": [1024, 384, 2048, 1, True, True, 5, 6],
+            }
         },
         'X': {
-            # in_channels, mid_channels, out_channels, num_blocks, downsample, light_block, kernel_size, layer_num
-            "stage1": [64, 64, 128, 1, False, False, 3, 6],
-            "stage2": [128, 128, 512, 2, True, False, 3, 6],
-            "stage3": [512, 256, 1024, 5, True, True, 5, 6],
-            "stage4": [1024, 512, 2048, 2, True, True, 5, 6],
+            'stem_channels': [3, 32, 64],
+            'stage_config': {
+                # in_channels, mid_channels, out_channels, num_blocks, downsample, light_block, kernel_size, layer_num
+                "stage1": [64, 64, 128, 1, False, False, 3, 6],
+                "stage2": [128, 128, 512, 2, True, False, 3, 6],
+                "stage3": [512, 256, 1024, 5, True, True, 5, 6],
+                "stage4": [1024, 512, 2048, 2, True, True, 5, 6],
+            }
         }
     }
 
     def __init__(self,
-                 stem_channels=[3, 32, 64],
-                 stage_type='L',
+                 arch,
                  use_lab=False,
                  lr_mult_list=[1.0, 1.0, 1.0, 1.0, 1.0],
                  return_idx=[1, 2, 3],
@@ -336,7 +343,8 @@ class PPHGNetV2(nn.Layer):
         self.use_lab = use_lab
         self.return_idx = return_idx
 
-        stage_config = self.stage_configs[stage_type]
+        stem_channels = self.arch_configs[arch]['stem_channels']
+        stage_config = self.arch_configs[arch]['stage_config']
 
         self._out_strides = [4, 8, 16, 32]
         self._out_channels = [stage_config[k][2] for k in stage_config]
