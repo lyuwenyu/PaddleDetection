@@ -400,21 +400,6 @@ class PPHGNetV2(nn.Layer):
             elif isinstance(m, nn.Linear):
                 zeros_(m.bias)
 
-    # def _freeze_norm(self):
-    #     param_attr = ParamAttr(
-    #         learning_rate=0., regularizer=L2Decay(0.), trainable=False)
-    #     bias_attr = ParamAttr(
-    #         learning_rate=0., regularizer=L2Decay(0.), trainable=False)
-    #     global_stats = True
-    #     norm = nn.BatchNorm2D(
-    #         ch_out,
-    #         weight_attr=param_attr,
-    #         bias_attr=bias_attr,
-    #         use_global_stats=global_stats)
-    #     for param in norm.parameters():
-    #         param.stop_gradient = True
-    #     return norm
-
     @property
     def out_shape(self):
         return [
@@ -432,3 +417,36 @@ class PPHGNetV2(nn.Layer):
             if idx in self.return_idx:
                 outs.append(x)
         return outs
+
+
+import paddle.nn as nn
+from paddle import ParamAttr
+from paddle.regularizer import L2Decay
+
+
+def _freeze_norm(m: nn.BatchNorm2D):
+    param_attr = ParamAttr(
+        learning_rate=0., regularizer=L2Decay(0.), trainable=False)
+    bias_attr = ParamAttr(
+        learning_rate=0., regularizer=L2Decay(0.), trainable=False)
+    global_stats = True
+    norm = nn.BatchNorm2D(
+        m._num_features,
+        weight_attr=param_attr,
+        bias_attr=bias_attr,
+        use_global_stats=global_stats)
+    for param in norm.parameters():
+        param.stop_gradient = True
+    return norm
+
+
+def reset_model(model: nn.Layer, reset_func=_freeze_norm):
+    if isinstance(model, nn.BatchNorm2D):
+        model = reset_func(model)
+    else:
+        for name, child in model.named_children():
+            _child = reset_model(child, reset_func)
+            if _child is not child:
+                setattr(model, name, _child)
+
+    return model
