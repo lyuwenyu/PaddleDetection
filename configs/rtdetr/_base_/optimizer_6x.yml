@@ -9,7 +9,7 @@ LearningRate:
     use_warmup: true
   - !LinearWarmup
     start_factor: 0.001
-    steps: 2000
+    steps: 1
 
 OptimizerBuilder:
   clip_grad_by_norm: 0.1
