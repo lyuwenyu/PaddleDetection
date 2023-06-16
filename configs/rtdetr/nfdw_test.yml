@@ -1,0 +1,11 @@
+
+
+
+EvalDataset:
+  name: COCODataSet
+  image_dir: val
+  anno_path: test.json
+  dataset_dir: /paddle/dataset/nfdw
+
+
+# python tools/eval.py -c configs/x -o weights=best_model.pdparams --save_prediction_only
