@@ -58,7 +58,8 @@ class COCODataSet(DetDataset):
                  load_crowd=False,
                  allow_empty=False,
                  empty_ratio=1.,
-                 repeat=1):
+                 repeat=1,
+                 class_sampler_weights=None):
         super(COCODataSet, self).__init__(
             dataset_dir,
             image_dir,
@@ -71,6 +72,15 @@ class COCODataSet(DetDataset):
         self.load_crowd = load_crowd
         self.allow_empty = allow_empty
         self.empty_ratio = empty_ratio
+
+        if class_sampler_weights is not None:
+            # class_nums = {1: 540, 3: 88, 2: 103, 4: 76} 
+            # total_num = sum(class_nums.items())
+            # {k: int(v / total_num) for k, v in class_nums.items()}
+            self.class_sampler_weights = class_sampler_weights
+            # {1: 1, 3: 9, 2: 7, 4: 10}
+        else:
+            self.class_sampler_weights = None
 
     def _sample_empty(self, records, num):
         # if empty_ratio is out of [0. ,1.), do not sample the records
@@ -135,6 +145,8 @@ class COCODataSet(DetDataset):
                 'w': im_w,
             } if 'image' in self.data_fields else {}
 
+            class_sampler_num = 0
+
             if not self.load_image_only:
                 ins_anno_ids = coco.getAnnIds(
                     imgIds=[img_id], iscrowd=None if self.load_crowd else False)
@@ -181,8 +193,13 @@ class COCODataSet(DetDataset):
 
                 has_segmentation = False
                 has_track_id = False
+
                 for i, box in enumerate(bboxes):
                     catid = box['category_id']
+
+                    if self.class_sampler_weights is not None:
+                        class_sampler_num += self.class_sampler_weights[catid]
+
                     gt_class[i][0] = self.catid2clsid[catid]
                     gt_bbox[i, :] = box['clean_bbox']
                     is_crowd[i][0] = box['iscrowd']
@@ -235,6 +252,10 @@ class COCODataSet(DetDataset):
                 empty_records.append(coco_rec)
             else:
                 records.append(coco_rec)
+
+            for _ in range(class_sampler_num):
+                records.append(coco_rec)
+
             ct += 1
             if self.sample_num > 0 and ct >= self.sample_num:
                 break

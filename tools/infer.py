@@ -97,7 +97,7 @@ def parse_args():
         "--overlap_ratio",
         nargs='+',
         type=float,
-        default=[0.25, 0.25],
+        default=[0.5, 0.5],
         help="Overlap height ratio of the sliced image.")
     parser.add_argument(
         "--combine_method",
