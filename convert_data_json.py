@@ -86,8 +86,8 @@ def voc_xmls_to_cocojson(annotation_paths, label2id, output_file):
         category_info = {'supercategory': 'none', 'id': label_id, 'name': label}
         output_json_dict['categories'].append(category_info)
 
-    print(output_json_dict)
-    #     output_file = os.path.join(output_dir, output_file)
+    # print(output_json_dict)
+    # output_file = os.path.join(output_dir, output_file)
 
     with open(output_file, 'w') as f:
         output_json = json.dumps(output_json_dict)

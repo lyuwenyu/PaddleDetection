@@ -28,17 +28,17 @@ EvalReader:
     - Resize: {target_size: [960, 960], keep_ratio: False, interp: 2}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
-  batch_size: 4
+  batch_size: 1
   shuffle: false
   drop_last: false
 
 
 TestReader:
   inputs_def:
-    image_shape: [3, 640, 640]
+    image_shape: [3, 960, 960]
   sample_transforms:
     - Decode: {}
-    - Resize: {target_size: [640, 640], keep_ratio: False, interp: 2}
+    - Resize: {target_size: [960, 960], keep_ratio: False, interp: 2}
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
   batch_size: 1

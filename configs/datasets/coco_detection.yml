@@ -4,11 +4,12 @@ num_classes: 4
 TrainDataset:
   name: COCODataSet
   image_dir: train
-  anno_path: train.json
+  anno_path: total.json
   dataset_dir: /paddle/dataset/nfdw
   data_fields: ['image', 'gt_bbox', 'gt_class', 'is_crowd']
   # class_sampler_weights: {1: 1, 2: 7, 3: 9, 4: 10}
   class_sampler_weights: {1: 0, 2: 3, 3: 4, 4: 5}
+  # class_repeats: 10
 
 EvalDataset:
   name: COCODataSet
@@ -16,6 +17,13 @@ EvalDataset:
   anno_path: val.json
   dataset_dir: /paddle/dataset/nfdw
   allow_empty: true
+
+
+# EvalDataset:
+#   name: COCODataSet
+#   image_dir: val
+#   anno_path: test.json
+#   dataset_dir: /paddle/dataset/nfdw
 
 
 TestDataset:

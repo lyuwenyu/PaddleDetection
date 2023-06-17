@@ -456,9 +456,15 @@ class DETRPostProcess(object):
                  with_mask=False,
                  mask_threshold=0.5,
                  use_avg_mask_score=False,
-                 bbox_decode_type='origin'):
+                 bbox_decode_type='origin',
+                 use_nms=False,
+                 nms_iou_threshold=0.6,
+                 nms_score_threshold=0.1):
         super(DETRPostProcess, self).__init__()
         assert bbox_decode_type in ['origin', 'pad']
+        self.use_nms = use_nms
+        self.nms_iou_threshold = nms_iou_threshold
+        self.nms_score_threshold = nms_score_threshold
 
         self.num_classes = num_classes
         self.num_top_queries = num_top_queries
@@ -569,6 +575,24 @@ class DETRPostProcess(object):
         bbox_num = paddle.to_tensor(
             self.num_top_queries, dtype='int32').tile([bbox_pred.shape[0]])
         bbox_pred = bbox_pred.reshape([-1, 6])
+
+        if self.use_nms:
+            assert len(bbox_num) == 1, 'bs == 1'
+            _bbox_pred = bbox_pred[bbox_pred[:, 1] > self.nms_score_threshold]
+            if len(_bbox_pred) == 0:
+                j = paddle.argmax(bbox_pred[:, 1])
+                _bbox_pred = bbox_pred[j]
+            bbox_pred = _bbox_pred.reshape([-1, 6])
+
+            bbox_pred = multiclass_nms(
+                bbox_pred.numpy(),
+                self.num_classes,
+                match_threshold=self.nms_iou_threshold,
+                match_metric='iou')
+            bbox_pred = np.concatenate(bbox_pred)
+            bbox_pred = paddle.to_tensor(bbox_pred)
+            bbox_num[0] = len(bbox_pred)
+
         return bbox_pred, bbox_num, mask_pred
 
 

@@ -59,7 +59,8 @@ class COCODataSet(DetDataset):
                  allow_empty=False,
                  empty_ratio=1.,
                  repeat=1,
-                 class_sampler_weights=None):
+                 class_sampler_weights=None,
+                 class_repeats=0):
         super(COCODataSet, self).__init__(
             dataset_dir,
             image_dir,
@@ -73,6 +74,7 @@ class COCODataSet(DetDataset):
         self.allow_empty = allow_empty
         self.empty_ratio = empty_ratio
 
+        self.class_repeats = class_repeats
         if class_sampler_weights is not None:
             # class_nums = {1: 540, 3: 88, 2: 103, 4: 76} 
             # total_num = sum(class_nums.items())
@@ -146,6 +148,7 @@ class COCODataSet(DetDataset):
             } if 'image' in self.data_fields else {}
 
             class_sampler_num = 0
+            objs_per_image = 0
 
             if not self.load_image_only:
                 ins_anno_ids = coco.getAnnIds(
@@ -199,6 +202,7 @@ class COCODataSet(DetDataset):
 
                     if self.class_sampler_weights is not None:
                         class_sampler_num += self.class_sampler_weights[catid]
+                    objs_per_image += 1
 
                     gt_class[i][0] = self.catid2clsid[catid]
                     gt_bbox[i, :] = box['clean_bbox']
@@ -256,6 +260,10 @@ class COCODataSet(DetDataset):
             for _ in range(class_sampler_num):
                 records.append(coco_rec)
 
+            if objs_per_image > 0:
+                for _ in range(self.class_repeats):
+                    records.append(coco_rec)
+
             ct += 1
             if self.sample_num > 0 and ct >= self.sample_num:
                 break
@@ -266,6 +274,8 @@ class COCODataSet(DetDataset):
             empty_records = self._sample_empty(empty_records, len(records))
             records += empty_records
         self.roidbs = records
+
+        print(self.roidbs)
 
 
 @register

@@ -37,7 +37,8 @@ class DETR(BaseArch):
                  neck=None,
                  post_process='DETRPostProcess',
                  with_mask=False,
-                 exclude_post_process=False):
+                 exclude_post_process=False,
+                 freeze_backbone=False):
         super(DETR, self).__init__()
         self.backbone = backbone
         self.transformer = transformer
@@ -46,6 +47,12 @@ class DETR(BaseArch):
         self.post_process = post_process
         self.with_mask = with_mask
         self.exclude_post_process = exclude_post_process
+
+        if freeze_backbone:
+            for p in self.backbone.parameters():
+                p.stop_gradient = True
+            self.backbone.eval()
+            print('freeze backbone done.')
 
     @classmethod
     def from_config(cls, cfg, *args, **kwargs):
