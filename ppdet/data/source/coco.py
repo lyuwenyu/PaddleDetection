@@ -260,7 +260,7 @@ class COCODataSet(DetDataset):
             for _ in range(class_sampler_num):
                 records.append(coco_rec)
 
-            if objs_per_image > 0:
+            if objs_per_image > 1:
                 for _ in range(self.class_repeats):
                     records.append(coco_rec)
 
@@ -275,7 +275,7 @@ class COCODataSet(DetDataset):
             records += empty_records
         self.roidbs = records
 
-        print(self.roidbs)
+        print(len(self.roidbs))
 
 
 @register

@@ -40,18 +40,28 @@ def layerwise_lr_decay(decay_rate, name_dict, n_layers, param):
     """
     ratio = 1.0
     static_name = name_dict[param.name]
-    if 'blocks.' in static_name or 'layers.' in static_name:
-        idx_1 = static_name.find('blocks.')
-        idx_2 = static_name.find('layers.')
+    if 'backbone.blocks.' in static_name or 'backbone.layers.' in static_name:
+        idx_1 = static_name.find('backbone.blocks.')
+        idx_2 = static_name.find('backbone.layers.')
         assert any([x >= 0 for x in [idx_1, idx_2]]), ''
         idx = idx_1 if idx_1 >= 0 else idx_2
         # idx = re.findall('[blocks|layers]\.(\d+)\.', static_name)[0]
 
-        layer = int(static_name[idx:].split('.')[1])
+        layer = int(static_name[idx:].split('.')[2])
         ratio = decay_rate**(n_layers - layer)
 
-    elif 'cls_token' in static_name or 'patch_embed' in static_name or 'pos_embed' in static_name:
+    elif 'backbone' in static_name and ('cls_token' in static_name or
+                                        'patch_embed' in static_name or
+                                        'pos_embed' in static_name):
         ratio = decay_rate**(n_layers + 1)
+
+    elif 'backbone' in static_name:
+        ratio = decay_rate
+
+    # elif 'neck' in static_name:
+    #     ratio = min(decay_rate * 1.2, 1.0)
+
+    # print(static_name, ratio)
 
     if IS_PADDLE_LATER_2_4:
         return ratio
@@ -268,5 +278,7 @@ def build_adamwdl(model,
     opt_args['n_layers'] = num_layers
 
     optimizer = AdamWDL(**opt_args)
+
+    # xxx += 1
 
     return optimizer

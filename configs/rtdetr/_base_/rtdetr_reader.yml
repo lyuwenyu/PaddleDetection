@@ -1,14 +1,24 @@
 worker_num: 4
 TrainReader:
   sample_transforms:
-    - Decode: {}
+    # - Decode: {}
+    - DecodeCache: {cache_root: '/paddle/dataset/nfdw/cache/'}
+    - Resize: {target_size: [1920, 1920], keep_ratio: True, interp: 2}
+
     - RandomDistort: {prob: 0.8}
     - RandomExpand: {fill_value: [123.675, 116.28, 103.53]}
     - RandomCrop: {prob: 0.8}
+
+    # - RandomExpand: {fill_value: [123.675, 116.28, 103.53], ratio: 2}
+    # - RandomCrop: {}
+
     - RandomFlip: {}
   batch_transforms:
     # - BatchRandomResize: {target_size: [480, 512, 544, 576, 608, 640, 640, 640, 672, 704, 736, 768, 800], random_size: True, random_interp: True, keep_ratio: False}
     - BatchRandomResize: {target_size: [800, 832, 864, 896, 928, 960, 960, 960, 960, 992, 1024], random_size: True, random_interp: True, keep_ratio: False}
+    # - BatchRandomResize: {target_size: [640, 672, 704, 736, 768, 800, 832, 864, 896, 928, 960, 992, 1024], random_size: True, random_interp: True, keep_ratio: False}
+    # - BatchRandomResize: {target_size: [640, 672, 704, 736, 768, 800, 800, 800, 832, 864, 896, 928, 960], random_size: True, random_interp: True, keep_ratio: False}
+    # - BatchRandomResize: {target_size: [896, 928, 960, 992, 1024, 1024, 1024, 1056, 1088, 1120], random_size: True, random_interp: True, keep_ratio: False}
 
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - NormalizeBox: {}
@@ -18,14 +28,18 @@ TrainReader:
   shuffle: true
   drop_last: true
   collate_batch: false
-  use_shared_memory: false
+  use_shared_memory: true
 
 
 EvalReader:
   sample_transforms:
-    - Decode: {}
+    # - Decode: {}
+    - DecodeCache: {cache_root: '/paddle/dataset/nfdw/cache/'}
     # - Resize: {target_size: [640, 640], keep_ratio: False, interp: 2}
     - Resize: {target_size: [960, 960], keep_ratio: False, interp: 2}
+    # - Resize: {target_size: [800, 800], keep_ratio: False, interp: 2}
+    # - Resize: {target_size: [1024, 1024], keep_ratio: False, interp: 2}
+
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
   batch_size: 1
@@ -34,11 +48,14 @@ EvalReader:
 
 
 TestReader:
-  inputs_def:
-    image_shape: [3, 960, 960]
+  # inputs_def:
+  #   image_shape: [3, 960, 960]
   sample_transforms:
     - Decode: {}
     - Resize: {target_size: [960, 960], keep_ratio: False, interp: 2}
+    # - Resize: {target_size: [800, 800], keep_ratio: False, interp: 2}
+    # - Resize: {target_size: [1024, 1024], keep_ratio: False, interp: 2}
+
     - NormalizeImage: {mean: [0., 0., 0.], std: [1., 1., 1.], norm_type: none}
     - Permute: {}
   batch_size: 1

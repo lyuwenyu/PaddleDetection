@@ -8,7 +8,7 @@ TrainDataset:
   dataset_dir: /paddle/dataset/nfdw
   data_fields: ['image', 'gt_bbox', 'gt_class', 'is_crowd']
   # class_sampler_weights: {1: 1, 2: 7, 3: 9, 4: 10}
-  class_sampler_weights: {1: 0, 2: 3, 3: 4, 4: 5}
+  # class_sampler_weights: {1: 0, 2: 3, 3: 4, 4: 5}
   # class_repeats: 10
 
 EvalDataset:

@@ -586,7 +586,7 @@ class DETRPostProcess(object):
 
             bbox_pred = multiclass_nms(
                 bbox_pred.numpy(),
-                self.num_classes,
+                self.num_classes + 1,
                 match_threshold=self.nms_iou_threshold,
                 match_metric='iou')
             bbox_pred = np.concatenate(bbox_pred)

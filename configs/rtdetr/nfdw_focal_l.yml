@@ -6,46 +6,24 @@ _BASE_: [
   '_base_/rtdetr_reader.yml',
 ]
 
-weights: output/rtdetr_swin_L_384_3x_coco/model_final
+weights: output/rtdetr_focalnet_L_384_3x_coco/model_final
 find_unused_parameters: True
-
-log_iter: 10
+log_iter: 100
 snapshot_epoch: 1
 
-# pretrain_weights: https://bj.bcebos.com/v1/paddledet/models/dino_swin_large_384_4scale_3x_coco.pdparams
-pretrain_weights: https://bj.bcebos.com/v1/paddledet/models/rtdetr_swin_L_384_3x_coco.pdparams
+pretrain_weights: https://bj.bcebos.com/v1/paddledet/models/pretrained/focalnet_large_fl4_pretrained_on_o365.pdparams
+# pretrain_weights: https://bj.bcebos.com/v1/paddledet/models/rtdetr_focalnet_L_384_3x_coco.pdparams
 
 DETR:
-  backbone: SwinTransformer
+  backbone: FocalNet
   neck: HybridEncoder
-  # neck: YOLOCSPPAN
   transformer: RTDETRTransformer
   detr_head: DINOHead
   post_process: DETRPostProcess
-  freeze_backbone: False
 
-  # test_multiscales: [928, 960, 992, 1024]
-  # test_multiscales: [736, 768, 800, 832, 864, ]
-  # test_flip: True
-  # nms_iou_threshold: 0.3
-  # final_score_threshold: 0.3
-
-
-eval_size: ~ # [960, 960]
-
-
-SwinTransformer:
-  arch: 'swin_L_384'
-  ape: false
-  drop_path_rate: 0.2
-  patch_norm: true
+FocalNet:
+  arch: 'focalnet_L_384_22k_fl4'
   out_indices: [1, 2, 3]
-
-
-YOLOCSPPAN:
-  in_channels: [768, 768, 768]
-  act: 'silu'
-
 
 HybridEncoder:
   hidden_dim: 256
@@ -55,7 +33,7 @@ HybridEncoder:
     name: TransformerLayer
     d_model: 256
     nhead: 8
-    dim_feedforward: 2048 #
+    dim_feedforward: 2048
     dropout: 0.
     activation: 'gelu'
   expansion: 1.0
@@ -65,7 +43,7 @@ RTDETRTransformer:
   num_queries: 300
   position_embed_type: sine
   feat_strides: [8, 16, 32]
-  num_levels: 3 # 4
+  num_levels: 3
   nhead: 8
   num_decoder_layers: 6
   dim_feedforward: 2048 #
@@ -75,6 +53,7 @@ RTDETRTransformer:
   label_noise_ratio: 0.5
   box_noise_scale: 1.0
   learnt_init_query: False
+  query_pos_head_inv_sig: True #
 
 DINOHead:
   loss:
@@ -86,29 +65,8 @@ DINOHead:
       name: HungarianMatcher
       matcher_coeff: {class: 2, bbox: 5, giou: 2}
 
-
 DETRPostProcess:
-  num_top_queries: 300 # 100
-
-  # # swinv1
-  # use_nms: True
-  # nms_iou_threshold: 0.5
-  # nms_score_threshold: 0.3
-
-  # # swinv2
-  # use_nms: True
-  # nms_iou_threshold: 0.3
-  # nms_score_threshold: 0.2
-
-  # # swinv3
-  # use_nms: True
-  # nms_iou_threshold: 0.3
-  # nms_score_threshold: 0.4
-
-  # # swinv3
-  # use_nms: True
-  # nms_iou_threshold: 0.3
-  # nms_score_threshold: 0.5
+  num_top_queries: 300
 
 
 epoch: 36
@@ -120,7 +78,6 @@ LearningRate:
     milestones: [36]
     use_warmup: false
 
-
 OptimizerBuilder:
   clip_grad_by_norm: 0.1
   regularizer: false
@@ -130,16 +87,3 @@ OptimizerBuilder:
     param_groups:
       - params: ['absolute_pos_embed', 'relative_position_bias_table', 'norm']
         weight_decay: 0.0
-
-
-# OptimizerBuilder:
-#   optimizer:
-#     type: AdamWDL
-#     betas: [0.9, 0.999]
-#     layer_decay: 0.65
-#     weight_decay: 0.02
-#     weight_decay: 0.0001
-#     num_layers: 4
-#     filter_bias_and_bn: True
-#     skip_decay_names: ['pos_embed', 'cls_token']
-#     set_param_lr_func: 'layerwise_lr_decay'
