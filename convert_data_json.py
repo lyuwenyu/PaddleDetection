@@ -82,6 +82,8 @@ def voc_xmls_to_cocojson(annotation_paths, label2id, output_file):
             bnd_id = bnd_id + 1
         im_id += 1
 
+        print(img_info)
+
     for label, label_id in label2id.items():
         category_info = {'supercategory': 'none', 'id': label_id, 'name': label}
         output_json_dict['categories'].append(category_info)
@@ -96,9 +98,15 @@ def voc_xmls_to_cocojson(annotation_paths, label2id, output_file):
 
 if __name__ == '__main__':
 
-    label2id = {'nest': 1, 'kite': 2, 'balloon': 3, 'trash': 4}
+    # label2id = {'nest': 1, 'kite': 2, 'balloon': 3, 'trash': 4}
+    # paths = list(glob.glob('./train/*.xml'))
 
-    paths = list(glob.glob('./train/*.xml'))
+    label2id = {'ganta_02': 1, 'dachicun_01': 2, 'ganta_01': 3}
+
+    paths = list(
+        glob.glob(
+            '/paddle/dataset/nfdw/extra/VOCdevkit/VOC2012/Annotations/*.xml'))
+    # 
     random.shuffle(paths)
 
     N = len(paths)
