@@ -80,7 +80,7 @@ def parse_args():
     parser.add_argument(
         "--save_results",
         type=bool,
-        default=False,
+        default=True,
         help="Whether to save inference results to output_dir.")
     parser.add_argument(
         "--slice_infer",
@@ -91,7 +91,7 @@ def parse_args():
         '--slice_size',
         nargs='+',
         type=int,
-        default=[640, 640],
+        default=[960, 960],
         help="Height of the sliced image.")
     parser.add_argument(
         "--overlap_ratio",

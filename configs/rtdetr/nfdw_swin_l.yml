@@ -29,7 +29,7 @@ DETR:
   # test_flip: True
   # nms_iou_threshold: 0.3
   # final_score_threshold: 0.3
-
+  # num_classes: -1
 
 eval_size: ~ # [960, 960]
 
@@ -45,6 +45,7 @@ SwinTransformer:
 YOLOCSPPAN:
   in_channels: [768, 768, 768]
   act: 'silu'
+  depth_mult: 1.0
 
 
 HybridEncoder:
