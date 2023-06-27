@@ -367,8 +367,8 @@ class PPYOLOEHead(nn.Layer):
                 self.distill_pairs['pred_dist_pos'] = pred_dist_pos
                 self.distill_pairs['bbox_weight'] = bbox_weight
         else:
-            loss_l1 = paddle.zeros([1])
-            loss_iou = paddle.zeros([1])
+            loss_l1 = pred_bboxes.sum() * 0.
+            loss_iou = pred_bboxes.sum() * 0.
             loss_dfl = pred_dist.sum() * 0.
         return loss_l1, loss_iou, loss_dfl
 
